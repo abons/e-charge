@@ -1,8 +1,12 @@
 # e-charge — Leaf laadtijd (PWA)
 
 Een rekenhulp van één scherm: hoe lang doet een **Nissan Leaf 2019 (40 kWh)** aan een **gewoon
-230V-stopcontact** over van je huidige naar je gewenste batterijpercentage, en hoe laat is hij dan
-klaar.
+230V-stopcontact** over van je huidige naar je gewenste batterijpercentage, hoe laat hij dan klaar
+is, en hoeveel kilometer daarin zit.
+
+Het scherm heeft twee standen. Vóór het insteken plant hij: *als ik nú begin, hoe laat ben ik
+klaar?* Druk je op **⚡ Start laden**, dan staat het startmoment vast, beweegt "Klaar rond" niet meer
+en loopt het percentage gerékend op — een aftelling in plaats van een schatting vooraf.
 
 Zelfde bouw als de webkant van de andere projecten (`wordguesser-src/web/`): **plain TypeScript +
 DOM, geen framework**, esbuild bundelt naar één `app.js`, en de verzonden pagina heeft **nul
@@ -28,7 +32,7 @@ de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke p
 - `npm run build` — bundel + statische bestanden naar `build/`.
 - `npm run serve` — lokale dev-server over `build/` met rebuild-on-change.
 
-## De drie getallen die alles bepalen
+## De vier getallen die alles bepalen
 
 Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 
@@ -37,6 +41,7 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | `USABLE_CAPACITY_KWH`  | 39,0   | Leaf ZE1 40 kWh: bruto 40, bruikbaar ~39                 |
 | `CHARGE_POWER_KW`      | 3,0    | 13 A × 230 V, afgelezen aan de meter                     |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
+| `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
 
 Kalibreren: laad één keer van bekend % naar bekend % en vergelijk met wat de app zei. Duurde het 10%
 langer, dan gaat `EFFICIENCY` ~10% omlaag. Een andere auto of laadpunt is één regel: 62 kWh en

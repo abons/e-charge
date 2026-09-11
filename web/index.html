@@ -43,6 +43,10 @@
   .out { margin-top: 6px; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 9px 0; border-top: 1px solid #2c2c2e; }
+  /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
+     die het `hidden`-attribuut van de browser meekrijgt, en dan verbergt `el.hidden = true` niets
+     meer. Kostte hier een zichtbare "Nu ongeveer"-regel met een oud percentage erin. */
+  [hidden] { display: none !important; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 30px; color: #7fd4a0; }
@@ -52,6 +56,7 @@
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }
   .note.info { background: #23303a; color: #9fc3dc; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .actions + .note { margin-top: 12px; }
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
@@ -88,19 +93,34 @@
       </span>
     </div>
 
+    <!--
+      Twee standen in dezelfde regels: vóór het starten is "Start" de klok van nu en staat er een
+      geschatte laadtijd; na het starten staat "Gestart om" vast en komt de regel "Nu ongeveer"
+      erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
+    -->
     <div class="out">
-      <div class="line"><span class="k">Start</span><span class="v" id="start">--:--</span></div>
-      <div class="line"><span class="k">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
+      <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
+      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
+        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
+      <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
       <div class="line hero"><span class="k">Klaar rond</span>
         <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
+      <div class="line"><span class="k" id="rangelabel">Bereik bij doel</span><span class="v" id="range">–</span></div>
       <div class="line"><span class="k">Laadvermogen</span><span class="v" id="power">–</span></div>
     </div>
 
-    <p class="note" id="note" hidden></p>
-
+    <!--
+      ⚠️ De melding staat ónder de knoppen, en dat is geen smaak. Boven de knoppen verandert hij van
+      hoogte terwijl je een knop indrukt: het percentageveld verliest focus, `change` vuurt, de
+      melding verschijnt of verdwijnt, en alles eronder verschuift — je tik landt dan naast de knop
+      die je aanraakte. Gereproduceerd in Chromium: de klik op ⏹ Stop kwam niet aan.
+    -->
     <div class="actions">
+      <button id="start-charging" type="button">⚡ Start laden</button>
       <button id="calendar" type="button">📅 Zet in agenda</button>
     </div>
+
+    <p class="note" id="note" hidden></p>
   </div>
 
   <div class="card about">

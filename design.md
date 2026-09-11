@@ -56,6 +56,31 @@ telefoon die zelf laten openen. Twee keuzes daarbinnen:
 - Tijden gaan in UTC (`...Z`) het bestand in, zodat er geen `VTIMEZONE`-blok mee hoeft. Dat is de
   enige plek in de app waar UTC voorkomt; het scherm blijft lokaal.
 
+## Plannen en bezig zijn twee standen — 2026-09-11
+
+De app begon als planner: "Start" is de klok van nu, en die tikt door. Dat beantwoordt *"als ik nú
+insteek, hoe laat ben ik klaar?"* — en dat is precies fout zodra de stekker er al in zit, want dan
+schuift "Klaar rond" mee met de tijd terwijl de auto gewoon aan het laden is. Gemeten: 43% ingevuld
+om 10:35 gaf klaar om 17:32, en drie uur later zei hetzelfde scherm 20:32.
+
+`⚡ Start laden` legt daarom het moment vast (in `localStorage`, anders overleeft een aftelling het
+wegbergen van je telefoon niet). Vanaf dan staat de eindtijd stil en loopt "Nu ongeveer" op. Dat
+oplopende percentage is gerékend en niet gemeten — de app weet nog steeds niets van de auto — en
+daarom verankert een percentage dat je tijdens het laden intypt de sessie opnieuw: jouw aflezing
+wint van onze schatting, en het verschil is meteen de fout in capaciteit × rendement.
+
+`percentAfter()` is daarmee `estimate()` achterstevoren, en een test pint vast dat ze elkaars
+omgekeerde zijn: wat `estimate()` als laadtijd geeft, moet `percentAfter()` exact op het doel
+uitbrengen. Anders zegt de aftelling iets anders dan de eindtijd erboven.
+
+## Kilometers zijn een vierde constante — 2026-09-11
+
+Bereik in km vraagt een verbruik, en dat is uit de andere drie niet af te leiden.
+`CONSUMPTION_KWH_PER_100KM = 17,0` is gemengd Nederlands rijden voor een Leaf 40 kWh; in de zomer
+eerder 15, met vorst ruim 20. Aan de hoge kant kiezen is hier de veiligere fout, om dezelfde reden
+dat de minuten naar boven gaan en `rangeKm()` naar beneden afrondt: te veel bereik beloven laat je
+langs de weg staan, te weinig kost niets.
+
 ## Wat er niet op het scherm staat — 2026-09-11
 
 De benodigde kWh en het verbruik uit de muur worden wel gerekend (`Estimate.energyKwh`,

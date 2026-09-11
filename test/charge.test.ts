@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_SETUP, clampPercent, estimate } from "../src/core/charge.js";
+import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
@@ -28,7 +28,7 @@ test("estimate: rendement maakt het langer, nooit korter", () => {
 });
 
 test("estimate: alles wat aan de auto hangt is te verzetten", () => {
-  const other = estimate(0, 100, { capacityKwh: 62, powerKw: 11, efficiency: 0.92 });
+  const other = estimate(0, 100, { ...DEFAULT_SETUP, capacityKwh: 62, powerKw: 11, efficiency: 0.92 });
   assert.equal(other.energyKwh, 62);
   assert.equal(other.effectivePowerKw.toFixed(2), "10.12");
   assert.equal(duration(other.minutes), "6u 08m");
@@ -48,6 +48,46 @@ test("estimate: rondt minuten naar boven en klemt percentages", () => {
   assert.equal(estimate(-10, 200).energyKwh, 39); // 0 → 100
   assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
   assert.ok(Number.isInteger(estimate(43, 90).minutes));
+});
+
+test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
+  // 39 kWh bij 17 kWh/100 km = 229 km vol; 90% daarvan is 206.
+  assert.equal(rangeKm(100), 229);
+  assert.equal(rangeKm(90), 206);
+  assert.equal(rangeKm(43), 98);
+  assert.equal(rangeKm(0), 0);
+  // Een zuiniger of dorstiger auto verzet het bereik, net als bij estimate().
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, consumptionKwhPer100Km: 13 }), 300);
+  // Een versleten pakket levert minder km bij hetzelfde percentage.
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 35.1 }), 206);
+});
+
+test("percentAfter: loopt op met het laadvermogen en stopt op het doel", () => {
+  // 2,64 kW effectief in 39 kWh: 6,77 procentpunt per uur.
+  assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
+  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "49.8");
+  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "63.3");
+  // Na de geschatte laadtijd staat hij precies op het doel, en gaat er niet overheen.
+  const minutes = estimate(43, 90).minutes;
+  assert.equal(percentAfter(43, 90, minutes * 60_000), 90);
+  assert.equal(percentAfter(43, 90, 99 * 3_600_000), 90);
+});
+
+test("percentAfter: onzinnige invoer levert gewoon het startpunt op", () => {
+  assert.equal(percentAfter(43, 90, -1), 43);
+  assert.equal(percentAfter(90, 90, 3_600_000), 90); // niets te laden
+  assert.equal(percentAfter(95, 90, 3_600_000), 95); // al voorbij het doel
+});
+
+test("percentAfter en estimate zijn elkaars omgekeerde", () => {
+  // Wat estimate() als laadtijd geeft, moet percentAfter() precies op het doel uitbrengen — anders
+  // zou de aftelling op het scherm iets anders zeggen dan de eindtijd erboven.
+  for (const [from, to] of [[10, 80], [43, 90], [0, 100], [65, 66]] as const) {
+    const ms = estimate(from, to).minutes * 60_000;
+    assert.equal(percentAfter(from, to, ms), to, `${from} → ${to}`);
+    // Eén minuut eerder is hij er nog net niet (afronden naar boven zit in estimate).
+    assert.ok(percentAfter(from, to, ms - 60_000) < to, `${from} → ${to}`);
+  }
 });
 
 test("clampPercent: hele getallen, 0 t/m 100", () => {

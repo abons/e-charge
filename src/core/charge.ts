@@ -43,17 +43,29 @@ export const CHARGE_POWER_KW = 3.0;
  */
 export const EFFICIENCY = 0.88;
 
-/** De instellingen waarmee [estimate] rekent; de defaults zijn de constanten hierboven. */
+/**
+ * Verbruik, voor het omrekenen van procenten naar kilometers. Een Leaf 40 kWh doet in gemengd
+ * Nederlands rijden grofweg 17 kWh/100 km: in de zomer eerder 15, met vorst en verwarming ruim 20.
+ *
+ * ⚠️ Aan de hoge kant kiezen is hier de veiligere fout, net als het naar boven afronden van de
+ * minuten: te veel bereik beloven laat je met een lege accu langs de weg staan, te weinig kost je
+ * niets. Wie het echt wil weten, leest het gemiddelde verbruik van de boordcomputer en zet dat hier.
+ */
+export const CONSUMPTION_KWH_PER_100KM = 17.0;
+
+/** De auto en de lader in vier getallen; de defaults zijn de constanten hierboven. */
 export interface Setup {
   capacityKwh: number;
   powerKw: number;
   efficiency: number;
+  consumptionKwhPer100Km: number;
 }
 
 export const DEFAULT_SETUP: Setup = {
   capacityKwh: USABLE_CAPACITY_KWH,
   powerKw: CHARGE_POWER_KW,
   efficiency: EFFICIENCY,
+  consumptionKwhPer100Km: CONSUMPTION_KWH_PER_100KM,
 };
 
 export interface Estimate {
@@ -99,4 +111,36 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
     effectivePowerKw,
     minutes: Math.ceil((energyKwh / effectivePowerKw) * 60),
   };
+}
+
+/**
+ * Hoeveel kilometer er bij [percent] ongeveer in zit. Naar beneden afgerond, om dezelfde reden dat
+ * de minuten naar boven gaan: een kilometer te veel beloven is de duurdere fout.
+ */
+export function rangeKm(percent: number, setup: Setup = DEFAULT_SETUP): number {
+  const kwh = (setup.capacityKwh * clampPercent(percent)) / 100;
+  return Math.floor((kwh / setup.consumptionKwhPer100Km) * 100);
+}
+
+/**
+ * Het percentage dat er na [elapsedMs] laden ongeveer in zit, gestart op [fromPercent] met
+ * [toPercent] als doel — nooit voorbij dat doel, want daar stopt de auto.
+ *
+ * ⚠️ Dit is gerékend, niet gemeten: de app weet niets van de auto, dus dit is [estimate] achterstevoren
+ * en erft al zijn aannames. Wie het echte percentage afleest en invult, zet de schatting weer gelijk;
+ * dat is ook de manier om [USABLE_CAPACITY_KWH] en [EFFICIENCY] te controleren.
+ */
+export function percentAfter(
+  fromPercent: number,
+  toPercent: number,
+  elapsedMs: number,
+  setup: Setup = DEFAULT_SETUP,
+): number {
+  const from = clampPercent(fromPercent);
+  const to = clampPercent(toPercent);
+  if (elapsedMs <= 0 || to <= from) return from;
+
+  const addedKwh = setup.powerKw * setup.efficiency * (elapsedMs / 3_600_000);
+  const added = (addedKwh / setup.capacityKwh) * 100;
+  return Math.min(to, from + added);
 }

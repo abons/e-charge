@@ -23,6 +23,10 @@ een reload. **Nog niet op een echte telefoon gezien.**
   uur aan één stuk op 13 A. Voel na een uur laden aan de stekker: handwarm is normaal, te heet om
   vast te houden niet. In dat geval hoort de kabel een stand lager (10 A → 2,3 kW, en dan gaat
   `CHARGE_POWER_KW` mee terug), of er hoort een echt laadpunt te komen.
+- **Het verbruik van 17,0 kWh/100 km is een boekwaarde.** De boordcomputer van de Leaf toont je
+  eigen gemiddelde (in **km/kWh** — 5,9 km/kWh is 17 kWh/100 km, 6,5 is 15,4). Eén blik daarop en
+  het bereik op het scherm klopt met jouw rijstijl in plaats van met een gemiddelde Nederlander.
+  Let op het seizoen: hetzelfde getal is in januari een ander getal dan in juli.
 - **De agenda-download op een echte telefoon.** In Chromium komt het `.ics` goed binnen, maar of
   Android hem aan de agenda-app aanbiedt (en of de melding meekomt) is niet te zien in een headless
   browser.
