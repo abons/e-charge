@@ -1,7 +1,7 @@
 /**
  * De rekenkern: hoeveel energie er in moet, hoe hard die er in gaat, en hoe lang dat duurt.
  *
- * ⚠️ **Alles wat aan de auto of de lader hangt staat in deze drie constanten** — dat is met opzet
+ * ⚠️ **Alles wat aan de auto of de lader hangt staat in deze vier constanten** — dat is met opzet
  * de enige plek om te kalibreren. Wie een andere Leaf of een ander stopcontact heeft, verandert
  * hier één getal en klaar; de UI leest ze en rekent nergens anders met vaste waarden.
  */
@@ -118,7 +118,9 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
  * de minuten naar boven gaan: een kilometer te veel beloven is de duurdere fout.
  */
 export function rangeKm(percent: number, setup: Setup = DEFAULT_SETUP): number {
-  const kwh = (setup.capacityKwh * clampPercent(percent)) / 100;
+  // ⚠️ Eerst naar beneden, dán klemmen. `clampPercent` rondt af, en dat maakte van 59,7% stilletjes
+  // 60% — het scherm zei dan "59%" met de kilometers van 60 ernaast.
+  const kwh = (setup.capacityKwh * clampPercent(Math.floor(percent))) / 100;
   return Math.floor((kwh / setup.consumptionKwhPer100Km) * 100);
 }
 

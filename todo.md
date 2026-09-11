@@ -2,10 +2,11 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (12/12 tests groen, bundel
-~4 kB). In Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen
-op 0–100, doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download en offline na
-een reload. **Nog niet op een echte telefoon gezien.**
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (23/23 tests groen, bundel
+~7 kB). In Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen
+op 0–100, doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na
+een reload, de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het
+logboek (bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 

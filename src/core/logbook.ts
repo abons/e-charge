@@ -53,10 +53,17 @@ export function parseEntries(raw: string | null): Entry[] {
 /**
  * Dezelfde laadbeurt twee keer bewaren is makkelijker dan het lijkt — de knop staat er nu eenmaal,
  * en na een herstart van de app is de afgelopen sessie er nog steeds. Gelijke start telt als gelijk.
+ *
+ * ⚠️ Een leeg veld overschrijft geen ingevuld getal. Dat is precies de beloofde route: 's avonds
+ * bewaren mét kilometerstand, 's ochtends de meterstand erbij zetten — en dan zijn de invoervelden
+ * intussen leeg. Zonder deze samenvoeging gooide die tweede druk op de knop de km-stand weg. Een
+ * fout getal corrigeer je door de regel te verwijderen (×) en opnieuw te bewaren.
  */
 export function withEntry(entries: Entry[], entry: Entry): Entry[] {
+  const oud = entries.find((e) => e.startMs === entry.startMs);
+  const samen: Entry = oud === undefined ? entry : { ...entry, km: entry.km ?? oud.km, kwh: entry.kwh ?? oud.kwh };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
-  return [...zonder, entry].sort((a, b) => a.startMs - b.startMs);
+  return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
 }
 
 export function withoutEntry(entries: Entry[], startMs: number): Entry[] {

@@ -64,6 +64,15 @@ test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
   assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 35.1 }), 206);
 });
 
+test("rangeKm: een gebroken percentage gaat naar beneden, niet naar het dichtstbijzijnde", () => {
+  // 59,7% mag geen kilometers van 60% opleveren: het scherm toont Math.floor(soc) ernaast, en dan
+  // zou er "59% ± 137 km" staan terwijl 137 km bij 60% hoort.
+  assert.equal(rangeKm(59.7), rangeKm(59));
+  assert.equal(rangeKm(59), 135);
+  assert.equal(rangeKm(60), 137);
+  assert.equal(rangeKm(-0.5), 0);
+});
+
 test("percentAfter: loopt op met het laadvermogen en stopt op het doel", () => {
   // 2,64 kW effectief in 39 kWh: 6,77 procentpunt per uur.
   assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
@@ -207,6 +216,20 @@ test("logbook: dezelfde laadbeurt tweemaal bewaren geeft één regel", () => {
   const nogmaals = withEntry(een, { ...beurt(12), kwh: 20.4 });
   assert.equal(nogmaals.length, 1);
   assert.equal(nogmaals[0]?.kwh, 20.4); // de nieuwste wint, zodat je later de meterstand kunt aanvullen
+});
+
+// De beloofde route: 's avonds bewaren mét km-stand, 's ochtends de meterstand erbij — en dan zijn
+// de invoervelden leeg. Een lege waarde mag dus niet over een ingevulde heen.
+test("logbook: aanvullen wist niet wat er al stond", () => {
+  const avond = withEntry([], { ...beurt(12), km: 84210, kwh: null });
+  const ochtend = withEntry(avond, { ...beurt(12), km: null, kwh: 20.4 });
+  assert.equal(ochtend.length, 1);
+  assert.equal(ochtend[0]?.km, 84210);
+  assert.equal(ochtend[0]?.kwh, 20.4);
+  // En andersom net zo.
+  const later = withEntry(ochtend, { ...beurt(12), km: null, kwh: null });
+  assert.equal(later[0]?.km, 84210);
+  assert.equal(later[0]?.kwh, 20.4);
 });
 
 test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {

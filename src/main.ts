@@ -70,7 +70,7 @@ const installButton = el<HTMLButtonElement>("install");
  * je de stekker erin stak, en die overleven het opnieuw verankeren. Zonder dat onderscheid zou een
  * tussentijdse aflezing de logregel korter maken dan de laadbeurt werkelijk duurde.
  */
-interface Session { startMs: number; from: number; to: number; logStartMs: number; logFrom: number }
+interface Session { startMs: number; from: number; logStartMs: number; logFrom: number }
 let session: Session | null = null;
 
 /** De laatst afgesloten sessie, zodat je de logregel ná het afkoppelen nog kunt kopiëren. */
@@ -98,29 +98,46 @@ function render(): void {
   // het veld is dan het aflezen van zojuist, en dat hoort de sessie opnieuw te verankeren (zie de
   // change-listener), niet stilletjes de lopende berekening te verschuiven.
   const from = session ? session.from : percentOf(currentInput);
+  // Waarmee gerékend wordt is het anker van de sessie; wat er "Gestart om" boven staat is het
+  // moment van insteken. Na een tussentijdse aflezing lopen die uiteen, en dan hoort het scherm het
+  // insteekmoment te noemen — daar hing de auto aan de muur, niet om 12:35.
   const startMs = session ? session.startMs : now;
+  const shownStartMs = session ? session.logStartMs : now;
 
   startLabel.textContent = session ? "Gestart om" : "Start";
   durationLabel.textContent = session ? "Nog" : "Geschatte laadtijd";
-  rangeLabel.textContent = `Bereik bij ${to}%`;
-  startOut.textContent = clock(startMs);
+  startOut.textContent = clock(shownStartMs);
   chargeButton.textContent = session ? "⏹ Stop" : "⚡ Start laden";
   updateCopyButton();
+  // Verborgen tenzij hieronder blijkt dat er een percentage te tonen is. Elke vroege `return` liet
+  // deze regel anders staan met een getal dat niet meer meetikt.
+  nowLine.hidden = true;
   ready = null;
 
   if (from === null) {
-    show("–", "–", null, "–", "–");
+    rangeLabel.textContent = `Bereik bij ${to}%`;
+    rangeOut.textContent = "–";
+    show("–", "–", null, "–");
     note("Vul je huidige batterijpercentage in.", "info");
     calendarButton.disabled = true;
     chargeButton.disabled = true;
     return;
   }
 
+  // Het bereik hoort bij het hoogste van de twee — sta je al boven je doel, dan is wat je nú hebt
+  // het interessante getal. Het label volgt dat percentage, anders zegt de regel iets anders dan hij
+  // toont.
+  const rangePercent = Math.max(from, to);
+  rangeLabel.textContent = `Bereik bij ${rangePercent}%`;
+  rangeOut.textContent = `± ${rangeKm(rangePercent)} km`;
+
   const result = estimate(from, to);
-  rangeOut.textContent = `± ${rangeKm(Math.max(from, to))} km`;
+  // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` klimt naar het doel, en
+  // dat ligt hier op of onder het startpunt. Liever de regel weg dan een bevroren getal laten staan.
+  nowLine.hidden = session === null || !result.needed;
 
   if (!result.needed) {
-    show("—", "—", null, null, "—");
+    show("—", "—", null, "—");
     note(`Laden is niet nodig — je zit met ${from}% al op of boven je doel van ${to}%.`, "ok");
     calendarButton.disabled = true;
     chargeButton.disabled = session === null;
@@ -132,47 +149,45 @@ function render(): void {
   const remainingMs = readyMs - now;
 
   if (session) {
-    const soc = percentAfter(session.from, to, now - session.startMs);
-    nowPctOut.textContent = `${Math.floor(soc)}%`;
+    const soc = Math.floor(percentAfter(session.from, to, now - session.startMs));
+    nowPctOut.textContent = `${soc}%`;
     nowKmOut.textContent = `± ${rangeKm(soc)} km`;
-    show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, null, `± ${nl(result.effectivePowerKw)} kW`);
+    show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
     note(
       remainingMs <= 0
         ? `Volgens de schatting staat hij op ${to}%. Klopt dat niet, vul dan het echte percentage in — dan begint de schatting opnieuw.`
         : null,
     );
   } else {
-    show(duration(result.minutes), clock(readyMs), label, null, `± ${nl(result.effectivePowerKw)} kW`);
+    show(duration(result.minutes), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
     note(null);
   }
 
-  nowLine.hidden = session === null;
-  ready = { startMs, readyMs, from, to, label: label ?? "" };
+  // De agenda-afspraak beschrijft de hele laadbeurt, dus vanaf het insteken en het percentage van
+  // toen — niet vanaf de laatste tussentijdse aflezing.
+  ready = {
+    startMs: shownStartMs,
+    readyMs,
+    from: session ? session.logFrom : from,
+    to,
+    label: label ?? "",
+  };
   calendarButton.disabled = false;
   chargeButton.disabled = false;
 }
 
-/** Zonder lopende of afgelopen laadbeurt valt er niets te loggen. */
+/** Zonder laadbeurt om over te rapporteren — of zonder eindpercentage — valt er niets te loggen. */
 function updateCopyButton(): void {
-  const niets = session === null && finished === null;
+  const niets = huidigeLaadbeurt() === null;
   copyButton.disabled = niets;
   saveButton.disabled = niets;
 }
 
-/** `null` voor bereik laat die regel staan zoals render hem al zette; de rest wordt altijd gezet. */
-function show(
-  durationText: string,
-  readyText: string,
-  day: string | null,
-  rangeText: string | null,
-  powerText: string,
-): void {
+function show(durationText: string, readyText: string, day: string | null, powerText: string): void {
   durationOut.textContent = durationText;
   readyOut.textContent = readyText;
   readyDayOut.textContent = day ?? "";
-  if (rangeText !== null) rangeOut.textContent = rangeText;
   powerOut.textContent = powerText;
-  if (session === null) nowLine.hidden = true;
 }
 
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
@@ -241,13 +256,12 @@ function readSession(): Session | null {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { startMs, from, to, logStartMs, logFrom } = parsed as Record<string, unknown>;
-    if (typeof startMs !== "number" || typeof from !== "number" || typeof to !== "number") return null;
+    const { startMs, from, logStartMs, logFrom } = parsed as Record<string, unknown>;
+    if (typeof startMs !== "number" || typeof from !== "number") return null;
     if (!Number.isFinite(startMs) || startMs <= 0) return null;
     return {
       startMs,
       from: clampPercent(from),
-      to: clampPercent(to),
       // Een sessie uit een oudere versie kent deze twee niet; dan is de laadbeurt zelf het beste dat we hebben.
       logStartMs: typeof logStartMs === "number" && logStartMs > 0 ? logStartMs : startMs,
       logFrom: typeof logFrom === "number" ? clampPercent(logFrom) : clampPercent(from),
@@ -311,9 +325,17 @@ function writeFinished(value: Finished): void {
 /** ⚡ Start laden / ⏹ Stop: het enige wat de app van "plannen" naar "bezig" brengt en terug. */
 function toggleCharging(): void {
   if (session !== null) {
+    const nu = Date.now();
+    // ⚠️ Het geschatte percentage in het veld zetten. Dit is de enige plek buiten `render()` waar
+    // dat mag, en het moet: anders blijft er na het afkoppelen een uren oude aflezing staan. Het
+    // plan-scherm zou daarmee doorrekenen alsof de auto nog op 43% staat, en de logregel zou
+    // `eind%` gelijk aan `start%` melden — een laadbeurt van nul procentpunten, die `calibrate`
+    // als 0,00 kW meerekent. Wat je hierna van het dashboard leest, typ je eroverheen.
+    const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
+    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs)));
     // Bij het afkoppelen de hele laadbeurt bewaren — vanaf het insteken, niet vanaf de laatste
     // tussentijdse aflezing — zodat de logregel klopt met wat er werkelijk aan de muur hing.
-    writeFinished({ startMs: session.logStartMs, endMs: Date.now(), from: session.logFrom });
+    writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom });
     writeSession(null);
     render();
     return;
@@ -321,13 +343,7 @@ function toggleCharging(): void {
   const from = percentOf(currentInput);
   if (from === null) return;
   const now = Date.now();
-  writeSession({
-    startMs: now,
-    from,
-    to: percentOf(targetInput) ?? DEFAULT_TARGET,
-    logStartMs: now,
-    logFrom: from,
-  });
+  writeSession({ startMs: now, from, logStartMs: now, logFrom: from });
   render();
 }
 
@@ -346,15 +362,23 @@ function optioneelGetal(input: HTMLInputElement): number | null {
  */
 function huidigeLaadbeurt(): Entry | null {
   const nu = Date.now();
+  const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
+  // Na een herstart staat het percentageveld leeg. Dan telt wat er al bewaard is over deze beurt —
+  // anders valt `eind%` terug op het startpercentage, en overschrijft een tweede druk op 💾 (om de
+  // meterstand aan te vullen) een goede 90 met een zinloze 43: een laadbeurt van nul procentpunten,
+  // die `calibrate` als 0,00 kW meerekent. Is er niets bekend, dan valt er ook niets te loggen.
+  const afgelopen = finished;
+  const bewaard = afgelopen === null ? undefined : logbook.find((e) => e.startMs === afgelopen.startMs);
+  const eind = percentOf(currentInput) ?? bewaard?.toPercent ?? null;
   const bron = session
     ? {
         startMs: session.logStartMs,
         endMs: nu,
         from: session.logFrom,
-        to: percentAfter(session.from, session.to, nu - session.startMs),
+        to: percentAfter(session.from, doel, nu - session.startMs),
       }
-    : finished
-      ? { startMs: finished.startMs, endMs: finished.endMs, from: finished.from, to: percentOf(currentInput) ?? finished.from }
+    : afgelopen !== null && eind !== null
+      ? { startMs: afgelopen.startMs, endMs: afgelopen.endMs, from: afgelopen.from, to: eind }
       : null;
   if (bron === null) return null;
 
@@ -471,7 +495,6 @@ for (const input of [currentInput, targetInput]) {
       // bestaat zodra je het invult.
       if (value === null) targetInput.value = String(DEFAULT_TARGET);
       writeTarget(targetInput.value);
-      if (session !== null) writeSession({ ...session, to: percentOf(targetInput) ?? DEFAULT_TARGET });
     } else if (session !== null && value !== null) {
       // Tijdens het laden is een nieuw percentage een *aflezing van de auto*, en die weet het beter
       // dan onze schatting. De sessie begint daarom opnieuw vanaf nu: de aftelling klopt weer, en
