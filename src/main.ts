@@ -113,8 +113,31 @@ setupOut.textContent =
   `${nl(DEFAULT_SETUP.capacityKwh)} kWh bruikbaar · ${nl(DEFAULT_SETUP.powerKw)} kW uit de muur · ` +
   `${Math.round(DEFAULT_SETUP.efficiency * 100)}% rendement`;
 
-const storedTarget = localStorage.getItem(TARGET_KEY);
-if (storedTarget !== null) targetInput.value = storedTarget;
+/**
+ * Het doelpercentage is een voorkeur en geen vereiste, dus mag opslag ook ontbreken: met cookies
+ * geblokkeerd of in sommige privé-modi gooit `localStorage` een `SecurityError`, en dat mag nooit
+ * de rekenmachine meesleuren — dit staat op top-level, nog vóór er één listener hangt.
+ */
+function readTarget(): string | null {
+  try {
+    return localStorage.getItem(TARGET_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeTarget(value: string): void {
+  try {
+    localStorage.setItem(TARGET_KEY, value);
+  } catch {
+    /* geen opslag; het veld werkt deze sessie gewoon, alleen de volgende start onthoudt niets */
+  }
+}
+
+// Alleen een bruikbaar percentage mag de `value="90"` uit de HTML overschrijven: het doelveld heeft
+// altijd een waarde, en dat mag niet afhangen van wat er ooit in opslag terechtkwam.
+const storedTarget = readTarget();
+if (storedTarget !== null && storedTarget.trim() !== "") targetInput.value = storedTarget;
 
 for (const input of [currentInput, targetInput]) {
   input.addEventListener("input", render);
@@ -123,7 +146,13 @@ for (const input of [currentInput, targetInput]) {
   input.addEventListener("change", () => {
     const value = percentOf(input);
     if (value !== null) input.value = String(value);
-    if (input === targetInput) localStorage.setItem(TARGET_KEY, targetInput.value);
+    if (input === targetInput) {
+      // Een leeg doelveld zou stil met de default doorrekenen, en dan zegt het scherm iets anders
+      // dan de rekenkern. Het doel heeft dus altijd een waarde — anders dan "huidig", dat pas
+      // bestaat zodra je het invult.
+      if (value === null) targetInput.value = String(DEFAULT_TARGET);
+      writeTarget(targetInput.value);
+    }
     render();
   });
 }
@@ -152,12 +181,21 @@ installButton.addEventListener("click", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  void navigator.serviceWorker.register("sw.js");
-  // Eén reload zodra een nieuwe worker het overneemt — anders blijft een oude bundel hangen.
+  /**
+   * Eén reload zodra een *nieuwe* worker een al bestuurde pagina overneemt — anders blijft een oude
+   * bundel hangen.
+   *
+   * ⚠️ Alleen als er nu al een controller is. Bij het allereerste bezoek is de pagina nog
+   * onbestuurd, en dan levert `clients.claim()` in `sw.js` óók een `controllerchange` op: zonder
+   * deze vlag herlaadt het eerste bezoek zichzelf en is een percentage dat je in die eerste
+   * seconden typte weg.
+   */
+  const hadController = navigator.serviceWorker.controller !== null;
   let reloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloaded) return;
+    if (!hadController || reloaded) return;
     reloaded = true;
     location.reload();
   });
+  void navigator.serviceWorker.register("sw.js");
 }

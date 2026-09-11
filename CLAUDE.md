@@ -31,9 +31,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   `visibilitychange`), en een render die de invoer opnieuw opbouwt gooit je cursor uit het veld dat
   je aan het typen bent. Alleen `change` (bij het verlaten van een veld) mag een waarde normaliseren.
 - ⚠️ **`sw.js`'s VERSION wordt door `scripts/build.mjs` gestempeld, niet door de bron.** In
-  `web/sw.js` staat letterlijk `v1`; elke build (ook `serve`) vervangt dat door een tijdstempel, dus
-  een deploy zet zichzelf door. Wat er *nog* fout kan: binnen één draaiende `npm run serve` blijft
-  die stempel gelijk, dus na een rebuild in dezelfde sessie kan een tab nog de oude bundel serveren.
+  `web/sw.js` staat letterlijk `v1`; elke build (ook `serve`) vervangt dat door de commit
+  (`GITHUB_SHA` in CI) of de klok tot op de milliseconde, dus een deploy zet zichzelf door. **Laat
+  die letterlijke regel staan zoals hij staat** — andere quotes of een `let` en de build vindt hem
+  niet meer; hij gooit dan wel een fout in plaats van stil `v1` te laten staan. Wat er *nog* fout
+  kan: binnen één draaiende `npm run serve` blijft die stempel gelijk, dus na een rebuild in
+  dezelfde sessie kan een tab nog de oude bundel serveren.
   Herstart dan serve, of gooi de worker weg
   (`for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister()` plus
   `for (const k of await caches.keys()) await caches.delete(k)`) voordat je gelooft dat code stuk
@@ -46,4 +49,5 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 ## Build / run
 
 `npm install` één keer, dan `npm test` (type-check + rekentests), `npm run build` (→ `build/`),
-`npm run serve` (lokaal). Er is nog geen publicatiepad — `todo.md` zegt wat daarvoor moet.
+`npm run serve` (lokaal). Publiceren doet `.github/workflows/pages.yml` bij elke push naar
+`main`; eenmalig moet Settings → Pages → Source op "GitHub Actions" staan.

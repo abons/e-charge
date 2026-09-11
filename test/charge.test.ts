@@ -106,3 +106,15 @@ test("calendar: tekstvelden worden ontsnapt en lange regels gevouwen", () => {
     assert.ok(new TextEncoder().encode(line).length <= 75, `te lang: ${line}`);
   }
 });
+
+// Deze stond er niet, en daardoor kon de tekenklasse maandenlang `[\;,]` in plaats van `[\\;,]`
+// zijn: `;` en `,` werden ontsnapt, een backslash niet — en dat geeft een ongeldig tekstveld.
+test("calendar: een backslash in de tekst wordt verdubbeld", () => {
+  const ics = calendar({
+    readyMs: Date.UTC(2026, 8, 11, 17, 10),
+    title: "Pad C:\\laden",
+    description: "een\\twee",
+  });
+  assert.ok(ics.includes("SUMMARY:Pad C:\\\\laden"), ics);
+  assert.ok(ics.includes("DESCRIPTION:een\\\\twee"), ics);
+});

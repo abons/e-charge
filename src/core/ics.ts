@@ -16,7 +16,7 @@ function stamp(ms: number): string {
 
 /** RFC 5545 §3.3.11: `\`, `;`, `,` en regeleindes zijn in tekstvelden speciaal. */
 function escapeText(value: string): string {
-  return value.replace(/[\;,]/g, (c) => `\\${c}`).replace(/\r?\n/g, "\\n");
+  return value.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r?\n/g, "\\n");
 }
 
 /**

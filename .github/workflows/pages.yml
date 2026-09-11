@@ -16,10 +16,13 @@ permissions:
   pages: write
   id-token: write
 
-# Eén deploy tegelijk; een nieuwere push maakt een lopende overbodig.
+# Eén deploy tegelijk; wachtende runs vouwt de group samen. Een lopende run NIET afbreken: die kan
+# al een Pages-deployment hebben aangemaakt, en die blijft dan "in progress" hangen tot hij uittimet
+# (~10 min) — waardoor juist de nieuwste push niet live komt. Zelfde stand als GitHub's eigen
+# Pages-starterworkflow, en om dezelfde reden.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:

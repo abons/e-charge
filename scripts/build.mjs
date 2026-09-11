@@ -12,9 +12,17 @@ cpSync("web", "build", { recursive: true });
  * Zonder deze stempel verandert de key nooit, en dan blijft een tab die de app ooit opende zijn
  * eerste `app.js` serveren — ook na een deploy. Bij de zusters heeft precies dat uren gekost.
  */
-const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 12);
+// In CI de commit (één deploy = één versie, een re-run van dezelfde code hoeft niets te busten),
+// lokaal de klok tot op de milliseconde: minuut-nauwkeurig was te grof, want twee builds binnen
+// dezelfde minuut gaven een byte-identieke sw.js en dan ziet de browser geen update.
+const stamp = process.env.GITHUB_SHA?.slice(0, 12) || new Date().toISOString().replace(/\D/g, "");
+const NEEDLE = 'const VERSION = "v1"';
 const sw = readFileSync("build/sw.js", "utf8");
-writeFileSync("build/sw.js", sw.replace('const VERSION = "v1"', `const VERSION = "v${stamp}"`));
+// Zonder deze controle is een herformattering van web/sw.js (andere quotes, `let`, een spatie erbij)
+// een stille no-op: de build logt een versie, CI wordt groen, en elke deploy blijft `v1` — dan
+// zien geïnstalleerde telefoons nooit een nieuwe app.js.
+if (!sw.includes(NEEDLE)) throw new Error(`sw.js: regel \`${NEEDLE}\` niet gevonden, stempel mislukt`);
+writeFileSync("build/sw.js", sw.replace(NEEDLE, `const VERSION = "v${stamp}"`));
 
 const options = {
   entryPoints: ["src/main.ts"],

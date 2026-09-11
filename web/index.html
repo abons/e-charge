@@ -56,6 +56,9 @@
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
   .about { margin-top: 12px; }
+  /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
+     startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
+  @media (display-mode: standalone) { .about { display: none; } }
   .about h2 { font-size: 15px; margin: 0 0 8px; }
   .about p { margin: 6px 0; color: #c9c9c9; font-size: 14px; line-height: 1.5; }
   .about a { color: #7fd4a0; }
