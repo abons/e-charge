@@ -2,18 +2,27 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** gebouwd en getest op 2026-09-11 (11/11 tests groen, bundel ~4 kB). In Chromium op een
-telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100, doel dat een
-reload overleeft, `morgen` over middernacht, de `.ics`-download en offline na een reload. **Nog niet
-op een echte telefoon gezien.**
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (12/12 tests groen, bundel
+~4 kB). In Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen
+op 0–100, doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download en offline na
+een reload. **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
-- **Klopt de laadtijd in de praktijk?** De schatting rust op één meetbaar getal (`EFFICIENCY = 0,88`,
-  binnen de 85–90% die voor een Leaf aan een stopcontact gemeten wordt). Eén echte sessie van bekend
-  % naar bekend % is genoeg om het te kalibreren; wijkt het af, dan is dat die ene constante en niet
-  het model. Het voorbeeld uit de opdracht (43 → 90% in 8u 35m) komt hier uit op 9u 04m — dat
-  verschil is precies deze factor, en de praktijk beslist wie er dichterbij zit.
+- ⚠️ **Het laadvermogen staat op 3,0 kW op grond van één ruwe aflezing** (2026-09-11): het
+  huisverbruik ligt tijdens het laden ~3 kWh per uur hoger, en 3 kW is 13 A. Dat is aannemelijker
+  dan de 2,3 kW (10 A) waar de app mee begon, maar het is een *meterschatting*, geen meting van de
+  sessie. Twee manieren om het hard te maken, allebei klein:
+  - **Kijk op het blok van de laadkabel** — daar staat de ampèrage, vaak met een standenknop
+    (8/10/13/16 A). Dat is direct bewijs, geen afleiding.
+  - **Reken één sessie terug:** `(doel% − start%) × 0,39 ÷ uren` = effectief kW, gedeeld door
+    `EFFICIENCY` = het vermogen uit de muur. Dat pint meteen ook het rendement vast, de helft die nu
+    nog ongemeten is.
+- ⚠️ **13 A door een gewoon stopcontact is de grens.** De contactdoos achter de schuur is door de
+  vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zeven
+  uur aan één stuk op 13 A. Voel na een uur laden aan de stekker: handwarm is normaal, te heet om
+  vast te houden niet. In dat geval hoort de kabel een stand lager (10 A → 2,3 kW, en dan gaat
+  `CHARGE_POWER_KW` mee terug), of er hoort een echt laadpunt te komen.
 - **De agenda-download op een echte telefoon.** In Chromium komt het `.ics` goed binnen, maar of
   Android hem aan de agenda-app aanbiedt (en of de melding meekomt) is niet te zien in een headless
   browser.

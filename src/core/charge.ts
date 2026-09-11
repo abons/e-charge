@@ -14,17 +14,29 @@
 export const USABLE_CAPACITY_KWH = 39.0;
 
 /**
- * Een gewoon 230V-stopcontact met de meegeleverde kabel: 10 A × 230 V ≈ 2,3 kW *uit de muur*.
- * (De Leaf kan 6,6 kW AC aan, maar dat vraagt een laadpunt — niet dit scenario.)
+ * Wat er *uit de muur* komt — een gewoon 230V-stopcontact achter de schuur, gevoed vanuit het
+ * groepenkastje daar.
+ *
+ * 3,0 kW is geen aanname maar een aflezing: het huisverbruik ligt tijdens het laden ruwweg 3 kWh
+ * per uur hoger, en 3 kW is 13 A × 230 V. Een meegeleverde Mode 2-kabel staat meestal op 8 of 10 A
+ * (1,8 of 2,3 kW) en de volle 16 A zou 3,7 kW zijn, dus deze staat op de 13 A-stand.
+ *
+ * ⚠️ Het getal is een *schatting van een meterstand*, niet een meting van de laadsessie zelf. Zodra
+ * één laadbeurt van bekend % naar bekend % bekend is, is dit exact uit te rekenen:
+ * `(doel% − start%) × 0,39 ÷ uren` geeft het effectieve vermogen, en gedeeld door [EFFICIENCY] het
+ * vermogen uit de muur. (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
  */
-export const CHARGE_POWER_KW = 2.3;
+export const CHARGE_POWER_KW = 3.0;
 
 /**
- * Rendement muur → batterij. Bij zo'n traag stopcontact is dit merkbaar slechter dan bij een
- * laadpunt: de vaste kosten van de boordlader, de BMS en (bij warm of koud weer) de koeling lopen
- * door terwijl er maar 2,3 kW doorheen gaat, dus die overhead is een groter aandeel. Gemeten
- * waarden voor een Leaf aan een stopcontact liggen grofweg tussen 85% en 90%; 88% is daar een
- * eerlijk midden in.
+ * Rendement muur → batterij. Aan een stopcontact is dit merkbaar slechter dan aan een laadpunt: de
+ * vaste kosten van de boordlader, de BMS en (bij warm of koud weer) de koeling lopen door terwijl
+ * er maar een paar kW doorheen gaat, dus die overhead is een groter aandeel. Gemeten waarden voor
+ * een Leaf aan een stopcontact liggen grofweg tussen 85% en 90%; 88% is daar een eerlijk midden in.
+ *
+ * Dit is de helft die *niet* gemeten is — [CHARGE_POWER_KW] komt van de meter, dit niet. Bij twijfel
+ * is te laag hier de veiligere fout: dan zegt de app dat het langer duurt, en sta je niet voor een
+ * auto die nog niet klaar is.
  *
  * Kalibreren gaat zo: laad één keer van bekend % naar bekend % en kijk hoeveel langer of korter
  * het duurde dan de app zei. 10% te lang → dit getal met ~10% omlaag.
@@ -67,7 +79,7 @@ export function clampPercent(value: number): number {
  * Hoe lang van [fromPercent] naar [toPercent], aan deze [setup].
  *
  * Geen taper-model, en dat is een keuze: een Leaf knijpt pas af als de cellen het vermogen niet
- * meer kwijtkunnen, en 2,3 kW is daar zó ver onder dat de boordlader tot vlak onder 100% gewoon
+ * meer kwijtkunnen, en een paar kW is daar zó ver onder dat de boordlader tot vlak onder 100% gewoon
  * doorgaat. Bij snelladen zou dit model onzin zijn; hier is het lineair en klaar.
  */
 export function estimate(fromPercent: number, toPercent: number, setup: Setup = DEFAULT_SETUP): Estimate {

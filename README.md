@@ -35,7 +35,7 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | constante              | waarde | waarom                                                   |
 | ---------------------- | ------ | -------------------------------------------------------- |
 | `USABLE_CAPACITY_KWH`  | 39,0   | Leaf ZE1 40 kWh: bruto 40, bruikbaar ~39                 |
-| `CHARGE_POWER_KW`      | 2,3    | 10 A × 230 V uit een stopcontact                         |
+| `CHARGE_POWER_KW`      | 3,0    | 13 A × 230 V, afgelezen aan de meter                     |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 
 Kalibreren: laad één keer van bekend % naar bekend % en vergelijk met wat de app zei. Duurde het 10%

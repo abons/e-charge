@@ -14,9 +14,9 @@ test("estimate: 43% → 90% aan een stopcontact", () => {
   assert.equal(result.energyKwh.toFixed(2), "18.33");
   // Daarvoor moet er 18,33 / 0,88 = 20,83 kWh uit de muur komen.
   assert.equal(result.wallEnergyKwh.toFixed(2), "20.83");
-  // 2,3 kW × 88% = 2,024 kW effectief; 18,33 / 2,024 = 9,06 uur.
-  assert.equal(result.effectivePowerKw.toFixed(3), "2.024");
-  assert.equal(duration(result.minutes), "9u 04m");
+  // 3,0 kW × 88% = 2,64 kW effectief; 18,33 / 2,64 = 6,94 uur.
+  assert.equal(result.effectivePowerKw.toFixed(3), "2.640");
+  assert.equal(duration(result.minutes), "6u 57m");
 });
 
 test("estimate: rendement maakt het langer, nooit korter", () => {
@@ -41,7 +41,7 @@ test("estimate: doel al gehaald betekent niet laden", () => {
     assert.equal(result.minutes, 0);
   }
   // Het vermogen blijft ook dan gewoon bekend — het is een eigenschap van de lader, niet van de rit.
-  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "2.024");
+  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "2.640");
 });
 
 test("estimate: rondt minuten naar boven en klemt percentages", () => {

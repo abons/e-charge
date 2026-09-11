@@ -14,7 +14,7 @@ bouwt een andere app.
 ## Lineair rekenen, geen laadcurve — 2026-09-11
 
 Een laadcurve hoort bij snelladen: daar knijpt de auto af zodra de cellen het vermogen niet meer
-kwijtkunnen. 2,3 kW zit daar zó ver onder dat de boordlader tot vlak onder 100% constant doorgaat.
+kwijtkunnen. Een paar kW zit daar zó ver onder dat de boordlader tot vlak onder 100% constant doorgaat.
 Een curve zou hier dus doen alsof er meer bekend is dan waar is. De verliezen zitten in één
 rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een curve niet.
 

@@ -1,6 +1,6 @@
 # e-charge — project summary (for a fresh session)
 
-Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een 2,3 kW stopcontact**: één scherm,
+Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3 kW**: één scherm,
 plain TypeScript + DOM, PWA. De webkant van de familie is het model (`wordguesser-src/web/` —
 esbuild, `web/`-shell, `src/core/` met pure modules); dit is de kleinste telg. Zelfde doc-split als
 de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keuzes), `todo.md`
@@ -15,7 +15,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 - ⚠️ **De drie constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
   Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
   agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.
-- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij 2,3 kW gaat de boordlader
+- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
   tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
   meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —
   zie `design.md`.
