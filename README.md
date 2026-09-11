@@ -31,6 +31,7 @@ de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke p
 - `npm test` — type-check + de rekentests.
 - `npm run build` — bundel + statische bestanden naar `build/`.
 - `npm run serve` — lokale dev-server over `build/` met rebuild-on-change.
+- `npm run calibrate` — leest `log.md` en rekent de constanten terug uit echte laadbeurten.
 
 ## De vier getallen die alles bepalen
 
@@ -43,8 +44,10 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 | `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
 
-Kalibreren: laad één keer van bekend % naar bekend % en vergelijk met wat de app zei. Duurde het 10%
-langer, dan gaat `EFFICIENCY` ~10% omlaag. Een andere auto of laadpunt is één regel: 62 kWh en
+Kalibreren gaat via [`log.md`](log.md): noteer per laadbeurt de kilometerstand, de percentages, de
+klok en (als je kunt) de meterstand, en `npm run calibrate` rekent er rendement, laadvermogen en
+verbruik uit terug. Het verbruik komt daarmee uit gereden kilometers en niet uit de boordcomputer —
+die toont een voorspelling, geen meting. Een andere auto of laadpunt is één regel: 62 kWh en
 11 kW past er net zo goed in (daar is een test voor).
 
 De aannames staan ook onderaan het scherm, gelezen uit dezelfde constanten — een uitkomst die

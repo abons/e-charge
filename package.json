@@ -6,7 +6,8 @@
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit",
     "test": "tsc && node --test \"out/test/*.test.js\"",
-    "serve": "node scripts/build.mjs --serve"
+    "serve": "node scripts/build.mjs --serve",
+    "calibrate": "tsc && node scripts/calibrate.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

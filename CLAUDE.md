@@ -12,6 +12,10 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   Nissan API, geen OBD, geen externe service — dat was de opdracht bij het ontstaan (2026-09-11) en
   het is ook de reden dat deze app offline werkt en niets te onderhouden heeft. Een feature die een
   netwerk nodig heeft, hoort hier niet.
+- ⚠️ **Het logboek is een bestand, geen functie.** `log.md` wordt met de hand bijgehouden en
+  `npm run calibrate` rekent de constanten eruit terug. De app schrijft er niet naar en praat met
+  geen enkele server — een token in een publieke pagina is een gelekt token, en de vorige regel
+  blijft gelden. Wie "de app logt zelf" wil bouwen, bouwt een andere app.
 - ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
   Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
   agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.
