@@ -1,0 +1,16 @@
+{
+  "name": "e-charge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "tsc && node --test \"out/test/*.test.js\"",
+    "serve": "node scripts/build.mjs --serve"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "esbuild": "0.24.2",
+    "typescript": "5.7.3"
+  }
+}
