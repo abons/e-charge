@@ -12,13 +12,18 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   Nissan API, geen OBD, geen externe service — dat was de opdracht bij het ontstaan (2026-09-11) en
   het is ook de reden dat deze app offline werkt en niets te onderhouden heeft. Een feature die een
   netwerk nodig heeft, hoort hier niet.
-- ⚠️ **Het logboek is een bestand, geen functie.** `log.md` wordt met de hand bijgehouden en
-  `npm run calibrate` rekent de constanten eruit terug. De app schrijft er niet naar en praat met
-  geen enkele server — een token in een publieke pagina is een gelekt token, en de vorige regel
-  blijft gelden. Wie "de app logt zelf" wil bouwen, bouwt een andere app. Wat de app wél doet is
-  de logregel op je **klembord** zetten (`src/core/logline.ts`); dat is tekst, geen netwerk.
-  ⚠️ De kolomvolgorde daar is een contract met `scripts/calibrate.mjs`, dat op positie leest en
-  niet op naam — een test pint het formaat vast.
+- ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
+  afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
+  klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon
+  overleeft, en `npm run calibrate` rekent daaruit de constanten terug. Wat de app **niet** doet is
+  ergens naartoe schrijven: geen server, geen token — een token in een publieke pagina is een gelekt
+  token, en de vorige regel blijft gelden. Klembord is tekst, geen netwerk.
+  ⚠️ De kolomvolgorde in `src/core/logline.ts` is een contract met `scripts/calibrate.mjs`, dat op
+  positie leest en niet op naam — een test pint het formaat vast.
+- ⚠️ **Een komma past niet in `<input type="number">`.** De browser maakt er stil een lege waarde
+  van, en op een Nederlands toetsenbord is de komma nu juist wat je typt. Velden die een decimaal
+  getal aannemen (de meterstand) zijn daarom `type="text"` met `inputmode="decimal"`; het parsen
+  neemt komma én punt aan.
 - ⚠️ **`logStartMs`/`logFrom` in de sessie zijn niet hetzelfde als `startMs`/`from`.** Die eerste
   twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
   aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk

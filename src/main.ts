@@ -1,6 +1,6 @@
 import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "./core/charge.js";
 import { calendar } from "./core/ics.js";
-import { logRow } from "./core/logline.js";
+import { parseEntries, toMarkdown, withEntry, withoutEntry, type Entry } from "./core/logbook.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 
 /**
@@ -25,7 +25,10 @@ const TARGET_KEY = "e-charge.target";
 const SESSION_KEY = "e-charge.session";
 const FINISHED_KEY = "e-charge.finished";
 const DEFAULT_TARGET = 90;
+const LOGBOOK_KEY = "e-charge.logbook";
 const COPY_LABEL = "📋 Kopieer logregel";
+const COPY_ALL_LABEL = "📋 Kopieer hele logboek";
+const SAVE_LABEL = "💾 Bewaar laadbeurt";
 /** Zo vaak herrekenen: in de plan-stand loopt "nu" door, in de bezig-stand het percentage. */
 const TICK_MS = 15_000;
 
@@ -48,8 +51,14 @@ const powerOut = el("power");
 const noteOut = el("note");
 const setupOut = el("setup");
 const kmInput = el<HTMLInputElement>("km");
+const kwhInput = el<HTMLInputElement>("kwh");
+const saveButton = el<HTMLButtonElement>("savelog");
 const copyButton = el<HTMLButtonElement>("copylog");
+const copyAllButton = el<HTMLButtonElement>("copyall");
 const logLineOut = el("logline");
+const logList = el("loglist");
+const logActions = el("logactions");
+const logHint = el("loghint");
 const chargeButton = el<HTMLButtonElement>("start-charging");
 const calendarButton = el<HTMLButtonElement>("calendar");
 const installButton = el<HTMLButtonElement>("install");
@@ -67,6 +76,9 @@ let session: Session | null = null;
 /** De laatst afgesloten sessie, zodat je de logregel ná het afkoppelen nog kunt kopiëren. */
 interface Finished { startMs: number; endMs: number; from: number }
 let finished: Finished | null = null;
+
+/** Het logboek op deze telefoon — een kladblok; `log.md` in de repo is de duurzame kopie. */
+let logbook: Entry[] = [];
 
 /** Wat de laatste render uitrekende — wat de agendaknop in het `.ics` zet. */
 let ready: { startMs: number; readyMs: number; from: number; to: number; label: string } | null = null;
@@ -142,7 +154,9 @@ function render(): void {
 
 /** Zonder lopende of afgelopen laadbeurt valt er niets te loggen. */
 function updateCopyButton(): void {
-  copyButton.disabled = session === null && finished === null;
+  const niets = session === null && finished === null;
+  copyButton.disabled = niets;
+  saveButton.disabled = niets;
 }
 
 /** `null` voor bereik laat die regel staan zoals render hem al zette; de rest wordt altijd gezet. */
@@ -253,6 +267,23 @@ function writeSession(value: Session | null): void {
   }
 }
 
+function readLogbook(): Entry[] {
+  try {
+    return parseEntries(localStorage.getItem(LOGBOOK_KEY));
+  } catch {
+    return [];
+  }
+}
+
+function writeLogbook(value: Entry[]): void {
+  logbook = value;
+  try {
+    localStorage.setItem(LOGBOOK_KEY, JSON.stringify(value));
+  } catch {
+    /* zonder opslag blijft het logboek deze sessie staan; kopiëren werkt gewoon */
+  }
+}
+
 function readFinished(): Finished | null {
   try {
     const raw = localStorage.getItem(FINISHED_KEY);
@@ -300,38 +331,118 @@ function toggleCharging(): void {
   render();
 }
 
+/** Een getal uit een optioneel veld; leeg of onzin telt als "niet ingevuld". */
+function optioneelGetal(input: HTMLInputElement): number | null {
+  const raw = input.value.trim().replace(",", ".");
+  if (raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
 /**
- * De logregel op het klembord. Tijdens het laden is het de stand van nu, na het afkoppelen die van
- * de afgelopen beurt — en dan is het percentage in het veld precies wat je van het dashboard hebt
- * gelezen. De km-stand mag leeg blijven; dan valt alleen het verbruik niet te rekenen.
+ * De laadbeurt waar de logregel over gaat. Tijdens het laden is dat de stand van nu, na het
+ * afkoppelen die van de afgelopen beurt — en dan is het percentage in het veld precies wat je van
+ * het dashboard hebt gelezen.
  */
-function copyLogRow(): void {
+function huidigeLaadbeurt(): Entry | null {
   const nu = Date.now();
   const bron = session
-    ? { startMs: session.logStartMs, endMs: nu, from: session.logFrom, to: percentAfter(session.from, session.to, nu - session.startMs) }
+    ? {
+        startMs: session.logStartMs,
+        endMs: nu,
+        from: session.logFrom,
+        to: percentAfter(session.from, session.to, nu - session.startMs),
+      }
     : finished
       ? { startMs: finished.startMs, endMs: finished.endMs, from: finished.from, to: percentOf(currentInput) ?? finished.from }
       : null;
-  if (bron === null) return;
+  if (bron === null) return null;
 
-  const km = kmInput.value.trim() === "" ? null : Number(kmInput.value.trim());
-  const regel = logRow({
+  const km = optioneelGetal(kmInput);
+  return {
     startMs: bron.startMs,
     endMs: bron.endMs,
-    fromPercent: bron.from,
-    toPercent: bron.to,
-    km: km !== null && Number.isFinite(km) ? Math.round(km) : null,
-  });
+    fromPercent: Math.round(bron.from),
+    toPercent: Math.round(bron.to),
+    km: km === null ? null : Math.round(km),
+    kwh: optioneelGetal(kwhInput),
+  };
+}
 
-  logLineOut.textContent = regel;
+/** Tekst naar het klembord, met de knop als terugkoppeling — en de regel in beeld als het niet lukt. */
+function naarKlembord(tekst: string, knop: HTMLButtonElement, label: string): void {
+  logLineOut.textContent = tekst;
   logLineOut.hidden = false;
   // Het klembord kan geweigerd worden (geen beveiligde verbinding, een strenge instelling); dan
-  // staat de regel er in elk geval om met de hand over te nemen.
-  void navigator.clipboard?.writeText(regel).then(
-    () => { copyButton.textContent = "📋 Gekopieerd"; },
-    () => { copyButton.textContent = "📋 Hieronder — kopieer met de hand"; },
+  // staat de tekst er in elk geval om met de hand over te nemen.
+  void navigator.clipboard?.writeText(tekst).then(
+    () => { knop.textContent = "📋 Gekopieerd"; },
+    () => { knop.textContent = "📋 Hieronder — kopieer met de hand"; },
   );
-  setTimeout(() => { copyButton.textContent = COPY_LABEL; }, 4000);
+  setTimeout(() => { knop.textContent = label; }, 4000);
+}
+
+function copyLogRow(): void {
+  const beurt = huidigeLaadbeurt();
+  if (beurt !== null) naarKlembord(toMarkdown([beurt]), copyButton, COPY_LABEL);
+}
+
+/**
+ * De laadbeurt in het logboek op deze telefoon. Twee keer drukken voegt niet twee regels toe — de
+ * knop blijft staan en na een herstart is de afgelopen beurt er nog steeds, dus gelijke starttijd
+ * overschrijft. Zo kun je ook eerst bewaren en later de meterstand erbij zetten.
+ */
+function saveEntry(): void {
+  const beurt = huidigeLaadbeurt();
+  if (beurt === null) return;
+  writeLogbook(withEntry(logbook, beurt));
+  saveButton.textContent = "💾 Bewaard";
+  setTimeout(() => { saveButton.textContent = SAVE_LABEL; }, 4000);
+  renderLogbook();
+}
+
+function removeEntry(startMs: number): void {
+  writeLogbook(withoutEntry(logbook, startMs));
+  renderLogbook();
+}
+
+/** De lijst met bewaarde laadbeurten, nieuwste bovenaan. */
+function renderLogbook(): void {
+  logList.textContent = "";
+  for (const e of [...logbook].reverse()) {
+    const li = document.createElement("li");
+    const datum = document.createElement("span");
+    datum.className = "datum";
+    datum.textContent = new Date(e.startMs).toLocaleDateString("nl-NL", { day: "2-digit", month: "short" });
+    const pct = document.createElement("span");
+    pct.className = "pct";
+    pct.textContent = `${e.fromPercent} → ${e.toPercent}%`;
+    const rest = document.createElement("span");
+    rest.className = "rest";
+    const delen = [duration((e.endMs - e.startMs) / 60_000)];
+    if (e.km !== null) delen.push(`${e.km} km`);
+    if (e.kwh !== null) delen.push(`${nl(e.kwh)} kWh`);
+    rest.textContent = delen.join(" · ");
+    const wis = document.createElement("button");
+    wis.type = "button";
+    wis.className = "wis";
+    wis.textContent = "×";
+    wis.title = "Verwijder deze laadbeurt";
+    wis.addEventListener("click", () => removeEntry(e.startMs));
+    li.append(datum, pct, rest, wis);
+    logList.append(li);
+  }
+  logActions.hidden = logbook.length === 0;
+  logHint.hidden = logbook.length === 0;
+  logHint.textContent =
+    logbook.length === 0
+      ? ""
+      : `${logbook.length} laadbeurt${logbook.length === 1 ? "" : "en"} op deze telefoon. ` +
+        "Plak ze af en toe in log.md — het wissen van websitegegevens neemt deze lijst mee.";
+}
+
+function copyLogbook(): void {
+  if (logbook.length > 0) naarKlembord(toMarkdown(logbook), copyAllButton, COPY_ALL_LABEL);
 }
 
 // Alleen een bruikbaar percentage mag de `value="90"` uit de HTML overschrijven: het doelveld heeft
@@ -343,6 +454,8 @@ if (storedTarget !== null && storedTarget.trim() !== "") targetInput.value = sto
 // percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling.
 session = readSession();
 finished = readFinished();
+logbook = readLogbook();
+renderLogbook();
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {
@@ -372,6 +485,8 @@ for (const input of [currentInput, targetInput]) {
 
 chargeButton.addEventListener("click", toggleCharging);
 copyButton.addEventListener("click", copyLogRow);
+saveButton.addEventListener("click", saveEntry);
+copyAllButton.addEventListener("click", copyLogbook);
 calendarButton.addEventListener("click", addToCalendar);
 
 render();

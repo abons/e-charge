@@ -9,16 +9,23 @@
 > laatste ritten, geen meting; het getal dat we wél kunnen meten is je verbruik, en dat volgt uit
 > twee opeenvolgende regels hieronder.
 
-## Invullen zonder tikwerk
+## Bijhouden in de app
 
-Onderaan het scherm zit een optioneel veld **Km-stand** en een knop **📋 Kopieer logregel**. Die
-zet een kant-en-klare regel op je klembord — datum, km, percentages en kloktijden ingevuld, de
-kolom `kWh` leeg omdat je die meestal pas later van de meter afleest. Plakken in de tabel hieronder
-en klaar.
+Onderaan het scherm staat het logboek: optionele velden voor **km-stand** en **meterstand**, een
+knop **💾 Bewaar laadbeurt** en de lijst van wat je bewaard hebt. Na het afkoppelen vul je het
+afgelezen percentage in, druk je op bewaren, en staat de beurt erin. Dezelfde beurt nog eens
+bewaren voegt niets toe maar werkt hem bij — zo zet je de meterstand er later alsnog bij.
+
+**📋 Kopieer hele logboek** zet alle regels op je klembord; plak ze hieronder onder de kop. Dat is
+de stap die het duurzaam maakt:
+
+⚠️ **De lijst in de app staat in `localStorage` op één telefoon.** Een herstart en een update
+overleeft hij, maar het wissen van websitegegevens, een nieuwe telefoon of een andere browser niet.
+Dit bestand in de repo is de kopie die blijft — plak dus af en toe.
 
 De regel loopt vanaf het **insteken**, ook als je tussendoor het echte percentage hebt ingevuld en
-de schatting opnieuw is verankerd. Kopieer je na het afkoppelen, dan is het percentage in het veld
-wat je van het dashboard las, en dát komt in de kolom `eind%`.
+de schatting opnieuw is verankerd. Kopieer of bewaar je na het afkoppelen, dan is het percentage in
+het veld wat je van het dashboard las, en dát komt in de kolom `eind%`.
 
 ## Wat je noteert
 

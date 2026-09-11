@@ -1,4 +1,4 @@
-import { clock } from "./time.js";
+import { clock, number as nl } from "./time.js";
 
 /**
  * Eén regel voor `log.md`, kant-en-klaar om te plakken. De app schrijft nergens naartoe — dit is
@@ -40,7 +40,8 @@ export function logRow(entry: LogEntry): string {
     cel(Math.round(entry.toPercent)),
     clock(entry.startMs),
     clock(entry.endMs),
-    cel(entry.kwh),
+    // Met een komma, zoals de rest van `log.md` en zoals je het intypt; calibrate.mjs neemt beide aan.
+    entry.kwh === null || entry.kwh === undefined ? "" : nl(entry.kwh),
     cel(entry.note),
   ];
   return `| ${kolommen.join(" | ")} |`;

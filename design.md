@@ -81,6 +81,23 @@ eerder 15, met vorst ruim 20. Aan de hoge kant kiezen is hier de veiligere fout,
 dat de minuten naar boven gaan en `rangeKm()` naar beneden afrondt: te veel bereik beloven laat je
 langs de weg staan, te weinig kost niets.
 
+## Het logboek staat op twee plekken, met opzet — 2026-09-11
+
+De app bewaart afgesloten laadbeurten zelf (`localStorage`), en `log.md` in de repo blijft de
+duurzame kopie. Dat is geen dubbeling maar een taakverdeling: in de schuur, 's avonds, met koude
+handen, moet bewaren één knop zijn — een bestand in een repo bewerken is dat niet. Omgekeerd is
+`localStorage` geen archief: het overleeft een herstart en een update, maar niet het wissen van
+websitegegevens of een nieuwe telefoon. Eén knop kopieert het hele logboek als tabelregels; plakken
+is dan het enige handwerk dat overblijft.
+
+Wat de app níet doet is ergens naartoe schrijven. Een commit vanuit de pagina vraagt een token in
+publieke code, en dat is een gelekt token; bovendien zou het netwerk terugbrengen in een app die
+volledig offline werkt. Het klembord is tekst, geen verbinding.
+
+Bewaren is idempotent op starttijd: dezelfde laadbeurt nog eens bewaren werkt de regel bij in plaats
+van er een tweede naast te zetten. Dat is nodig omdat de knop blijft staan en de afgelopen beurt een
+herstart overleeft — en het is meteen de manier om de meterstand later alsnog toe te voegen.
+
 ## Wat er niet op het scherm staat — 2026-09-11
 
 De benodigde kWh en het verbruik uit de muur worden wel gerekend (`Estimate.energyKwh`,

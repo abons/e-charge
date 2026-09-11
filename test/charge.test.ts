@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { logRow } from "../src/core/logline.js";
+import { parseEntries, toMarkdown, withEntry, withoutEntry } from "../src/core/logbook.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
@@ -166,7 +167,7 @@ test("logRow: de kolommen van log.md, in die volgorde", () => {
   const eind = new Date(2026, 8, 13, 5, 5).getTime(); // over middernacht
   assert.equal(
     logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90, km: 84210, kwh: 20.4 }),
-    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20.4 |  |",
+    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 |  |",
   );
   // De datum is die van het insteken, ook als het afkoppelen de volgende dag is.
   assert.ok(logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90 }).startsWith("| 2026-09-12 |"));
@@ -178,4 +179,48 @@ test("logRow: lege kolommen blijven leeg, percentages worden heel", () => {
     logRow({ startMs: start, endMs: start + 3_600_000, fromPercent: 43.4, toPercent: 89.6 }),
     "| 2026-09-12 |  | 43 | 90 | 09:00 | 10:00 |  |  |",
   );
+});
+
+const beurt = (dag: number, van = 43, tot = 90) => ({
+  startMs: new Date(2026, 8, dag, 22, 10).getTime(),
+  endMs: new Date(2026, 8, dag + 1, 5, 5).getTime(),
+  fromPercent: van,
+  toPercent: tot,
+  km: 84210 + dag,
+  kwh: null,
+});
+
+test("logbook: wat uit opslag komt wordt niet vertrouwd", () => {
+  assert.deepEqual(parseEntries(null), []);
+  assert.deepEqual(parseEntries("geen json"), []);
+  assert.deepEqual(parseEntries('{"geen": "lijst"}'), []);
+  // Regels zonder bruikbare tijden of percentages vallen weg in plaats van het scherm mee te slepen.
+  assert.deepEqual(parseEntries('[{"startMs": 1, "endMs": 0, "fromPercent": 1, "toPercent": 2}]'), []);
+  assert.deepEqual(parseEntries('[{"startMs": "gisteren"}, null, 3]'), []);
+  const goed = parseEntries(JSON.stringify([beurt(12)]));
+  assert.equal(goed.length, 1);
+  assert.equal(goed[0]?.km, 84222);
+});
+
+test("logbook: dezelfde laadbeurt tweemaal bewaren geeft één regel", () => {
+  const een = withEntry([], beurt(12));
+  const nogmaals = withEntry(een, { ...beurt(12), kwh: 20.4 });
+  assert.equal(nogmaals.length, 1);
+  assert.equal(nogmaals[0]?.kwh, 20.4); // de nieuwste wint, zodat je later de meterstand kunt aanvullen
+});
+
+test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {
+  const lijst = withEntry(withEntry([], beurt(19)), beurt(12));
+  assert.deepEqual(lijst.map((e) => e.km), [84222, 84229]);
+  assert.deepEqual(withoutEntry(lijst, beurt(12).startMs).map((e) => e.km), [84229]);
+  assert.equal(withoutEntry(lijst, 0).length, 2); // onbekende starttijd verwijdert niets
+});
+
+test("logbook: markdown is precies wat je onder de kop in log.md plakt", () => {
+  assert.equal(
+    toMarkdown(withEntry(withEntry([], beurt(19, 38)), beurt(12))),
+    "| 2026-09-12 | 84222 | 43 | 90 | 22:10 | 05:05 |  |  |\n" +
+      "| 2026-09-19 | 84229 | 38 | 90 | 22:10 | 05:05 |  |  |",
+  );
+  assert.equal(toMarkdown([]), "");
 });
