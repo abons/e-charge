@@ -14,7 +14,7 @@ bouwt een andere app.
 ## Lineair rekenen, geen laadcurve — 2026-09-11
 
 Een laadcurve hoort bij snelladen: daar knijpt de auto af zodra de cellen het vermogen niet meer
-kwijtkunnen. 2,3 kW zit daar zó ver onder dat de boordlader tot vlak onder 100% constant doorgaat.
+kwijtkunnen. Een paar kW zit daar zó ver onder dat de boordlader tot vlak onder 100% constant doorgaat.
 Een curve zou hier dus doen alsof er meer bekend is dan waar is. De verliezen zitten in één
 rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een curve niet.
 
@@ -55,6 +55,48 @@ telefoon die zelf laten openen. Twee keuzes daarbinnen:
   wordt door elke agenda geïmporteerd — een melding aan het *eind* (`TRIGGER;RELATED=END`) niet.
 - Tijden gaan in UTC (`...Z`) het bestand in, zodat er geen `VTIMEZONE`-blok mee hoeft. Dat is de
   enige plek in de app waar UTC voorkomt; het scherm blijft lokaal.
+
+## Plannen en bezig zijn twee standen — 2026-09-11
+
+De app begon als planner: "Start" is de klok van nu, en die tikt door. Dat beantwoordt *"als ik nú
+insteek, hoe laat ben ik klaar?"* — en dat is precies fout zodra de stekker er al in zit, want dan
+schuift "Klaar rond" mee met de tijd terwijl de auto gewoon aan het laden is. Gemeten: 43% ingevuld
+om 10:35 gaf klaar om 17:32, en drie uur later zei hetzelfde scherm 20:32.
+
+`⚡ Start laden` legt daarom het moment vast (in `localStorage`, anders overleeft een aftelling het
+wegbergen van je telefoon niet). Vanaf dan staat de eindtijd stil en loopt "Nu ongeveer" op. Dat
+oplopende percentage is gerékend en niet gemeten — de app weet nog steeds niets van de auto — en
+daarom verankert een percentage dat je tijdens het laden intypt de sessie opnieuw: jouw aflezing
+wint van onze schatting, en het verschil is meteen de fout in capaciteit × rendement.
+
+`percentAfter()` is daarmee `estimate()` achterstevoren, en een test pint vast dat ze elkaars
+omgekeerde zijn: wat `estimate()` als laadtijd geeft, moet `percentAfter()` exact op het doel
+uitbrengen. Anders zegt de aftelling iets anders dan de eindtijd erboven.
+
+## Kilometers zijn een vierde constante — 2026-09-11
+
+Bereik in km vraagt een verbruik, en dat is uit de andere drie niet af te leiden.
+`CONSUMPTION_KWH_PER_100KM = 17,0` is gemengd Nederlands rijden voor een Leaf 40 kWh; in de zomer
+eerder 15, met vorst ruim 20. Aan de hoge kant kiezen is hier de veiligere fout, om dezelfde reden
+dat de minuten naar boven gaan en `rangeKm()` naar beneden afrondt: te veel bereik beloven laat je
+langs de weg staan, te weinig kost niets.
+
+## Het logboek staat op twee plekken, met opzet — 2026-09-11
+
+De app bewaart afgesloten laadbeurten zelf (`localStorage`), en `log.md` in de repo blijft de
+duurzame kopie. Dat is geen dubbeling maar een taakverdeling: in de schuur, 's avonds, met koude
+handen, moet bewaren één knop zijn — een bestand in een repo bewerken is dat niet. Omgekeerd is
+`localStorage` geen archief: het overleeft een herstart en een update, maar niet het wissen van
+websitegegevens of een nieuwe telefoon. Eén knop kopieert het hele logboek als tabelregels; plakken
+is dan het enige handwerk dat overblijft.
+
+Wat de app níet doet is ergens naartoe schrijven. Een commit vanuit de pagina vraagt een token in
+publieke code, en dat is een gelekt token; bovendien zou het netwerk terugbrengen in een app die
+volledig offline werkt. Het klembord is tekst, geen verbinding.
+
+Bewaren is idempotent op starttijd: dezelfde laadbeurt nog eens bewaren werkt de regel bij in plaats
+van er een tweede naast te zetten. Dat is nodig omdat de knop blijft staan en de afgelopen beurt een
+herstart overleeft — en het is meteen de manier om de meterstand later alsnog toe te voegen.
 
 ## Wat er niet op het scherm staat — 2026-09-11
 

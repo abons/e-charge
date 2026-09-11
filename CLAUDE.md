@@ -1,6 +1,6 @@
 # e-charge — project summary (for a fresh session)
 
-Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een 2,3 kW stopcontact**: één scherm,
+Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3 kW**: één scherm,
 plain TypeScript + DOM, PWA. De webkant van de familie is het model (`wordguesser-src/web/` —
 esbuild, `web/`-shell, `src/core/` met pure modules); dit is de kleinste telg. Zelfde doc-split als
 de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keuzes), `todo.md`
@@ -12,10 +12,26 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   Nissan API, geen OBD, geen externe service — dat was de opdracht bij het ontstaan (2026-09-11) en
   het is ook de reden dat deze app offline werkt en niets te onderhouden heeft. Een feature die een
   netwerk nodig heeft, hoort hier niet.
-- ⚠️ **De drie constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
+- ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
+  afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
+  klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon
+  overleeft, en `npm run calibrate` rekent daaruit de constanten terug. Wat de app **niet** doet is
+  ergens naartoe schrijven: geen server, geen token — een token in een publieke pagina is een gelekt
+  token, en de vorige regel blijft gelden. Klembord is tekst, geen netwerk.
+  ⚠️ De kolomvolgorde in `src/core/logline.ts` is een contract met `scripts/calibrate.mjs`, dat op
+  positie leest en niet op naam — een test pint het formaat vast.
+- ⚠️ **Een komma past niet in `<input type="number">`.** De browser maakt er stil een lege waarde
+  van, en op een Nederlands toetsenbord is de komma nu juist wat je typt. Velden die een decimaal
+  getal aannemen (de meterstand) zijn daarom `type="text"` met `inputmode="decimal"`; het parsen
+  neemt komma én punt aan.
+- ⚠️ **`logStartMs`/`logFrom` in de sessie zijn niet hetzelfde als `startMs`/`from`.** Die eerste
+  twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
+  aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk
+  was.
+- ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
   Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
   agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.
-- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij 2,3 kW gaat de boordlader
+- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
   tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
   meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —
   zie `design.md`.
@@ -26,6 +42,21 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   bewust de `getHours()`-familie en geen UTC.
 - **De UI is Nederlands** (zie `design.md`), anders dan Word Guesser — daar was Engels een
   familiebesluit over een spel in zestien talen; dit is één gereedschap voor één garage.
+- ⚠️ **Twee standen, en het verschil is één vraag: staat de stekker er al in?** Zonder lopende
+  sessie is "Start" de klok van nu, en schuift de eindtijd dus mee met de tijd — juist zolang je nog
+  niet ingestoken bent, fout zodra dat wel zo is. `⚡ Start laden` zet het moment vast in
+  `localStorage`; vanaf dan telt de app af en loopt "Nu ongeveer" gerékend op. Een percentage dat je
+  tijdens het laden intypt is een *aflezing van de auto* en verankert de sessie opnieuw vanaf nu —
+  meteen de manier om `USABLE_CAPACITY_KWH` en `EFFICIENCY` te controleren.
+- ⚠️ **Niets boven de knoppen mag van hoogte veranderen.** De meldingsregel staat ónder `.actions`
+  omdat een `change` bij het verlaten van een invoerveld de melding kan tonen of verbergen terwijl
+  je een knop indrukt; alles eronder verschuift dan tussen aanraken en loslaten, en je tik landt
+  naast de knop. In Chromium gereproduceerd: de klik op ⏹ Stop kwam niet aan.
+- ⚠️ **`el.hidden` werkt alleen als de CSS het toelaat.** Eigen regels met `display` (zoals
+  `.line { display: flex }`) verslaan de `display: none` die het `hidden`-attribuut uit de
+  browser-stylesheet krijgt. Daarom staat er een expliciete `[hidden] { display: none !important; }`
+  ná die regels. Controleer verborgen dingen met `getComputedStyle(...).display` en niet met de
+  `.hidden`-property — die stond hier op `true` terwijl de regel gewoon in beeld bleef.
 - ⚠️ **`render()` raakt de invoervelden niet aan.** De opmaak staat in `web/index.html`, JS schrijft
   alleen tekst in de plekken die veranderen. De schermklok tikt door (elke 15 s, en op
   `visibilitychange`), en een render die de invoer opnieuw opbouwt gooit je cursor uit het veld dat

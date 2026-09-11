@@ -43,6 +43,10 @@
   .out { margin-top: 6px; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 9px 0; border-top: 1px solid #2c2c2e; }
+  /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
+     die het `hidden`-attribuut van de browser meekrijgt, en dan verbergt `el.hidden = true` niets
+     meer. Kostte hier een zichtbare "Nu ongeveer"-regel met een oud percentage erin. */
+  [hidden] { display: none !important; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 30px; color: #7fd4a0; }
@@ -52,9 +56,27 @@
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }
   .note.info { background: #23303a; color: #9fc3dc; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .actions + .note { margin-top: 12px; }
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
+  .logblock { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2c2c2e; }
+  .logblock .field { margin: 0 0 10px; }
+  .logblock .entry input { width: 132px; font-size: 18px; padding: 9px 12px; }
+  .opt { color: #6f6f6f; font-size: 12px; font-weight: 400; }
+  .logline { display: block; margin-top: 10px; padding: 9px 11px; border-radius: 8px;
+             background: #121213; border: 1px solid #2c2c2e; color: #9fc3dc;
+             font: 12px/1.5 ui-monospace, monospace; overflow-x: auto; white-space: pre; }
+  .logtitle { font-size: 14px; color: #9a9a9a; font-weight: 600; margin: 0 0 10px; }
+  .loglist { list-style: none; margin: 12px 0 0; padding: 0; }
+  .loglist li { display: flex; align-items: baseline; gap: 8px; padding: 7px 0;
+                border-top: 1px solid #2c2c2e; font-size: 13px; }
+  .loglist .datum { color: #9a9a9a; width: 74px; flex: none; font-variant-numeric: tabular-nums; }
+  .loglist .pct { font-weight: 700; }
+  .loglist .rest { color: #9a9a9a; flex: 1; }
+  .loglist .wis { background: none; border: none; color: #6f6f6f; font-size: 16px; padding: 0 2px;
+                  cursor: pointer; }
+  .loghint { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
   .about { margin-top: 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
@@ -88,18 +110,74 @@
       </span>
     </div>
 
+    <!--
+      Twee standen in dezelfde regels: vóór het starten is "Start" de klok van nu en staat er een
+      geschatte laadtijd; na het starten staat "Gestart om" vast en komt de regel "Nu ongeveer"
+      erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
+    -->
     <div class="out">
-      <div class="line"><span class="k">Start</span><span class="v" id="start">--:--</span></div>
-      <div class="line"><span class="k">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
+      <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
+      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
+        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
+      <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
       <div class="line hero"><span class="k">Klaar rond</span>
         <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
+      <div class="line"><span class="k" id="rangelabel">Bereik bij doel</span><span class="v" id="range">–</span></div>
       <div class="line"><span class="k">Laadvermogen</span><span class="v" id="power">–</span></div>
+    </div>
+
+    <!--
+      ⚠️ De melding staat ónder de knoppen, en dat is geen smaak. Boven de knoppen verandert hij van
+      hoogte terwijl je een knop indrukt: het percentageveld verliest focus, `change` vuurt, de
+      melding verschijnt of verdwijnt, en alles eronder verschuift — je tik landt dan naast de knop
+      die je aanraakte. Gereproduceerd in Chromium: de klik op ⏹ Stop kwam niet aan.
+    -->
+    <div class="actions">
+      <button id="start-charging" type="button">⚡ Start laden</button>
+      <button id="calendar" type="button">📅 Zet in agenda</button>
     </div>
 
     <p class="note" id="note" hidden></p>
 
-    <div class="actions">
-      <button id="calendar" type="button">📅 Zet in agenda</button>
+    <!--
+      Het logboek-blokje. Staat bewust onderaan en buiten de rekenregels: de km-stand doet niets
+      voor de laadtijd, hij hoort alleen bij de regel die je in `log.md` plakt. Zonder dat knopje
+      wordt een logboek in een donkere schuur toch niet ingevuld.
+    -->
+    <div class="logblock">
+      <h2 class="logtitle">Logboek</h2>
+      <div class="field">
+        <label for="km">Km-stand <span class="opt">optioneel</span></label>
+        <span class="entry">
+          <input id="km" type="number" min="0" step="1" inputmode="numeric" enterkeyhint="done"
+                 placeholder="84210">
+          <span class="unit">km</span>
+        </span>
+      </div>
+      <div class="field">
+        <label for="kwh">Meterstand <span class="opt">optioneel</span></label>
+        <span class="entry">
+          <!--
+            ⚠️ `type="text"` en geen `number`: in een getalveld weigert de browser de komma, en
+            precies die staat op het Nederlandse toetsenbord. "20,4" levert dan een lege waarde op
+            — stil, terwijl de placeholder erom vraagt. `inputmode="decimal"` houdt het cijferblok;
+            `optioneelGetal()` in main.ts neemt zowel komma als punt aan.
+          -->
+          <input id="kwh" type="text" inputmode="decimal" enterkeyhint="done" placeholder="20,4">
+          <span class="unit">kWh</span>
+        </span>
+      </div>
+      <div class="actions">
+        <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
+        <button id="copylog" type="button">📋 Kopieer logregel</button>
+      </div>
+      <code class="logline" id="logline" hidden></code>
+
+      <ul class="loglist" id="loglist"></ul>
+      <div class="actions" id="logactions" hidden>
+        <button id="copyall" type="button">📋 Kopieer hele logboek</button>
+      </div>
+      <p class="loghint" id="loghint" hidden></p>
     </div>
   </div>
 

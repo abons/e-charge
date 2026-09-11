@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_SETUP, clampPercent, estimate } from "../src/core/charge.js";
+import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
+import { logRow } from "../src/core/logline.js";
+import { parseEntries, toMarkdown, withEntry, withoutEntry } from "../src/core/logbook.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
@@ -14,9 +16,9 @@ test("estimate: 43% → 90% aan een stopcontact", () => {
   assert.equal(result.energyKwh.toFixed(2), "18.33");
   // Daarvoor moet er 18,33 / 0,88 = 20,83 kWh uit de muur komen.
   assert.equal(result.wallEnergyKwh.toFixed(2), "20.83");
-  // 2,3 kW × 88% = 2,024 kW effectief; 18,33 / 2,024 = 9,06 uur.
-  assert.equal(result.effectivePowerKw.toFixed(3), "2.024");
-  assert.equal(duration(result.minutes), "9u 04m");
+  // 3,0 kW × 88% = 2,64 kW effectief; 18,33 / 2,64 = 6,94 uur.
+  assert.equal(result.effectivePowerKw.toFixed(3), "2.640");
+  assert.equal(duration(result.minutes), "6u 57m");
 });
 
 test("estimate: rendement maakt het langer, nooit korter", () => {
@@ -28,7 +30,7 @@ test("estimate: rendement maakt het langer, nooit korter", () => {
 });
 
 test("estimate: alles wat aan de auto hangt is te verzetten", () => {
-  const other = estimate(0, 100, { capacityKwh: 62, powerKw: 11, efficiency: 0.92 });
+  const other = estimate(0, 100, { ...DEFAULT_SETUP, capacityKwh: 62, powerKw: 11, efficiency: 0.92 });
   assert.equal(other.energyKwh, 62);
   assert.equal(other.effectivePowerKw.toFixed(2), "10.12");
   assert.equal(duration(other.minutes), "6u 08m");
@@ -41,13 +43,62 @@ test("estimate: doel al gehaald betekent niet laden", () => {
     assert.equal(result.minutes, 0);
   }
   // Het vermogen blijft ook dan gewoon bekend — het is een eigenschap van de lader, niet van de rit.
-  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "2.024");
+  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "2.640");
 });
 
 test("estimate: rondt minuten naar boven en klemt percentages", () => {
   assert.equal(estimate(-10, 200).energyKwh, 39); // 0 → 100
   assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
   assert.ok(Number.isInteger(estimate(43, 90).minutes));
+});
+
+test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
+  // 39 kWh bij 17 kWh/100 km = 229 km vol; 90% daarvan is 206.
+  assert.equal(rangeKm(100), 229);
+  assert.equal(rangeKm(90), 206);
+  assert.equal(rangeKm(43), 98);
+  assert.equal(rangeKm(0), 0);
+  // Een zuiniger of dorstiger auto verzet het bereik, net als bij estimate().
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, consumptionKwhPer100Km: 13 }), 300);
+  // Een versleten pakket levert minder km bij hetzelfde percentage.
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 35.1 }), 206);
+});
+
+test("rangeKm: een gebroken percentage gaat naar beneden, niet naar het dichtstbijzijnde", () => {
+  // 59,7% mag geen kilometers van 60% opleveren: het scherm toont Math.floor(soc) ernaast, en dan
+  // zou er "59% ± 137 km" staan terwijl 137 km bij 60% hoort.
+  assert.equal(rangeKm(59.7), rangeKm(59));
+  assert.equal(rangeKm(59), 135);
+  assert.equal(rangeKm(60), 137);
+  assert.equal(rangeKm(-0.5), 0);
+});
+
+test("percentAfter: loopt op met het laadvermogen en stopt op het doel", () => {
+  // 2,64 kW effectief in 39 kWh: 6,77 procentpunt per uur.
+  assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
+  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "49.8");
+  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "63.3");
+  // Na de geschatte laadtijd staat hij precies op het doel, en gaat er niet overheen.
+  const minutes = estimate(43, 90).minutes;
+  assert.equal(percentAfter(43, 90, minutes * 60_000), 90);
+  assert.equal(percentAfter(43, 90, 99 * 3_600_000), 90);
+});
+
+test("percentAfter: onzinnige invoer levert gewoon het startpunt op", () => {
+  assert.equal(percentAfter(43, 90, -1), 43);
+  assert.equal(percentAfter(90, 90, 3_600_000), 90); // niets te laden
+  assert.equal(percentAfter(95, 90, 3_600_000), 95); // al voorbij het doel
+});
+
+test("percentAfter en estimate zijn elkaars omgekeerde", () => {
+  // Wat estimate() als laadtijd geeft, moet percentAfter() precies op het doel uitbrengen — anders
+  // zou de aftelling op het scherm iets anders zeggen dan de eindtijd erboven.
+  for (const [from, to] of [[10, 80], [43, 90], [0, 100], [65, 66]] as const) {
+    const ms = estimate(from, to).minutes * 60_000;
+    assert.equal(percentAfter(from, to, ms), to, `${from} → ${to}`);
+    // Eén minuut eerder is hij er nog net niet (afronden naar boven zit in estimate).
+    assert.ok(percentAfter(from, to, ms - 60_000) < to, `${from} → ${to}`);
+  }
 });
 
 test("clampPercent: hele getallen, 0 t/m 100", () => {
@@ -117,4 +168,82 @@ test("calendar: een backslash in de tekst wordt verdubbeld", () => {
   });
   assert.ok(ics.includes("SUMMARY:Pad C:\\\\laden"), ics);
   assert.ok(ics.includes("DESCRIPTION:een\\\\twee"), ics);
+});
+
+// De kolomvolgorde is een contract met scripts/calibrate.mjs, dat op positie leest en niet op naam.
+test("logRow: de kolommen van log.md, in die volgorde", () => {
+  const start = new Date(2026, 8, 12, 22, 10).getTime();
+  const eind = new Date(2026, 8, 13, 5, 5).getTime(); // over middernacht
+  assert.equal(
+    logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90, km: 84210, kwh: 20.4 }),
+    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 |  |",
+  );
+  // De datum is die van het insteken, ook als het afkoppelen de volgende dag is.
+  assert.ok(logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90 }).startsWith("| 2026-09-12 |"));
+});
+
+test("logRow: lege kolommen blijven leeg, percentages worden heel", () => {
+  const start = new Date(2026, 8, 12, 9, 0).getTime();
+  assert.equal(
+    logRow({ startMs: start, endMs: start + 3_600_000, fromPercent: 43.4, toPercent: 89.6 }),
+    "| 2026-09-12 |  | 43 | 90 | 09:00 | 10:00 |  |  |",
+  );
+});
+
+const beurt = (dag: number, van = 43, tot = 90) => ({
+  startMs: new Date(2026, 8, dag, 22, 10).getTime(),
+  endMs: new Date(2026, 8, dag + 1, 5, 5).getTime(),
+  fromPercent: van,
+  toPercent: tot,
+  km: 84210 + dag,
+  kwh: null,
+});
+
+test("logbook: wat uit opslag komt wordt niet vertrouwd", () => {
+  assert.deepEqual(parseEntries(null), []);
+  assert.deepEqual(parseEntries("geen json"), []);
+  assert.deepEqual(parseEntries('{"geen": "lijst"}'), []);
+  // Regels zonder bruikbare tijden of percentages vallen weg in plaats van het scherm mee te slepen.
+  assert.deepEqual(parseEntries('[{"startMs": 1, "endMs": 0, "fromPercent": 1, "toPercent": 2}]'), []);
+  assert.deepEqual(parseEntries('[{"startMs": "gisteren"}, null, 3]'), []);
+  const goed = parseEntries(JSON.stringify([beurt(12)]));
+  assert.equal(goed.length, 1);
+  assert.equal(goed[0]?.km, 84222);
+});
+
+test("logbook: dezelfde laadbeurt tweemaal bewaren geeft één regel", () => {
+  const een = withEntry([], beurt(12));
+  const nogmaals = withEntry(een, { ...beurt(12), kwh: 20.4 });
+  assert.equal(nogmaals.length, 1);
+  assert.equal(nogmaals[0]?.kwh, 20.4); // de nieuwste wint, zodat je later de meterstand kunt aanvullen
+});
+
+// De beloofde route: 's avonds bewaren mét km-stand, 's ochtends de meterstand erbij — en dan zijn
+// de invoervelden leeg. Een lege waarde mag dus niet over een ingevulde heen.
+test("logbook: aanvullen wist niet wat er al stond", () => {
+  const avond = withEntry([], { ...beurt(12), km: 84210, kwh: null });
+  const ochtend = withEntry(avond, { ...beurt(12), km: null, kwh: 20.4 });
+  assert.equal(ochtend.length, 1);
+  assert.equal(ochtend[0]?.km, 84210);
+  assert.equal(ochtend[0]?.kwh, 20.4);
+  // En andersom net zo.
+  const later = withEntry(ochtend, { ...beurt(12), km: null, kwh: null });
+  assert.equal(later[0]?.km, 84210);
+  assert.equal(later[0]?.kwh, 20.4);
+});
+
+test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {
+  const lijst = withEntry(withEntry([], beurt(19)), beurt(12));
+  assert.deepEqual(lijst.map((e) => e.km), [84222, 84229]);
+  assert.deepEqual(withoutEntry(lijst, beurt(12).startMs).map((e) => e.km), [84229]);
+  assert.equal(withoutEntry(lijst, 0).length, 2); // onbekende starttijd verwijdert niets
+});
+
+test("logbook: markdown is precies wat je onder de kop in log.md plakt", () => {
+  assert.equal(
+    toMarkdown(withEntry(withEntry([], beurt(19, 38)), beurt(12))),
+    "| 2026-09-12 | 84222 | 43 | 90 | 22:10 | 05:05 |  |  |\n" +
+      "| 2026-09-19 | 84229 | 38 | 90 | 22:10 | 05:05 |  |  |",
+  );
+  assert.equal(toMarkdown([]), "");
 });
