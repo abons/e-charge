@@ -12,6 +12,15 @@ netwerk moet komen.
 Geen backend, geen login, geen cloud, geen Nissan- of OBD-koppeling. De app weet niets van de auto:
 jij typt het percentage, de app rekent.
 
+## Installeren
+
+**<https://abons.github.io/e-charge/>** — open die pagina op je telefoon en kies *Toevoegen aan
+startscherm*. Daarna start hij als eigen icoon en werkt hij zonder bereik; de service worker heeft
+de hele app (vier bestandjes) in de cache.
+
+Geen APK, anders dan bij de zusters: deze app doet niets waarvoor je Android zelf nodig hebt, dus is
+de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke push naar `main`.
+
 ## Build / test
 
 - `npm install` — alleen dev-dependencies (TypeScript + esbuild).

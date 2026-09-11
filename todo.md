@@ -20,10 +20,10 @@ op een echte telefoon gezien.**
 
 ## Openstaand
 
-- **Geen publicatiepad.** De zusters publiceren `build/` in een dist-repo met een
-  `scripts/publish.mjs` die `sw.js`'s VERSION stempelt. Hier is nog niets: `npm run build` en de map
-  zelf ergens zetten. Zolang dat zo is, staat `sw.js`'s VERSION op `v1` — zie de waarschuwing in
-  `CLAUDE.md` over caches bij lokaal testen.
+- ⚠️ **Pages moet één keer met de hand aangezet worden:** Settings → Pages → Source =
+  "GitHub Actions". Tot dat gebeurt draait `.github/workflows/pages.yml` wel en publiceert hij
+  niets, en is <https://abons.github.io/e-charge/> (de link in de README en op de pagina zelf) dood.
+  De eerste run gebeurt bij de push naar `main`, dus dit is het eerste wat na de merge te checken is.
 - **Het icoon is één SVG.** Goed genoeg voor de favicon en voor Chrome's installatie, maar een
   maskable launcher-icoon knipt een vol vierkant af; een echt PNG-paar (192/512) vraagt een oog op
   een toestel. Zelfde open punt als bij Word Guesser.

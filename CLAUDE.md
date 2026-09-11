@@ -30,12 +30,18 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   alleen tekst in de plekken die veranderen. De schermklok tikt door (elke 15 s, en op
   `visibilitychange`), en een render die de invoer opnieuw opbouwt gooit je cursor uit het veld dat
   je aan het typen bent. Alleen `change` (bij het verlaten van een veld) mag een waarde normaliseren.
-- ⚠️ **`sw.js`'s VERSION staat op `v1` en wordt door niets gestempeld.** Zolang dat zo is, is de
-  cache-key onveranderlijk en blijft een tab die de app ooit laadde zijn eerste `app.js` houden —
-  ook na een rebuild. Bij lokaal testen dus eerst de worker weggooien
+- ⚠️ **`sw.js`'s VERSION wordt door `scripts/build.mjs` gestempeld, niet door de bron.** In
+  `web/sw.js` staat letterlijk `v1`; elke build (ook `serve`) vervangt dat door een tijdstempel, dus
+  een deploy zet zichzelf door. Wat er *nog* fout kan: binnen één draaiende `npm run serve` blijft
+  die stempel gelijk, dus na een rebuild in dezelfde sessie kan een tab nog de oude bundel serveren.
+  Herstart dan serve, of gooi de worker weg
   (`for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister()` plus
   `for (const k of await caches.keys()) await caches.delete(k)`) voordat je gelooft dat code stuk
   is. Dit heeft bij Word Guesser uren gekost; zie zijn `CLAUDE.md`.
+- **Publiceren gaat automatisch**, anders dan bij de zusters (die een dist-repo met een
+  `publish.mjs` hebben): `.github/workflows/pages.yml` bouwt bij elke push naar `main` en zet
+  `build/` op Pages, met de tests ervóór. Er is dus geen handmatige go-live en geen dist-diff meer
+  om te reviewen — de assurantie is de groene workflow.
 
 ## Build / run
 

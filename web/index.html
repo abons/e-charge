@@ -7,9 +7,14 @@
 <meta name="description" content="Rekenhulp voor een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact: vul je huidige en gewenste batterijpercentage in en zie hoe lang laden duurt en hoe laat de auto klaar is.">
 <meta name="author" content="hrbons">
 <meta name="theme-color" content="#121213">
+<link rel="canonical" href="https://abons.github.io/e-charge/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Leaf laadtijd — hoe lang aan het stopcontact">
+<meta property="og:description" content="Vul je huidige en gewenste batterijpercentage in en zie hoe lang een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact doet, en hoe laat hij klaar is.">
+<meta property="og:url" content="https://abons.github.io/e-charge/">
 <style>
   /*
    * Dezelfde tokens als de zusters (#121213 achtergrond, #1c1c1d kaart, #2c2c2e rand, groen
@@ -50,6 +55,11 @@
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
+  .about { margin-top: 12px; }
+  .about h2 { font-size: 15px; margin: 0 0 8px; }
+  .about p { margin: 6px 0; color: #c9c9c9; font-size: 14px; line-height: 1.5; }
+  .about a { color: #7fd4a0; }
+  .about button { margin-top: 8px; }
   footer { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin-top: 16px; text-align: center; }
 </style>
 </head>
@@ -87,8 +97,18 @@
 
     <div class="actions">
       <button id="calendar" type="button">📅 Zet in agenda</button>
-      <button id="install" type="button" hidden>📲 Installeer</button>
     </div>
+  </div>
+
+  <div class="card about">
+    <h2>Installeren</h2>
+    <p>Deze pagina <em>is</em> de app. Open
+      <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
+      <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
+      zonder bereik, want er is niets dat van een netwerk moet komen.</p>
+    <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
+      <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
+    <button id="install" type="button" hidden>📲 Installeer als app</button>
   </div>
 
   <footer id="setup"></footer>

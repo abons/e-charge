@@ -63,3 +63,22 @@ De benodigde kWh en het verbruik uit de muur worden wel gerekend (`Estimate.ener
 de agenda-afspraak, waar je ze later nog eens terug kunt lezen. Het huidige percentage staat ook
 bewust **leeg** bij het openen — dat is elke keer anders, dus een voorgevuld getal is een gok die
 op een meting lijkt. Het doelpercentage is wél een voorkeur en wordt onthouden.
+
+## De PWA is de hele app, en Pages is het publicatiepad — 2026-09-11
+
+De zusters hebben allemaal twee kanalen: een native Kotlin-APK en een webkopie, elk met hun eigen
+distributie (een private `*-src` repo, artefacten in een publieke dist-repo). Hier niet, om twee
+redenen:
+
+- **Geen APK.** Deze app doet niets waarvoor Android zelf nodig is — geen sensoren, geen
+  achtergrondwerk, geen store. Twee invoervelden en een rekensom zijn in de browser compleet, en de
+  PWA staat na *Toevoegen aan startscherm* net zo op het startscherm als een APK. Een tweede
+  codebase onderhouden voor hetzelfde antwoord is de prijs niet waard.
+- **Geen dist-repo.** Deze repo is zelf publiek, dus de artefacten horen op zijn eigen GitHub Pages
+  in plaats van in een gedeelde dist-repo. `.github/workflows/pages.yml` bouwt bij elke push naar
+  `main`, met de tests ervóór, en publiceert `build/`. Daarmee is de installatielink
+  <https://abons.github.io/e-charge/> ook de deploy — er is geen aparte go-live-stap meer, en dus
+  ook geen onleesbare dist-diff om op provenance te vertrouwen.
+
+De service-worker-versie wordt door `scripts/build.mjs` gestempeld en niet door een publish-script,
+zodat een deploy zichzelf doorzet zonder dat iemand eraan moet denken.
