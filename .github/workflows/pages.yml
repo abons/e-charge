@@ -1,0 +1,47 @@
+# Bouwt de app en zet build/ op GitHub Pages — dat is tegelijk de installatielink: wie de pagina in
+# Chrome of Safari opent, kan hem als app toevoegen. Geen dist-repo zoals bij de zusters: deze repo
+# is zelf publiek, dus de artefacten horen op zijn eigen Pages.
+#
+# ⚠️ Eenmalig in de repo-instellingen: Settings → Pages → Source = "GitHub Actions". Zonder die
+# stand draait deze workflow wel en publiceert hij niets.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Eén deploy tegelijk; wachtende runs vouwt de group samen. Een lopende run NIET afbreken: die kan
+# al een Pages-deployment hebben aangemaakt, en die blijft dan "in progress" hangen tot hij uittimet
+# (~10 min) — waardoor juist de nieuwste push niet live komt. Zelfde stand als GitHub's eigen
+# Pages-starterworkflow, en om dezelfde reden.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # De rekentests staan vóór de deploy: een verkeerde laadtijd is het enige wat deze app kan stukmaken.
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+      - id: deploy
+        uses: actions/deploy-pages@v4

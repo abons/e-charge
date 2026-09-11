@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leaf laadtijd — hoe lang aan het stopcontact</title>
+<meta name="description" content="Rekenhulp voor een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact: vul je huidige en gewenste batterijpercentage in en zie hoe lang laden duurt en hoe laat de auto klaar is.">
+<meta name="author" content="hrbons">
+<meta name="theme-color" content="#121213">
+<link rel="canonical" href="https://abons.github.io/e-charge/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Leaf laadtijd — hoe lang aan het stopcontact">
+<meta property="og:description" content="Vul je huidige en gewenste batterijpercentage in en zie hoe lang een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact doet, en hoe laat hij klaar is.">
+<meta property="og:url" content="https://abons.github.io/e-charge/">
+<style>
+  /*
+   * Dezelfde tokens als de zusters (#121213 achtergrond, #1c1c1d kaart, #2c2c2e rand, groen
+   * accent, system-ui) — één telefoonkolom breed, en niets dat op een tweede kolom rekent.
+   */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121213; color: #eee; font: 16px system-ui, sans-serif;
+         display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+  main { width: 100%; max-width: 420px; padding: 22px 16px 28px; }
+  .title { font-size: 24px; font-weight: 700; letter-spacing: 1px; margin: 0 0 18px; text-align: center; }
+  .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 14px 16px; }
+
+  /* Invoer: label links, groot invulveld rechts — met de duim te raken, niet met de nagel. */
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; }
+  .field label { font-size: 15px; color: #c9c9c9; }
+  .entry { display: flex; align-items: baseline; gap: 6px; }
+  .entry input { width: 104px; background: #121213; color: #eee; border: 1px solid #3a3a3c;
+                 border-radius: 10px; padding: 12px 14px; font: 700 22px system-ui, sans-serif;
+                 text-align: right; -moz-appearance: textfield; }
+  .entry input::-webkit-outer-spin-button, .entry input::-webkit-inner-spin-button {
+                 -webkit-appearance: none; margin: 0; }
+  .entry input:focus { outline: none; border-color: #7fd4a0; }
+  .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
+
+  .out { margin-top: 6px; }
+  .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+          padding: 9px 0; border-top: 1px solid #2c2c2e; }
+  .line .k { font-size: 14px; color: #9a9a9a; }
+  .line .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .line.hero .v { font-size: 30px; color: #7fd4a0; }
+  .line .day { font-size: 14px; font-weight: 600; color: #9a9a9a; padding-left: 6px; }
+
+  .note { margin: 14px 0 0; padding: 11px 13px; border-radius: 10px; background: #14361f;
+          color: #7fd4a0; font-size: 14px; line-height: 1.4; }
+  .note.info { background: #23303a; color: #9fc3dc; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px;
+           font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  .about { margin-top: 12px; }
+  /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
+     startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
+  @media (display-mode: standalone) { .about { display: none; } }
+  .about h2 { font-size: 15px; margin: 0 0 8px; }
+  .about p { margin: 6px 0; color: #c9c9c9; font-size: 14px; line-height: 1.5; }
+  .about a { color: #7fd4a0; }
+  .about button { margin-top: 8px; }
+  footer { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin-top: 16px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1 class="title">Nissan Leaf</h1>
+
+  <div class="card">
+    <div class="field">
+      <label for="current">Huidig</label>
+      <span class="entry">
+        <input id="current" type="number" min="0" max="100" step="1" inputmode="numeric"
+               enterkeyhint="done" placeholder="43" aria-describedby="note">
+        <span class="unit">%</span>
+      </span>
+    </div>
+    <div class="field">
+      <label for="target">Doel</label>
+      <span class="entry">
+        <input id="target" type="number" min="0" max="100" step="1" inputmode="numeric"
+               enterkeyhint="done" value="90">
+        <span class="unit">%</span>
+      </span>
+    </div>
+
+    <div class="out">
+      <div class="line"><span class="k">Start</span><span class="v" id="start">--:--</span></div>
+      <div class="line"><span class="k">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
+      <div class="line hero"><span class="k">Klaar rond</span>
+        <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
+      <div class="line"><span class="k">Laadvermogen</span><span class="v" id="power">–</span></div>
+    </div>
+
+    <p class="note" id="note" hidden></p>
+
+    <div class="actions">
+      <button id="calendar" type="button">📅 Zet in agenda</button>
+    </div>
+  </div>
+
+  <div class="card about">
+    <h2>Installeren</h2>
+    <p>Deze pagina <em>is</em> de app. Open
+      <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
+      <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
+      zonder bereik, want er is niets dat van een netwerk moet komen.</p>
+    <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
+      <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
+    <button id="install" type="button" hidden>📲 Installeer als app</button>
+  </div>
+
+  <footer id="setup"></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
