@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
+import { logRow } from "../src/core/logline.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
@@ -157,4 +158,24 @@ test("calendar: een backslash in de tekst wordt verdubbeld", () => {
   });
   assert.ok(ics.includes("SUMMARY:Pad C:\\\\laden"), ics);
   assert.ok(ics.includes("DESCRIPTION:een\\\\twee"), ics);
+});
+
+// De kolomvolgorde is een contract met scripts/calibrate.mjs, dat op positie leest en niet op naam.
+test("logRow: de kolommen van log.md, in die volgorde", () => {
+  const start = new Date(2026, 8, 12, 22, 10).getTime();
+  const eind = new Date(2026, 8, 13, 5, 5).getTime(); // over middernacht
+  assert.equal(
+    logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90, km: 84210, kwh: 20.4 }),
+    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20.4 |  |",
+  );
+  // De datum is die van het insteken, ook als het afkoppelen de volgende dag is.
+  assert.ok(logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90 }).startsWith("| 2026-09-12 |"));
+});
+
+test("logRow: lege kolommen blijven leeg, percentages worden heel", () => {
+  const start = new Date(2026, 8, 12, 9, 0).getTime();
+  assert.equal(
+    logRow({ startMs: start, endMs: start + 3_600_000, fromPercent: 43.4, toPercent: 89.6 }),
+    "| 2026-09-12 |  | 43 | 90 | 09:00 | 10:00 |  |  |",
+  );
 });

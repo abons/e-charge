@@ -1,5 +1,6 @@
 import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "./core/charge.js";
 import { calendar } from "./core/ics.js";
+import { logRow } from "./core/logline.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 
 /**
@@ -22,7 +23,9 @@ import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 
 const TARGET_KEY = "e-charge.target";
 const SESSION_KEY = "e-charge.session";
+const FINISHED_KEY = "e-charge.finished";
 const DEFAULT_TARGET = 90;
+const COPY_LABEL = "📋 Kopieer logregel";
 /** Zo vaak herrekenen: in de plan-stand loopt "nu" door, in de bezig-stand het percentage. */
 const TICK_MS = 15_000;
 
@@ -44,13 +47,26 @@ const rangeOut = el("range");
 const powerOut = el("power");
 const noteOut = el("note");
 const setupOut = el("setup");
+const kmInput = el<HTMLInputElement>("km");
+const copyButton = el<HTMLButtonElement>("copylog");
+const logLineOut = el("logline");
 const chargeButton = el<HTMLButtonElement>("start-charging");
 const calendarButton = el<HTMLButtonElement>("calendar");
 const installButton = el<HTMLButtonElement>("install");
 
-/** Een lopende laadsessie: het moment en het percentage waarop hij begon, en het doel van toen. */
-interface Session { startMs: number; from: number; to: number }
+/**
+ * Een lopende laadsessie: het moment en het percentage waarop de berekening staat, en het doel.
+ *
+ * `logStartMs`/`logFrom` zijn iets anders dan `startMs`/`from`: die eerste twee zijn het moment dat
+ * je de stekker erin stak, en die overleven het opnieuw verankeren. Zonder dat onderscheid zou een
+ * tussentijdse aflezing de logregel korter maken dan de laadbeurt werkelijk duurde.
+ */
+interface Session { startMs: number; from: number; to: number; logStartMs: number; logFrom: number }
 let session: Session | null = null;
+
+/** De laatst afgesloten sessie, zodat je de logregel ná het afkoppelen nog kunt kopiëren. */
+interface Finished { startMs: number; endMs: number; from: number }
+let finished: Finished | null = null;
 
 /** Wat de laatste render uitrekende — wat de agendaknop in het `.ics` zet. */
 let ready: { startMs: number; readyMs: number; from: number; to: number; label: string } | null = null;
@@ -77,6 +93,7 @@ function render(): void {
   rangeLabel.textContent = `Bereik bij ${to}%`;
   startOut.textContent = clock(startMs);
   chargeButton.textContent = session ? "⏹ Stop" : "⚡ Start laden";
+  updateCopyButton();
   ready = null;
 
   if (from === null) {
@@ -121,6 +138,11 @@ function render(): void {
   ready = { startMs, readyMs, from, to, label: label ?? "" };
   calendarButton.disabled = false;
   chargeButton.disabled = false;
+}
+
+/** Zonder lopende of afgelopen laadbeurt valt er niets te loggen. */
+function updateCopyButton(): void {
+  copyButton.disabled = session === null && finished === null;
 }
 
 /** `null` voor bereik laat die regel staan zoals render hem al zette; de rest wordt altijd gezet. */
@@ -205,10 +227,17 @@ function readSession(): Session | null {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { startMs, from, to } = parsed as Record<string, unknown>;
+    const { startMs, from, to, logStartMs, logFrom } = parsed as Record<string, unknown>;
     if (typeof startMs !== "number" || typeof from !== "number" || typeof to !== "number") return null;
     if (!Number.isFinite(startMs) || startMs <= 0) return null;
-    return { startMs, from: clampPercent(from), to: clampPercent(to) };
+    return {
+      startMs,
+      from: clampPercent(from),
+      to: clampPercent(to),
+      // Een sessie uit een oudere versie kent deze twee niet; dan is de laadbeurt zelf het beste dat we hebben.
+      logStartMs: typeof logStartMs === "number" && logStartMs > 0 ? logStartMs : startMs,
+      logFrom: typeof logFrom === "number" ? clampPercent(logFrom) : clampPercent(from),
+    };
   } catch {
     return null;
   }
@@ -224,17 +253,85 @@ function writeSession(value: Session | null): void {
   }
 }
 
+function readFinished(): Finished | null {
+  try {
+    const raw = localStorage.getItem(FINISHED_KEY);
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { startMs, endMs, from } = parsed as Record<string, unknown>;
+    if (typeof startMs !== "number" || typeof endMs !== "number" || typeof from !== "number") return null;
+    if (!Number.isFinite(startMs) || startMs <= 0 || endMs < startMs) return null;
+    return { startMs, endMs, from: clampPercent(from) };
+  } catch {
+    return null;
+  }
+}
+
+function writeFinished(value: Finished): void {
+  finished = value;
+  try {
+    localStorage.setItem(FINISHED_KEY, JSON.stringify(value));
+  } catch {
+    /* dan is de logregel alleen kopieerbaar zolang deze pagina open blijft */
+  }
+}
+
 /** ⚡ Start laden / ⏹ Stop: het enige wat de app van "plannen" naar "bezig" brengt en terug. */
 function toggleCharging(): void {
   if (session !== null) {
+    // Bij het afkoppelen de hele laadbeurt bewaren — vanaf het insteken, niet vanaf de laatste
+    // tussentijdse aflezing — zodat de logregel klopt met wat er werkelijk aan de muur hing.
+    writeFinished({ startMs: session.logStartMs, endMs: Date.now(), from: session.logFrom });
     writeSession(null);
     render();
     return;
   }
   const from = percentOf(currentInput);
   if (from === null) return;
-  writeSession({ startMs: Date.now(), from, to: percentOf(targetInput) ?? DEFAULT_TARGET });
+  const now = Date.now();
+  writeSession({
+    startMs: now,
+    from,
+    to: percentOf(targetInput) ?? DEFAULT_TARGET,
+    logStartMs: now,
+    logFrom: from,
+  });
   render();
+}
+
+/**
+ * De logregel op het klembord. Tijdens het laden is het de stand van nu, na het afkoppelen die van
+ * de afgelopen beurt — en dan is het percentage in het veld precies wat je van het dashboard hebt
+ * gelezen. De km-stand mag leeg blijven; dan valt alleen het verbruik niet te rekenen.
+ */
+function copyLogRow(): void {
+  const nu = Date.now();
+  const bron = session
+    ? { startMs: session.logStartMs, endMs: nu, from: session.logFrom, to: percentAfter(session.from, session.to, nu - session.startMs) }
+    : finished
+      ? { startMs: finished.startMs, endMs: finished.endMs, from: finished.from, to: percentOf(currentInput) ?? finished.from }
+      : null;
+  if (bron === null) return;
+
+  const km = kmInput.value.trim() === "" ? null : Number(kmInput.value.trim());
+  const regel = logRow({
+    startMs: bron.startMs,
+    endMs: bron.endMs,
+    fromPercent: bron.from,
+    toPercent: bron.to,
+    km: km !== null && Number.isFinite(km) ? Math.round(km) : null,
+  });
+
+  logLineOut.textContent = regel;
+  logLineOut.hidden = false;
+  // Het klembord kan geweigerd worden (geen beveiligde verbinding, een strenge instelling); dan
+  // staat de regel er in elk geval om met de hand over te nemen.
+  void navigator.clipboard?.writeText(regel).then(
+    () => { copyButton.textContent = "📋 Gekopieerd"; },
+    () => { copyButton.textContent = "📋 Hieronder — kopieer met de hand"; },
+  );
+  setTimeout(() => { copyButton.textContent = COPY_LABEL; }, 4000);
 }
 
 // Alleen een bruikbaar percentage mag de `value="90"` uit de HTML overschrijven: het doelveld heeft
@@ -245,6 +342,7 @@ if (storedTarget !== null && storedTarget.trim() !== "") targetInput.value = sto
 // Een sessie die nog loopt hoort het scherm meteen in de bezig-stand te zetten, en het veld op het
 // percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling.
 session = readSession();
+finished = readFinished();
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {
@@ -265,13 +363,15 @@ for (const input of [currentInput, targetInput]) {
       // Tijdens het laden is een nieuw percentage een *aflezing van de auto*, en die weet het beter
       // dan onze schatting. De sessie begint daarom opnieuw vanaf nu: de aftelling klopt weer, en
       // het verschil met wat er stond is precies de fout in `USABLE_CAPACITY_KWH` × `EFFICIENCY`.
-      writeSession({ startMs: Date.now(), from: value, to: session.to });
+      // `logStartMs`/`logFrom` blijven staan — de laadbeurt begon bij het insteken, niet nu.
+      writeSession({ ...session, startMs: Date.now(), from: value });
     }
     render();
   });
 }
 
 chargeButton.addEventListener("click", toggleCharging);
+copyButton.addEventListener("click", copyLogRow);
 calendarButton.addEventListener("click", addToCalendar);
 
 render();
@@ -281,6 +381,10 @@ setInterval(render, TICK_MS);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) render();
 });
+// En na `pageshow`, wat iets anders dekt dan `visibilitychange`: bij terugkeer uit de bfcache is
+// het document nooit opnieuw uitgevoerd en stond de timer stil, dus de klok op het scherm loopt
+// achter zonder dat er iets "zichtbaar werd".
+window.addEventListener("pageshow", render);
 
 /** Installeren als app: alleen zichtbaar zodra de browser zelf zegt dat het kan. */
 interface InstallPromptEvent extends Event { prompt(): Promise<void> }

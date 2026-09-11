@@ -60,6 +60,13 @@
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
+  .logblock { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2c2c2e; }
+  .logblock .field { margin: 0 0 10px; }
+  .logblock .entry input { width: 132px; font-size: 18px; padding: 9px 12px; }
+  .opt { color: #6f6f6f; font-size: 12px; font-weight: 400; }
+  .logline { display: block; margin-top: 10px; padding: 9px 11px; border-radius: 8px;
+             background: #121213; border: 1px solid #2c2c2e; color: #9fc3dc;
+             font: 12px/1.5 ui-monospace, monospace; overflow-x: auto; white-space: pre; }
   .about { margin-top: 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
@@ -121,6 +128,24 @@
     </div>
 
     <p class="note" id="note" hidden></p>
+
+    <!--
+      Het logboek-blokje. Staat bewust onderaan en buiten de rekenregels: de km-stand doet niets
+      voor de laadtijd, hij hoort alleen bij de regel die je in `log.md` plakt. Zonder dat knopje
+      wordt een logboek in een donkere schuur toch niet ingevuld.
+    -->
+    <div class="logblock">
+      <div class="field">
+        <label for="km">Km-stand <span class="opt">optioneel</span></label>
+        <span class="entry">
+          <input id="km" type="number" min="0" step="1" inputmode="numeric" enterkeyhint="done"
+                 placeholder="84210">
+          <span class="unit">km</span>
+        </span>
+      </div>
+      <button id="copylog" type="button">📋 Kopieer logregel</button>
+      <code class="logline" id="logline" hidden></code>
+    </div>
   </div>
 
   <div class="card about">

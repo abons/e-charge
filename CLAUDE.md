@@ -15,7 +15,14 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 - ⚠️ **Het logboek is een bestand, geen functie.** `log.md` wordt met de hand bijgehouden en
   `npm run calibrate` rekent de constanten eruit terug. De app schrijft er niet naar en praat met
   geen enkele server — een token in een publieke pagina is een gelekt token, en de vorige regel
-  blijft gelden. Wie "de app logt zelf" wil bouwen, bouwt een andere app.
+  blijft gelden. Wie "de app logt zelf" wil bouwen, bouwt een andere app. Wat de app wél doet is
+  de logregel op je **klembord** zetten (`src/core/logline.ts`); dat is tekst, geen netwerk.
+  ⚠️ De kolomvolgorde daar is een contract met `scripts/calibrate.mjs`, dat op positie leest en
+  niet op naam — een test pint het formaat vast.
+- ⚠️ **`logStartMs`/`logFrom` in de sessie zijn niet hetzelfde als `startMs`/`from`.** Die eerste
+  twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
+  aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk
+  was.
 - ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
   Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
   agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.

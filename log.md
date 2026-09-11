@@ -9,6 +9,17 @@
 > laatste ritten, geen meting; het getal dat we wél kunnen meten is je verbruik, en dat volgt uit
 > twee opeenvolgende regels hieronder.
 
+## Invullen zonder tikwerk
+
+Onderaan het scherm zit een optioneel veld **Km-stand** en een knop **📋 Kopieer logregel**. Die
+zet een kant-en-klare regel op je klembord — datum, km, percentages en kloktijden ingevuld, de
+kolom `kWh` leeg omdat je die meestal pas later van de meter afleest. Plakken in de tabel hieronder
+en klaar.
+
+De regel loopt vanaf het **insteken**, ook als je tussendoor het echte percentage hebt ingevuld en
+de schatting opnieuw is verankerd. Kopieer je na het afkoppelen, dan is het percentage in het veld
+wat je van het dashboard las, en dát komt in de kolom `eind%`.
+
 ## Wat je noteert
 
 Bij het **insteken**: de kilometerstand en het percentage. Bij het **afkoppelen**: het percentage,
