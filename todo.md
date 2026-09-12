@@ -2,16 +2,14 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (24/24 tests groen, gemeten
-2026-09-12; bundel ~7 kB). Pages staat aan en de deploy loopt: de laatste workflow-run is groen en
-zette `bcfa190` neer, precies wat er nu op `main` staat. ⚠️ **Hieronder stond tot 2026-09-12 nog een
-open punt dat Settings → Pages → Source met de hand om moest** — dat gebeurde op 2026-09-11 al, te
-zien aan de twee gefaalde runs van 10:02 en 10:06 tegen de geslaagde van 10:13.
-
-In Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen
-op 0–100, doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na
-een reload, de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het
-logboek (bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (24/24 tests groen, bundel
+~11 kB; beide gemeten op 2026-09-12). Pages staat aan en de deploy loopt: de laatste workflow-run is
+groen en zette `bcfa190` neer, precies wat er nu op `main` staat — met de hand aangezet op
+2026-09-11, te zien aan de gefaalde runs van 10:02 en 10:06 tegen de geslaagde van 10:13. In
+Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100,
+doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na een reload,
+de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het logboek
+(bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 

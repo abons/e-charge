@@ -23,11 +23,8 @@ rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een
 Alle auto- en laderkennis staat boven in `src/core/charge.ts`: bruikbare capaciteit, laadvermogen,
 rendement — en sinds *Kilometers zijn een vierde constante* hieronder ook het verbruik. De UI leest
 ze (ook voor de regel onderaan het scherm en de agenda-tekst) en rekent nergens zelf met een vast
-getal. ⚠️ **Deze kop zei "Drie constanten"** en dat klopte al niet meer op de dag zelf; de vierde
-kwam er dezelfde dag bij, en `CLAUDE.md` en `README.md` zeggen allebei vier.
-
-Daarom past een andere Leaf, een andere auto of een laadpunt in één regel, en kan het scherm niet
-iets anders beweren dan de rekenkern.
+getal. Daarom past een andere Leaf, een andere auto of een laadpunt in één regel, en kan het scherm
+niet iets anders beweren dan de rekenkern.
 
 ## Minuten naar boven — 2026-09-11
 
