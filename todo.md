@@ -2,11 +2,14 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (23/23 tests groen, bundel
-~7 kB). In Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen
-op 0–100, doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na
-een reload, de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het
-logboek (bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (24/24 tests groen, bundel
+~11 kB; beide gemeten op 2026-09-12). Pages staat aan en de deploy loopt: de laatste workflow-run is
+groen en zette `bcfa190` neer, precies wat er nu op `main` staat — met de hand aangezet op
+2026-09-11, te zien aan de gefaalde runs van 10:02 en 10:06 tegen de geslaagde van 10:13. In
+Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100,
+doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na een reload,
+de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het logboek
+(bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
@@ -38,10 +41,6 @@ logboek (bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte te
 
 ## Openstaand
 
-- ⚠️ **Pages moet één keer met de hand aangezet worden:** Settings → Pages → Source =
-  "GitHub Actions". Tot dat gebeurt draait `.github/workflows/pages.yml` wel en publiceert hij
-  niets, en is <https://abons.github.io/e-charge/> (de link in de README en op de pagina zelf) dood.
-  De eerste run gebeurt bij de push naar `main`, dus dit is het eerste wat na de merge te checken is.
 - **Het icoon is één SVG.** Goed genoeg voor de favicon en voor Chrome's installatie, maar een
   maskable launcher-icoon knipt een vol vierkant af; een echt PNG-paar (192/512) vraagt een oog op
   een toestel. Zelfde open punt als bij Word Guesser.

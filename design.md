@@ -18,12 +18,13 @@ kwijtkunnen. Een paar kW zit daar zó ver onder dat de boordlader tot vlak onder
 Een curve zou hier dus doen alsof er meer bekend is dan waar is. De verliezen zitten in één
 rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een curve niet.
 
-## Drie constanten, één bestand — 2026-09-11
+## De constanten staan in één bestand — 2026-09-11
 
 Alle auto- en laderkennis staat boven in `src/core/charge.ts`: bruikbare capaciteit, laadvermogen,
-rendement. De UI leest ze (ook voor de regel onderaan het scherm en de agenda-tekst) en rekent
-nergens zelf met een vast getal. Daarom past een andere Leaf, een andere auto of een laadpunt in één
-regel, en kan het scherm niet iets anders beweren dan de rekenkern.
+rendement — en sinds *Kilometers zijn een vierde constante* hieronder ook het verbruik. De UI leest
+ze (ook voor de regel onderaan het scherm en de agenda-tekst) en rekent nergens zelf met een vast
+getal. Daarom past een andere Leaf, een andere auto of een laadpunt in één regel, en kan het scherm
+niet iets anders beweren dan de rekenkern.
 
 ## Minuten naar boven — 2026-09-11
 
