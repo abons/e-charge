@@ -77,6 +77,9 @@
   .loglist .wis { background: none; border: none; color: #6f6f6f; font-size: 16px; padding: 0 2px;
                   cursor: pointer; }
   .loghint { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
+  /* Uitleg onder een invoerveld. Staat er altijd en verandert nooit van hoogte — een
+     hint die verschijnt terwijl je een knop indrukt, verschuift die knop onder je duim. */
+  .fieldhint { color: #6f6f6f; font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
   .about { margin-top: 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
@@ -154,6 +157,8 @@
           <span class="unit">km</span>
         </span>
       </div>
+      <p class="fieldhint">De kilometerteller, niet het geschatte bereik — twee regels na elkaar
+        geven je verbruik.</p>
       <div class="field">
         <label for="kwh">Meterstand <span class="opt">optioneel</span></label>
         <span class="entry">
@@ -167,10 +172,18 @@
           <span class="unit">kWh</span>
         </span>
       </div>
+      <p class="fieldhint">Wat je elektriciteitsmeter over deze laadbeurt telde. De app kent dat
+        getal niet en toont het nergens; heb je het niet, laat dan leeg. Het percentage van het
+        dashboard hoort bovenaan bij <strong>Huidig</strong>.</p>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
         <button id="copylog" type="button">📋 Kopieer logregel</button>
       </div>
+      <!--
+        ⚠️ Onder de knoppen, om dezelfde reden als de melding bij de rekenregels hierboven: deze
+        verschijnt bij `change` op het kWh-veld, en dat is precies het moment dat je 💾 indrukt.
+      -->
+      <p class="note info" id="kwhnote" hidden></p>
       <code class="logline" id="logline" hidden></code>
 
       <ul class="loglist" id="loglist"></ul>

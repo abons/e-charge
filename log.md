@@ -33,6 +33,14 @@ Bij het **insteken**: de kilometerstand en het percentage. Bij het **afkoppelen*
 en de klok van allebei de momenten. De meterstand is optioneel maar is het enige wat het rendement
 kan vastpinnen — zonder die kolom blijven capaciteit en rendement onscheidbaar.
 
+⚠️ **Alleen kWh van je meter in de kWh-kolom.** Het scherm toont nergens een kWh, dus wie dat veld
+invult heeft óf de stand van zijn meter, óf een ander getal bij de hand — en dat andere getal is
+meestal het percentage van het dashboard. Een 97 in deze kolom is erger dan een lege kolom:
+`calibrate` rekent er een rendement en een laadvermogen uit terug die er precies zo uitzien als een
+meting. De app weigert sinds 2026-09-13 een getal dat de lader er in die tijd niet doorheen krijgt
+(`maxMeterKwh` in `src/core/charge.ts`); een regel die al fout in de app staat, corrigeer je door
+hem te verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
+
 | kolom | wat | waarom |
 | --- | --- | --- |
 | `datum` | jjjj-mm-dd | volgorde, en om winter van zomer te onderscheiden |

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
+import { DEFAULT_SETUP, clampPercent, estimate, maxMeterKwh, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { logRow } from "../src/core/logline.js";
 import { parseEntries, toMarkdown, withEntry, withoutEntry } from "../src/core/logbook.js";
@@ -50,6 +50,26 @@ test("estimate: rondt minuten naar boven en klemt percentages", () => {
   assert.equal(estimate(-10, 200).energyKwh, 39); // 0 → 100
   assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
   assert.ok(Number.isInteger(estimate(43, 90).minutes));
+});
+
+// De aanleiding: 97 (het dashboardpercentage) belandde in de kWh-kolom, omdat de app nergens een
+// kWh toont en dat het enige getal is dat je op dat moment in je hand hebt. Zo'n waarde is erger dan
+// een lege kolom — calibrate rekent er een rendement uit dat eruitziet als een meting.
+test("maxMeterKwh: een percentage is geen meterstand", () => {
+  const nacht = 7 * 3_600_000;
+  // Wat de lader er in zeven uur doorheen krijgt is 24,5 kWh; de grens laat ruimte voor het huis.
+  assert.equal(maxMeterKwh(nacht).toFixed(2), "36.75");
+  assert.ok(20.4 <= maxMeterKwh(nacht), "een echte meterstand hoort er ruim onder te blijven");
+  assert.ok(97 > maxMeterKwh(nacht), "97 procent hoort tegen de grens te lopen");
+  // De zeef hangt aan de lader en aan de klok: pas na bijna een etmaal aan de muur zou 97 kWh
+  // kunnen kloppen, en dan is het ook geen vergissing meer.
+  assert.ok(97 > maxMeterKwh(18 * 3_600_000));
+  assert.ok(97 < maxMeterKwh(20 * 3_600_000));
+  // Een sneller laadpunt mag meer: de grens hangt aan de lader, niet aan een vast getal.
+  assert.ok(97 < maxMeterKwh(nacht, { ...DEFAULT_SETUP, powerKw: 11 }));
+  // Onzin levert geen negatieve grens op, en zonder tijd past er niets.
+  assert.equal(maxMeterKwh(0), 0);
+  assert.equal(maxMeterKwh(-3_600_000), 0);
 });
 
 test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {

@@ -117,6 +117,25 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
 }
 
 /**
+ * De bovengrens van wat er over een laadbeurt van [ms] op de meter bij kán zijn gekomen: het
+ * maximum dat de lader er in die tijd doorheen duwt, met ruimte voor het huis dat op dezelfde meter
+ * staat.
+ *
+ * ⚠️ Dit is een zeef voor de `kWh`-kolom van het logboek, geen rekenstap — de app toont nergens een
+ * kWh, dus wie het veld invult heeft het getal van zijn meter, of van iets anders. Een percentage
+ * van het dashboard is de meest waarschijnlijke vergissing: het is het enige andere getal dat je op
+ * dat moment in je hand hebt, en 97 in die kolom is erger dan een lege kolom. `scripts/calibrate.mjs`
+ * rekent er rendement en vermogen uit terug, en het antwoord ziet er dan precies zo uit als een
+ * meting.
+ */
+export function maxMeterKwh(ms: number, setup: Setup = DEFAULT_SETUP): number {
+  // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Zelfs
+  // met die marge zou 97 kWh aan dit stopcontact ruim achttien uur aan de muur vragen — en dán is
+  // het ook geen vergissing meer, maar een lange laadbeurt.
+  return (setup.powerKw * Math.max(0, ms) * 1.5) / 3_600_000;
+}
+
+/**
  * Hoeveel kilometer er bij [percent] ongeveer in zit. Naar beneden afgerond, om dezelfde reden dat
  * de minuten naar boven gaan: een kilometer te veel beloven is de duurdere fout.
  */

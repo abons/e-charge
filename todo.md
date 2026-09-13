@@ -18,10 +18,20 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   bewijs dan een verschil in een meterstand, en 3,5 kW is ~15 A × 230 V. Wat nog open is: de lader
   toont wat hij *nu* trekt, niet het gemiddelde over zeven uur.
   - **Reken één sessie terug:** `(doel% − start%) × 0,39 ÷ uren` = effectief kW, gedeeld door
-    `EFFICIENCY` = het vermogen uit de muur. Dat pint meteen ook het rendement vast, de helft die nu
-    nog ongemeten is.
+    `EFFICIENCY` = het vermogen uit de muur — maar dat laatste deel leunt dan op een geschat
+    rendement; zie de bullet hieronder.
   - **Kijk of het blok een standenknop heeft** (8/10/13/16 A). Staat hij op 16 A en toont hij 3,5,
     dan zakt het vermogen misschien nog als de stekker warm wordt; een vaste stand is rustiger.
+- **Eén aflezing van 2026-09-13 wacht op navertellen:** om 16:14 stond de auto op 97%, terwijl de
+  app (nog op de oude 3,0 kW) er ~7 procentpunt onder zat. Dat past bij 3,5 kW — het verschil tussen
+  6,77 en 7,90 procentpunt per uur loopt in ruim zes uur precies zo ver op — **maar alleen als het
+  doel toen op 100 stond.** `percentAfter()` komt nooit voorbij het doel, dus met het doel op 90
+  verklaart die klem de hele 7 en zegt de aflezing niets over de constanten. Wat het wél hard maakt:
+  één regel in `log.md` met de klok van insteken én afkoppelen en de percentages van allebei.
+- **Zonder de kWh-kolom blijft het een product, geen paar.** Uit `(eind% − start%) × 0,39 ÷ uren`
+  komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart. Klopt de laadtijd, dan
+  klopt het scherm — maar of dat 3,5 × 0,88 of 3,3 × 0,93 is, scheidt alleen de meterstand. Voor de
+  vraag die de app stelt maakt het niets uit; voor de vraag of de stekker te zwaar belast wordt wel.
 - ⚠️ **15 A door een gewoon stopcontact is over de grens.** De contactdoos achter de schuur is door
   de vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zes
   uur aan één stuk op 15 A. Met de aflezing van 3,5 kW is dit geen theoretisch punt meer: voel na
