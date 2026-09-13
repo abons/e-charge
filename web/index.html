@@ -77,6 +77,9 @@
   .loglist .wis { background: none; border: none; color: #6f6f6f; font-size: 16px; padding: 0 2px;
                   cursor: pointer; }
   .loghint { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
+  /* Uitleg onder een invoerveld. Staat er altijd en verandert nooit van hoogte — een
+     hint die verschijnt terwijl je een knop indrukt, verschuift die knop onder je duim. */
+  .fieldhint { color: #6f6f6f; font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
   .about { margin-top: 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
@@ -154,23 +157,34 @@
           <span class="unit">km</span>
         </span>
       </div>
+      <p class="fieldhint">De kilometerteller, niet het geschatte bereik — twee regels na elkaar
+        geven je verbruik.</p>
       <div class="field">
-        <label for="kwh">Meterstand <span class="opt">optioneel</span></label>
+        <label for="logpct">Afgelezen <span class="opt">optioneel</span></label>
         <span class="entry">
           <!--
-            ⚠️ `type="text"` en geen `number`: in een getalveld weigert de browser de komma, en
-            precies die staat op het Nederlandse toetsenbord. "20,4" levert dan een lege waarde op
-            — stil, terwijl de placeholder erom vraagt. `inputmode="decimal"` houdt het cijferblok;
-            `optioneelGetal()` in main.ts neemt zowel komma als punt aan.
+            Een percentage is een heel getal, dus `type="number"` mag hier: de komma die de browser
+            in een getalveld weigert, heeft in dit veld niets te zoeken. Kwam er ooit weer een
+            decimaal veld (een meterstand), dan hoort dat `type="text"` met `inputmode="decimal"`
+            te zijn — zie `CLAUDE.md`.
           -->
-          <input id="kwh" type="text" inputmode="decimal" enterkeyhint="done" placeholder="20,4">
-          <span class="unit">kWh</span>
+          <input id="logpct" type="number" min="0" max="100" step="1" inputmode="numeric"
+                 enterkeyhint="done" placeholder="97">
+          <span class="unit">%</span>
         </span>
       </div>
+      <p class="fieldhint">Wat het dashboard zei bij het afkoppelen — dit wordt de
+        <code>eind%</code> van de regel. Laat leeg en de app neemt het percentage dat bovenaan bij
+        <strong>Huidig</strong> staat.</p>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
         <button id="copylog" type="button">📋 Kopieer logregel</button>
       </div>
+      <!--
+        ⚠️ Onder de knoppen, om dezelfde reden als de melding bij de rekenregels hierboven: hij kan
+        verschijnen op het moment dat je 💾 indrukt, en dan mag er niets boven verschuiven.
+      -->
+      <p class="note info" id="lognote" hidden></p>
       <code class="logline" id="logline" hidden></code>
 
       <ul class="loglist" id="loglist"></ul>

@@ -33,8 +33,8 @@ de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke p
 - `npm run serve` — lokale dev-server over `build/` met rebuild-on-change.
 - `npm run calibrate` — leest `log.md` en rekent de constanten terug uit echte laadbeurten.
 
-Onderaan het scherm staat het logboek: optionele velden voor km-stand en meterstand, een knop die
-de laadbeurt bewaart, en de lijst van wat je bewaard hebt. Eén knop zet het hele logboek op je
+Onderaan het scherm staat het logboek: optionele velden voor km-stand en het afgelezen percentage,
+een knop die de laadbeurt bewaart, en de lijst van wat je bewaard hebt. Eén knop zet het hele logboek op je
 klembord; plakken in [`log.md`](log.md) en `npm run calibrate` doet de rest. ⚠️ De lijst in de app
 staat op één telefoon en verdwijnt met het wissen van websitegegevens — het bestand in de repo is de
 kopie die blijft.
@@ -46,13 +46,14 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | constante              | waarde | waarom                                                   |
 | ---------------------- | ------ | -------------------------------------------------------- |
 | `USABLE_CAPACITY_KWH`  | 39,0   | Leaf ZE1 40 kWh: bruto 40, bruikbaar ~39                 |
-| `CHARGE_POWER_KW`      | 3,0    | 13 A × 230 V, afgelezen aan de meter                     |
+| `CHARGE_POWER_KW`      | 3,5    | ~15 A × 230 V, afgelezen op de laadkabel                 |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 | `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
 
-Kalibreren gaat via [`log.md`](log.md): noteer per laadbeurt de kilometerstand, de percentages, de
-klok en (als je kunt) de meterstand, en `npm run calibrate` rekent er rendement, laadvermogen en
-verbruik uit terug. Het verbruik komt daarmee uit gereden kilometers en niet uit de boordcomputer —
+Kalibreren gaat via [`log.md`](log.md): noteer per laadbeurt de kilometerstand, de percentages en de
+klok, en `npm run calibrate` rekent er laadvermogen en verbruik uit terug. De `kWh`-kolom van je
+meter vult de app niet — die is met de hand bij te schrijven en scheidt dan rendement van
+capaciteit. Het verbruik komt daarmee uit gereden kilometers en niet uit de boordcomputer —
 die toont een voorspelling, geen meting. Een andere auto of laadpunt is één regel: 62 kWh en
 11 kW past er net zo goed in (daar is een test voor).
 

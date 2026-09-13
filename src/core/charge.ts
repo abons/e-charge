@@ -17,16 +17,19 @@ export const USABLE_CAPACITY_KWH = 39.0;
  * Wat er *uit de muur* komt — een gewoon 230V-stopcontact achter de schuur, gevoed vanuit het
  * groepenkastje daar.
  *
- * 3,0 kW is geen aanname maar een aflezing: het huisverbruik ligt tijdens het laden ruwweg 3 kWh
- * per uur hoger, en 3 kW is 13 A × 230 V. Een meegeleverde Mode 2-kabel staat meestal op 8 of 10 A
- * (1,8 of 2,3 kW) en de volle 16 A zou 3,7 kW zijn, dus deze staat op de 13 A-stand.
+ * 3,5 kW staat op het display van de laadkabel zelf (2026-09-13) — dat is ~15 A × 230 V, en het
+ * blok zit tussen het stopcontact en de auto, dus dit is het vermogen *uit de muur*. Het verving de
+ * 3,0 kW die tot dan uit het huisverbruik aan de meter was afgeleid; een aflezing op het blok is
+ * directer bewijs dan een verschil in een meterstand. (Een meegeleverde Mode 2-kabel staat vaak een
+ * stand lager — 8 of 10 A is 1,8 of 2,3 kW — en de volle 16 A zou 3,7 kW zijn.)
  *
- * ⚠️ Het getal is een *schatting van een meterstand*, niet een meting van de laadsessie zelf. Zodra
- * één laadbeurt van bekend % naar bekend % bekend is, is dit exact uit te rekenen:
- * `(doel% − start%) × 0,39 ÷ uren` geeft het effectieve vermogen, en gedeeld door [EFFICIENCY] het
- * vermogen uit de muur. (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
+ * ⚠️ Het is nog steeds geen meting van de laadsessie zelf: de lader toont wat hij *nu* trekt, niet
+ * wat er over zeven uur gemiddeld doorheen ging. Zodra één laadbeurt van bekend % naar bekend %
+ * bekend is, is dat exact uit te rekenen: `(doel% − start%) × 0,39 ÷ uren` geeft het effectieve
+ * vermogen, en gedeeld door [EFFICIENCY] het vermogen uit de muur. (De Leaf kan 6,6 kW AC aan, dus
+ * de auto is hier nooit de beperking.)
  */
-export const CHARGE_POWER_KW = 3.0;
+export const CHARGE_POWER_KW = 3.5;
 
 /**
  * Rendement muur → batterij. Aan een stopcontact is dit merkbaar slechter dan aan een laadpunt: de
@@ -34,9 +37,9 @@ export const CHARGE_POWER_KW = 3.0;
  * er maar een paar kW doorheen gaat, dus die overhead is een groter aandeel. Gemeten waarden voor
  * een Leaf aan een stopcontact liggen grofweg tussen 85% en 90%; 88% is daar een eerlijk midden in.
  *
- * Dit is de helft die *niet* gemeten is — [CHARGE_POWER_KW] komt van de meter, dit niet. Bij twijfel
- * is te laag hier de veiligere fout: dan zegt de app dat het langer duurt, en sta je niet voor een
- * auto die nog niet klaar is.
+ * Dit is de helft die *niet* afgelezen is — [CHARGE_POWER_KW] staat op het blok van de kabel, dit
+ * getal nergens. Bij twijfel is te laag hier de veiligere fout: dan zegt de app dat het langer
+ * duurt, en sta je niet voor een auto die nog niet klaar is.
  *
  * Kalibreren gaat zo: laad één keer van bekend % naar bekend % en kijk hoeveel langer of korter
  * het duurde dan de app zei. 10% te lang → dit getal met ~10% omlaag.
@@ -111,6 +114,25 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
     effectivePowerKw,
     minutes: Math.ceil((energyKwh / effectivePowerKw) * 60),
   };
+}
+
+/**
+ * De bovengrens van wat er over een laadbeurt van [ms] op de meter bij kán zijn gekomen: het
+ * maximum dat de lader er in die tijd doorheen duwt, met ruimte voor het huis dat op dezelfde meter
+ * staat.
+ *
+ * ⚠️ Dit is een zeef voor de `kWh`-kolom van het logboek, geen rekenstap. De app vraagt sinds
+ * 2026-09-13 niet meer om een meterstand — ze toont nergens een kWh, dus het enige getal dat je op
+ * dat moment in je hand had was het dashboardpercentage, en dat belandde in die kolom. Zo'n waarde
+ * is erger dan een lege kolom: `scripts/calibrate.mjs` rekent er rendement en vermogen uit terug, en
+ * het antwoord ziet er precies zo uit als een meting. `withMeterAsPercent()` in `logbook.ts`
+ * gebruikt deze grens om wat al bewaard is alsnog als aflezing te lezen.
+ */
+export function maxMeterKwh(ms: number, setup: Setup = DEFAULT_SETUP): number {
+  // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Zelfs
+  // met die marge zou 97 kWh aan dit stopcontact ruim achttien uur aan de muur vragen — en dán is
+  // het ook geen vergissing meer, maar een lange laadbeurt.
+  return (setup.powerKw * Math.max(0, ms) * 1.5) / 3_600_000;
 }
 
 /**

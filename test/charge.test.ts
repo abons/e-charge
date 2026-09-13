@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "../src/core/charge.js";
+import { DEFAULT_SETUP, clampPercent, estimate, maxMeterKwh, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { logRow } from "../src/core/logline.js";
-import { parseEntries, toMarkdown, withEntry, withoutEntry } from "../src/core/logbook.js";
+import {
+  parseEntries,
+  toMarkdown,
+  withEntry,
+  withMeterAsPercent,
+  withoutEntry,
+} from "../src/core/logbook.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
@@ -16,9 +22,9 @@ test("estimate: 43% → 90% aan een stopcontact", () => {
   assert.equal(result.energyKwh.toFixed(2), "18.33");
   // Daarvoor moet er 18,33 / 0,88 = 20,83 kWh uit de muur komen.
   assert.equal(result.wallEnergyKwh.toFixed(2), "20.83");
-  // 3,0 kW × 88% = 2,64 kW effectief; 18,33 / 2,64 = 6,94 uur.
-  assert.equal(result.effectivePowerKw.toFixed(3), "2.640");
-  assert.equal(duration(result.minutes), "6u 57m");
+  // 3,5 kW × 88% = 3,08 kW effectief; 18,33 / 3,08 = 5,95 uur.
+  assert.equal(result.effectivePowerKw.toFixed(3), "3.080");
+  assert.equal(duration(result.minutes), "5u 58m");
 });
 
 test("estimate: rendement maakt het langer, nooit korter", () => {
@@ -43,13 +49,33 @@ test("estimate: doel al gehaald betekent niet laden", () => {
     assert.equal(result.minutes, 0);
   }
   // Het vermogen blijft ook dan gewoon bekend — het is een eigenschap van de lader, niet van de rit.
-  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "2.640");
+  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "3.080");
 });
 
 test("estimate: rondt minuten naar boven en klemt percentages", () => {
   assert.equal(estimate(-10, 200).energyKwh, 39); // 0 → 100
   assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
   assert.ok(Number.isInteger(estimate(43, 90).minutes));
+});
+
+// De aanleiding: 97 (het dashboardpercentage) belandde in de kWh-kolom, omdat de app nergens een
+// kWh toont en dat het enige getal is dat je op dat moment in je hand hebt. Zo'n waarde is erger dan
+// een lege kolom — calibrate rekent er een rendement uit dat eruitziet als een meting.
+test("maxMeterKwh: een percentage is geen meterstand", () => {
+  const nacht = 7 * 3_600_000;
+  // Wat de lader er in zeven uur doorheen krijgt is 24,5 kWh; de grens laat ruimte voor het huis.
+  assert.equal(maxMeterKwh(nacht).toFixed(2), "36.75");
+  assert.ok(20.4 <= maxMeterKwh(nacht), "een echte meterstand hoort er ruim onder te blijven");
+  assert.ok(97 > maxMeterKwh(nacht), "97 procent hoort tegen de grens te lopen");
+  // De zeef hangt aan de lader en aan de klok: pas na bijna een etmaal aan de muur zou 97 kWh
+  // kunnen kloppen, en dan is het ook geen vergissing meer.
+  assert.ok(97 > maxMeterKwh(18 * 3_600_000));
+  assert.ok(97 < maxMeterKwh(20 * 3_600_000));
+  // Een sneller laadpunt mag meer: de grens hangt aan de lader, niet aan een vast getal.
+  assert.ok(97 < maxMeterKwh(nacht, { ...DEFAULT_SETUP, powerKw: 11 }));
+  // Onzin levert geen negatieve grens op, en zonder tijd past er niets.
+  assert.equal(maxMeterKwh(0), 0);
+  assert.equal(maxMeterKwh(-3_600_000), 0);
 });
 
 test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
@@ -74,10 +100,10 @@ test("rangeKm: een gebroken percentage gaat naar beneden, niet naar het dichtstb
 });
 
 test("percentAfter: loopt op met het laadvermogen en stopt op het doel", () => {
-  // 2,64 kW effectief in 39 kWh: 6,77 procentpunt per uur.
+  // 3,08 kW effectief in 39 kWh: 7,90 procentpunt per uur.
   assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
-  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "49.8");
-  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "63.3");
+  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "50.9");
+  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "66.7");
   // Na de geschatte laadtijd staat hij precies op het doel, en gaat er niet overheen.
   const minutes = estimate(43, 90).minutes;
   assert.equal(percentAfter(43, 90, minutes * 60_000), 90);
@@ -230,6 +256,25 @@ test("logbook: aanvullen wist niet wat er al stond", () => {
   const later = withEntry(ochtend, { ...beurt(12), km: null, kwh: null });
   assert.equal(later[0]?.km, 84210);
   assert.equal(later[0]?.kwh, 20.4);
+});
+
+// De aanleiding staat in design.md: het veld vroeg om kWh van de meter, en wie die niet heeft vult
+// in wat hij wél heeft — het percentage van het dashboard.
+test("logbook: een meterstand die geen kWh kan zijn, was een aflezing", () => {
+  const met = (kwh: number | null) => [{ ...beurt(12), kwh }];
+  // 97 kWh kan er in zeven uur niet doorheen; als percentage kan het wel, dus het wordt eind%.
+  const verhuisd = withMeterAsPercent(met(97));
+  assert.equal(verhuisd[0]?.toPercent, 97);
+  assert.equal(verhuisd[0]?.kwh, null);
+  assert.equal(verhuisd[0]?.fromPercent, 43); // de rest van de regel blijft staan
+  assert.equal(verhuisd[0]?.km, 84222);
+  // Een echte meterstand blijft met rust gelaten, en een lege kolom ook.
+  assert.deepEqual(withMeterAsPercent(met(20.4)), met(20.4));
+  assert.deepEqual(withMeterAsPercent(met(null)), met(null));
+  // Wat geen van beide kan zijn, blijft staan: raden is hier erger dan laten staan.
+  assert.deepEqual(withMeterAsPercent(met(300)), met(300));
+  // En een getal onder het startpercentage is geen eind% — de auto laadt niet achteruit.
+  assert.deepEqual(withMeterAsPercent(met(40)), met(40));
 });
 
 test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {

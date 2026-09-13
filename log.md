@@ -11,10 +11,14 @@
 
 ## Bijhouden in de app
 
-Onderaan het scherm staat het logboek: optionele velden voor **km-stand** en **meterstand**, een
-knop **💾 Bewaar laadbeurt** en de lijst van wat je bewaard hebt. Na het afkoppelen vul je het
-afgelezen percentage in, druk je op bewaren, en staat de beurt erin. Dezelfde beurt nog eens
-bewaren voegt niets toe maar werkt hem bij — zo zet je de meterstand er later alsnog bij.
+Onderaan het scherm staat het logboek: optionele velden voor **km-stand** en het **afgelezen
+percentage**, een knop **💾 Bewaar laadbeurt** en de lijst van wat je bewaard hebt. Na het
+afkoppelen vul je het percentage van het dashboard in, druk je op bewaren, en staat de beurt erin —
+dat percentage wordt de `eind%` van de regel. Dezelfde beurt nog eens bewaren voegt niets toe maar
+werkt hem bij — zo zet je de km-stand er later alsnog bij.
+
+De `kWh`-kolom vult de app niet: ze weet niet wat je meter doet en toont zelf nergens een kWh. Heb
+je die stand wel, schrijf hem dan met de hand in de tabel hieronder.
 
 **📋 Kopieer hele logboek** zet alle regels op je klembord; plak ze hieronder onder de kop. Dat is
 de stap die het duurzaam maakt:
@@ -32,6 +36,15 @@ het veld wat je van het dashboard las, en dát komt in de kolom `eind%`.
 Bij het **insteken**: de kilometerstand en het percentage. Bij het **afkoppelen**: het percentage,
 en de klok van allebei de momenten. De meterstand is optioneel maar is het enige wat het rendement
 kan vastpinnen — zonder die kolom blijven capaciteit en rendement onscheidbaar.
+
+⚠️ **Alleen kWh van je meter in de kWh-kolom, en met de hand.** Het scherm toont nergens een kWh,
+dus het veld dat er tot 2026-09-13 om vroeg leverde het enige andere getal op dat je op dat moment
+bij de hand hebt: het percentage van het dashboard. Een 97 in deze kolom is erger dan een lege
+kolom — `calibrate` rekent er een rendement en een laadvermogen uit terug die er precies zo uitzien
+als een meting. Daarom vraagt de app nu om de aflezing in procenten, en leest
+`withMeterAsPercent()` wat er al bewaard stond alsnog als aflezing zodra het geen kWh kán zijn
+(`maxMeterKwh` in `src/core/charge.ts`). Een regel die alsnog fout staat, corrigeer je door hem te
+verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 
 | kolom | wat | waarom |
 | --- | --- | --- |
@@ -55,7 +68,7 @@ kan vastpinnen — zonder die kolom blijven capaciteit en rendement onscheidbaar
 `npm run calibrate` leest deze tabel en rekent terug:
 
 - **Effectief laadvermogen** = (eind% − start%) × capaciteit / 100 ÷ uren → wat er in de accu ging.
-- **Vermogen uit de muur** = kWh ÷ uren → vergelijk met `CHARGE_POWER_KW` (3,0).
+- **Vermogen uit de muur** = kWh ÷ uren → vergelijk met `CHARGE_POWER_KW` (3,5).
 - **Rendement** = (Δ% × capaciteit / 100) ÷ kWh → vergelijk met `EFFICIENCY` (0,88).
 - **Verbruik** = (vorige `eind%` − deze `start%`) × capaciteit / 100 ÷ (deze `km` − vorige `km`)
   → vergelijk met `CONSUMPTION_KWH_PER_100KM` (17,0). Hier zit geen boordcomputer tussen.

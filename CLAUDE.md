@@ -1,6 +1,6 @@
 # e-charge — project summary (for a fresh session)
 
-Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3 kW**: één scherm,
+Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3,5 kW**: één scherm,
 plain TypeScript + DOM, PWA. De webkant van de familie is het model (`wordguesser-src/web/` —
 esbuild, `web/`-shell, `src/core/` met pure modules); dit is de kleinste telg. Zelfde doc-split als
 de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keuzes), `todo.md`
@@ -20,10 +20,17 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   token, en de vorige regel blijft gelden. Klembord is tekst, geen netwerk.
   ⚠️ De kolomvolgorde in `src/core/logline.ts` is een contract met `scripts/calibrate.mjs`, dat op
   positie leest en niet op naam — een test pint het formaat vast.
+  ⚠️ **De app vraagt niet meer om een meterstand** (2026-09-13): het scherm toont nergens een kWh,
+  dus dat veld leverde het enige andere getal op dat je bij de hand hebt — het dashboardpercentage,
+  waar `calibrate` een rendement van maakt dat eruitziet als een meting. Het logboekveld is nu de
+  *aflezing* (`eind%`); de `kWh`-kolom blijft in `log.md` en in het kolomcontract staan en vul je met
+  de hand. `maxMeterKwh()` in `charge.ts` is daarmee geen invoerzeef meer maar de grens waarmee
+  `withMeterAsPercent()` al bewaarde kWh-waarden alsnog als aflezing leest.
 - ⚠️ **Een komma past niet in `<input type="number">`.** De browser maakt er stil een lege waarde
-  van, en op een Nederlands toetsenbord is de komma nu juist wat je typt. Velden die een decimaal
-  getal aannemen (de meterstand) zijn daarom `type="text"` met `inputmode="decimal"`; het parsen
-  neemt komma én punt aan.
+  van, en op een Nederlands toetsenbord is de komma nu juist wat je typt. Sinds 2026-09-13 heeft dit
+  scherm geen decimaal veld meer (het meterstandveld werd een percentage, en dat is een heel getal),
+  maar de regel blijft staan voor het volgende: een veld dat een decimaal getal aanneemt hoort
+  `type="text"` met `inputmode="decimal"` te zijn; `optioneelGetal()` neemt komma én punt aan.
 - ⚠️ **`logStartMs`/`logFrom` in de sessie zijn niet hetzelfde als `startMs`/`from`.** Die eerste
   twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
   aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk

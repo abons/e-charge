@@ -13,23 +13,37 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
 
 ## Hier begint de volgende sessie
 
-- ⚠️ **Het laadvermogen staat op 3,0 kW op grond van één ruwe aflezing** (2026-09-11): het
-  huisverbruik ligt tijdens het laden ~3 kWh per uur hoger, en 3 kW is 13 A. Dat is aannemelijker
-  dan de 2,3 kW (10 A) waar de app mee begon, maar het is een *meterschatting*, geen meting van de
-  sessie. Twee manieren om het hard te maken, allebei klein:
-  - **Kijk op het blok van de laadkabel** — daar staat de ampèrage, vaak met een standenknop
-    (8/10/13/16 A). Dat is direct bewijs, geen afleiding.
+- **Het laadvermogen staat op 3,5 kW, afgelezen op de lader zelf** (2026-09-13). Dat verving de
+  3,0 kW die uit het huisverbruik aan de meter was afgeleid; het display van het blok is directer
+  bewijs dan een verschil in een meterstand, en 3,5 kW is ~15 A × 230 V. Wat nog open is: de lader
+  toont wat hij *nu* trekt, niet het gemiddelde over zeven uur.
   - **Reken één sessie terug:** `(doel% − start%) × 0,39 ÷ uren` = effectief kW, gedeeld door
-    `EFFICIENCY` = het vermogen uit de muur. Dat pint meteen ook het rendement vast, de helft die nu
-    nog ongemeten is.
-- ⚠️ **13 A door een gewoon stopcontact is de grens.** De contactdoos achter de schuur is door de
-  vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zeven
-  uur aan één stuk op 13 A. Voel na een uur laden aan de stekker: handwarm is normaal, te heet om
-  vast te houden niet. In dat geval hoort de kabel een stand lager (10 A → 2,3 kW, en dan gaat
-  `CHARGE_POWER_KW` mee terug), of er hoort een echt laadpunt te komen.
+    `EFFICIENCY` = het vermogen uit de muur — maar dat laatste deel leunt dan op een geschat
+    rendement; zie de bullet hieronder.
+  - **Kijk of het blok een standenknop heeft** (8/10/13/16 A). Staat hij op 16 A en toont hij 3,5,
+    dan zakt het vermogen misschien nog als de stekker warm wordt; een vaste stand is rustiger.
+- **Eén aflezing van 2026-09-13 wacht op navertellen:** om 16:14 stond de auto op 97%, terwijl de
+  app (nog op de oude 3,0 kW) er ~7 procentpunt onder zat. Dat past bij 3,5 kW — het verschil tussen
+  6,77 en 7,90 procentpunt per uur loopt in ruim zes uur precies zo ver op — **maar alleen als het
+  doel toen op 100 stond.** `percentAfter()` komt nooit voorbij het doel, dus met het doel op 90
+  verklaart die klem de hele 7 en zegt de aflezing niets over de constanten. Wat het wél hard maakt:
+  één regel in `log.md` met de klok van insteken én afkoppelen en de percentages van allebei.
+- **Zonder de kWh-kolom blijft het een product, geen paar.** Uit `(eind% − start%) × 0,39 ÷ uren`
+  komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart. Klopt de laadtijd, dan
+  klopt het scherm — maar of dat 3,5 × 0,88 of 3,3 × 0,93 is, scheidt alleen de meterstand. Voor de
+  vraag die de app stelt maakt het niets uit; voor de vraag of de stekker te zwaar belast wordt wel.
+  Sinds 2026-09-13 vraagt de app niet meer om die stand (het veld is de aflezing in procenten
+  geworden, zie `design.md`), dus die kolom vul je met de hand in `log.md` of hij blijft leeg.
+- ⚠️ **15 A door een gewoon stopcontact is over de grens.** De contactdoos achter de schuur is door
+  de vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zes
+  uur aan één stuk op 15 A. Met de aflezing van 3,5 kW is dit geen theoretisch punt meer: voel na
+  een uur laden aan de stekker. Handwarm is normaal, te heet om vast te houden niet — dan hoort de
+  kabel een stand lager (10 A → 2,3 kW, of 13 A → 3,0 kW, en dan gaat `CHARGE_POWER_KW` mee terug),
+  of er hoort een echt laadpunt te komen.
 - **Vul `log.md`, en de aannames verdwijnen één voor één.** Drie van de vier constanten zijn
   geschat; het logboek vervangt ze door metingen zodra er sessies in staan (`npm run calibrate`).
-  Eén regel is al genoeg voor rendement en laadvermogen; twee opeenvolgende regels geven het
+  Eén regel geeft het effectieve laadvermogen (het product hierboven); diezelfde regel mét een
+  meterstand erbij splitst het in vermogen en rendement, en twee opeenvolgende regels geven het
   verbruik, zonder de boordcomputer te hoeven geloven.
 - **Het verbruik van 17,0 kWh/100 km is een boekwaarde.** De boordcomputer van de Leaf toont je
   eigen gemiddelde (in **km/kWh** — 5,9 km/kWh is 17 kWh/100 km, 6,5 is 15,4). Eén blik daarop en

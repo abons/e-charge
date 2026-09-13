@@ -34,7 +34,7 @@ const WEEKDAYS = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrij
  * Het woordje achter de eindtijd als die over middernacht gaat: `morgen`, `overmorgen`, anders de
  * weekdag. `null` op dezelfde dag — dan hoort er niets te staan.
  *
- * Verder dan `morgen` komt deze app in de praktijk niet (0 → 100% is ~15 uur aan 3,0 kW), maar de
+ * Verder dan `morgen` komt deze app in de praktijk niet (0 → 100% is ~13 uur aan 3,5 kW), maar de
  * grens ligt niet in dit bestand, dus hij rekent gewoon door.
  */
 export function dayLabel(fromMs: number, ms: number): string | null {
