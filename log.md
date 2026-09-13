@@ -62,6 +62,7 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 <!-- Voeg hieronder één regel per laadbeurt toe, nieuwste onderaan. Voorbeeld (verwijder deze regel):
 | 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 | |
 -->
+| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  |  |
 
 ## Wat er dan uitkomt
 
