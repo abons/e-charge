@@ -46,7 +46,7 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | constante              | waarde | waarom                                                   |
 | ---------------------- | ------ | -------------------------------------------------------- |
 | `USABLE_CAPACITY_KWH`  | 39,0   | Leaf ZE1 40 kWh: bruto 40, bruikbaar ~39                 |
-| `CHARGE_POWER_KW`      | 3,0    | 13 A × 230 V, afgelezen aan de meter                     |
+| `CHARGE_POWER_KW`      | 3,5    | ~15 A × 230 V, afgelezen op de laadkabel                 |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 | `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
 

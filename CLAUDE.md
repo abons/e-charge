@@ -1,6 +1,6 @@
 # e-charge — project summary (for a fresh session)
 
-Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3 kW**: één scherm,
+Een laadcalculator voor een **Nissan Leaf 2019 40 kWh aan een stopcontact van ~3,5 kW**: één scherm,
 plain TypeScript + DOM, PWA. De webkant van de familie is het model (`wordguesser-src/web/` —
 esbuild, `web/`-shell, `src/core/` met pure modules); dit is de kleinste telg. Zelfde doc-split als
 de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keuzes), `todo.md`

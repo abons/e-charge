@@ -55,7 +55,7 @@ kan vastpinnen — zonder die kolom blijven capaciteit en rendement onscheidbaar
 `npm run calibrate` leest deze tabel en rekent terug:
 
 - **Effectief laadvermogen** = (eind% − start%) × capaciteit / 100 ÷ uren → wat er in de accu ging.
-- **Vermogen uit de muur** = kWh ÷ uren → vergelijk met `CHARGE_POWER_KW` (3,0).
+- **Vermogen uit de muur** = kWh ÷ uren → vergelijk met `CHARGE_POWER_KW` (3,5).
 - **Rendement** = (Δ% × capaciteit / 100) ÷ kWh → vergelijk met `EFFICIENCY` (0,88).
 - **Verbruik** = (vorige `eind%` − deze `start%`) × capaciteit / 100 ÷ (deze `km` − vorige `km`)
   → vergelijk met `CONSUMPTION_KWH_PER_100KM` (17,0). Hier zit geen boordcomputer tussen.
