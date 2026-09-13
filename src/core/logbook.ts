@@ -1,3 +1,4 @@
+import { maxMeterKwh } from "./charge.js";
 import { logRow, type LogEntry } from "./logline.js";
 
 /**
@@ -64,6 +65,24 @@ export function withEntry(entries: Entry[], entry: Entry): Entry[] {
   const samen: Entry = oud === undefined ? entry : { ...entry, km: entry.km ?? oud.km, kwh: entry.kwh ?? oud.kwh };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
   return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
+}
+
+/**
+ * Wat er als meterstand bewaard staat maar er geen kán zijn, was een aflezing van het dashboard: het
+ * logboek vroeg tot 2026-09-13 om kWh van de meter, en het scherm toont nergens een kWh, dus het
+ * enige getal dat je op dat moment in je hand had was het percentage. Die waarden verhuizen hier
+ * eenmalig naar `eind%`, waar ze horen.
+ *
+ * ⚠️ Alleen wat de lader er in die laadbeurt niet doorheen kán hebben geduwd én een geldig
+ * percentage is. Een echte meterstand blijft dus staan, en een getal dat geen van beide kan zijn
+ * (300) ook — dat verwijder je met de hand, want raden is hier erger dan laten staan.
+ */
+export function withMeterAsPercent(entries: Entry[]): Entry[] {
+  return entries.map((e) => {
+    if (e.kwh === null || e.kwh <= maxMeterKwh(e.endMs - e.startMs)) return e;
+    if (e.kwh > 100 || e.kwh < e.fromPercent) return e;
+    return { ...e, toPercent: Math.round(e.kwh), kwh: null };
+  });
 }
 
 export function withoutEntry(entries: Entry[], startMs: number): Entry[] {

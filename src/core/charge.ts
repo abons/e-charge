@@ -121,12 +121,12 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
  * maximum dat de lader er in die tijd doorheen duwt, met ruimte voor het huis dat op dezelfde meter
  * staat.
  *
- * ⚠️ Dit is een zeef voor de `kWh`-kolom van het logboek, geen rekenstap — de app toont nergens een
- * kWh, dus wie het veld invult heeft het getal van zijn meter, of van iets anders. Een percentage
- * van het dashboard is de meest waarschijnlijke vergissing: het is het enige andere getal dat je op
- * dat moment in je hand hebt, en 97 in die kolom is erger dan een lege kolom. `scripts/calibrate.mjs`
- * rekent er rendement en vermogen uit terug, en het antwoord ziet er dan precies zo uit als een
- * meting.
+ * ⚠️ Dit is een zeef voor de `kWh`-kolom van het logboek, geen rekenstap. De app vraagt sinds
+ * 2026-09-13 niet meer om een meterstand — ze toont nergens een kWh, dus het enige getal dat je op
+ * dat moment in je hand had was het dashboardpercentage, en dat belandde in die kolom. Zo'n waarde
+ * is erger dan een lege kolom: `scripts/calibrate.mjs` rekent er rendement en vermogen uit terug, en
+ * het antwoord ziet er precies zo uit als een meting. `withMeterAsPercent()` in `logbook.ts`
+ * gebruikt deze grens om wat al bewaard is alsnog als aflezing te lezen.
  */
 export function maxMeterKwh(ms: number, setup: Setup = DEFAULT_SETUP): number {
   // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Zelfs

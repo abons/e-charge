@@ -160,30 +160,31 @@
       <p class="fieldhint">De kilometerteller, niet het geschatte bereik — twee regels na elkaar
         geven je verbruik.</p>
       <div class="field">
-        <label for="kwh">Meterstand <span class="opt">optioneel</span></label>
+        <label for="logpct">Afgelezen <span class="opt">optioneel</span></label>
         <span class="entry">
           <!--
-            ⚠️ `type="text"` en geen `number`: in een getalveld weigert de browser de komma, en
-            precies die staat op het Nederlandse toetsenbord. "20,4" levert dan een lege waarde op
-            — stil, terwijl de placeholder erom vraagt. `inputmode="decimal"` houdt het cijferblok;
-            `optioneelGetal()` in main.ts neemt zowel komma als punt aan.
+            Een percentage is een heel getal, dus `type="number"` mag hier: de komma die de browser
+            in een getalveld weigert, heeft in dit veld niets te zoeken. Kwam er ooit weer een
+            decimaal veld (een meterstand), dan hoort dat `type="text"` met `inputmode="decimal"`
+            te zijn — zie `CLAUDE.md`.
           -->
-          <input id="kwh" type="text" inputmode="decimal" enterkeyhint="done" placeholder="20,4">
-          <span class="unit">kWh</span>
+          <input id="logpct" type="number" min="0" max="100" step="1" inputmode="numeric"
+                 enterkeyhint="done" placeholder="97">
+          <span class="unit">%</span>
         </span>
       </div>
-      <p class="fieldhint">Wat je elektriciteitsmeter over deze laadbeurt telde. De app kent dat
-        getal niet en toont het nergens; heb je het niet, laat dan leeg. Het percentage van het
-        dashboard hoort bovenaan bij <strong>Huidig</strong>.</p>
+      <p class="fieldhint">Wat het dashboard zei bij het afkoppelen — dit wordt de
+        <code>eind%</code> van de regel. Laat leeg en de app neemt het percentage dat bovenaan bij
+        <strong>Huidig</strong> staat.</p>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
         <button id="copylog" type="button">📋 Kopieer logregel</button>
       </div>
       <!--
-        ⚠️ Onder de knoppen, om dezelfde reden als de melding bij de rekenregels hierboven: deze
-        verschijnt bij `change` op het kWh-veld, en dat is precies het moment dat je 💾 indrukt.
+        ⚠️ Onder de knoppen, om dezelfde reden als de melding bij de rekenregels hierboven: hij kan
+        verschijnen op het moment dat je 💾 indrukt, en dan mag er niets boven verschuiven.
       -->
-      <p class="note info" id="kwhnote" hidden></p>
+      <p class="note info" id="lognote" hidden></p>
       <code class="logline" id="logline" hidden></code>
 
       <ul class="loglist" id="loglist"></ul>

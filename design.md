@@ -97,9 +97,9 @@ volledig offline werkt. Het klembord is tekst, geen verbinding.
 
 Bewaren is idempotent op starttijd: dezelfde laadbeurt nog eens bewaren werkt de regel bij in plaats
 van er een tweede naast te zetten. Dat is nodig omdat de knop blijft staan en de afgelopen beurt een
-herstart overleeft — en het is meteen de manier om de meterstand later alsnog toe te voegen.
+herstart overleeft — en het is meteen de manier om de km-stand later alsnog toe te voegen.
 
-## De kWh-kolom heeft een zeef — 2026-09-13
+## Het logboek vraagt een percentage, geen meterstand — 2026-09-13
 
 De `kWh`-kolom van het logboek is de enige invoer van deze app die niemand ooit terugleest voordat
 er conclusies uit volgen: `npm run calibrate` maakt er rendement en laadvermogen van, en die
@@ -107,17 +107,27 @@ getallen zien er hetzelfde uit of ze nu van een meter komen of niet. Precies dat
 dashboardpercentage (97) belandde in het veld, omdat het scherm nergens een kWh toont en dat het
 enige andere getal is dat je op dat moment in je hand hebt.
 
-De app weigert nu een getal dat er in die laadbeurt niet doorheen kán zijn gegaan: `maxMeterKwh()`
-in `src/core/charge.ts` rekent uit wat de lader maximaal levert in de tijd die de beurt duurde, met
-ruimte voor het huis dat op dezelfde meter staat. De grens hangt dus aan de constanten en niet aan
-een vast getal — een 11 kW-laadpunt laat hetzelfde getal gewoon door. Een afgewezen waarde blijft in
-het veld staan (hij is niet *fout*, hij hoort ergens anders) maar gaat niet mee in de logregel, en
-de melding zegt waar het percentage wél hoort. De melding staat ónder de knoppen, om dezelfde reden
+Een zeef op het veld was het eerste antwoord, en het tweede is beter: het veld vraagt nu om de
+**aflezing in procenten** en wordt de `eind%` van de regel. Dat is het getal dat je bij het
+afkoppelen werkelijk in je hand hebt, en het hoeft het plan-scherm niet te verzetten om in het
+logboek te komen — het veld bovenaan blijft de aflezing die de lopende sessie opnieuw verankert, dit
+veld raakt de berekening niet aan.
+
+De `kWh`-kolom blijft bestaan in `log.md`, in `logline.ts` en in `calibrate.mjs`: hij is het enige
+wat rendement van capaciteit scheidt, en wie de stand van zijn meter wél opschrijft, zet hem met de
+hand in de tabel. Wat de app niet meer doet is erom vragen zonder dat ze weet waar het getal
+vandaan komt.
+
+Wat er al bewaard stond, verhuist eenmalig mee: `withMeterAsPercent()` leest een kWh-waarde die de
+lader er in die uren niet doorheen kán hebben geduwd (`maxMeterKwh()` in `src/core/charge.ts`, dus
+de grens hangt aan de constanten en niet aan een vast getal) als aflezing, en zet hem in `eind%`.
+Een echte meterstand blijft staan, en een getal dat geen van beide kan zijn ook — raden is hier
+erger dan laten staan. De app zegt in een melding dát ze het gedaan heeft: cijfers in iemands
+logboek verzetten mag, stilletjes doen niet. Die melding staat ónder de knoppen, om dezelfde reden
 als de meldingsregel bij de rekenregels.
 
-Twee dingen bewust níét gedaan: het veld verplicht maken (drie van de vier constanten zijn zonder
-die kolom nog steeds te kalibreren, alleen niet los van elkaar) en de benodigde kWh op het scherm
-zetten (zie de vorige sectie — vier uitkomstregels, en dat blijft).
+Bewust níét gedaan: de benodigde kWh alsnog op het scherm zetten (zie de vorige sectie — vier
+uitkomstregels, en dat blijft) en de kolom uit het formaat slopen.
 
 ## Wat er niet op het scherm staat — 2026-09-11
 

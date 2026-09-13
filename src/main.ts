@@ -1,6 +1,13 @@
-import { DEFAULT_SETUP, clampPercent, estimate, maxMeterKwh, percentAfter, rangeKm } from "./core/charge.js";
+import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "./core/charge.js";
 import { calendar } from "./core/ics.js";
-import { parseEntries, toMarkdown, withEntry, withoutEntry, type Entry } from "./core/logbook.js";
+import {
+  parseEntries,
+  toMarkdown,
+  withEntry,
+  withMeterAsPercent,
+  withoutEntry,
+  type Entry,
+} from "./core/logbook.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 
 /**
@@ -51,11 +58,11 @@ const powerOut = el("power");
 const noteOut = el("note");
 const setupOut = el("setup");
 const kmInput = el<HTMLInputElement>("km");
-const kwhInput = el<HTMLInputElement>("kwh");
+const pctInput = el<HTMLInputElement>("logpct");
 const saveButton = el<HTMLButtonElement>("savelog");
 const copyButton = el<HTMLButtonElement>("copylog");
 const copyAllButton = el<HTMLButtonElement>("copyall");
-const kwhNote = el("kwhnote");
+const logNote = el("lognote");
 const logLineOut = el("logline");
 const logList = el("loglist");
 const logActions = el("logactions");
@@ -357,30 +364,6 @@ function optioneelGetal(input: HTMLInputElement): number | null {
 }
 
 /**
- * De meterstand uit het veld, maar alleen als het er een kán zijn: meer dan de lader er in [ms]
- * doorheen krijgt is geen meting maar een ander getal.
- *
- * ⚠️ Dit is de enige invoer van de app die niemand ooit terugleest voordat `npm run calibrate` er
- * conclusies uit trekt. Een percentage in deze kolom (97 in plaats van 20,4 — het scherm toont
- * nergens een kWh, dus dat is het getal dat je bij de hand hebt) levert een rendement en een
- * laadvermogen op die er precies zo uitzien als een meting. Liever een lege kolom.
- */
-function meterKwh(ms: number): number | null {
-  const kwh = optioneelGetal(kwhInput);
-  const grens = maxMeterKwh(ms);
-  if (kwh === null || kwh <= grens) {
-    kwhNote.hidden = true;
-    return kwh;
-  }
-  kwhNote.textContent =
-    `${nl(kwh)} kWh past niet bij ${duration(ms / 60_000)} aan ${nl(DEFAULT_SETUP.powerKw)} kW — ` +
-    `er kan hooguit ${nl(grens)} kWh doorheen zijn gegaan. Is dit het percentage van het dashboard? ` +
-    "Dat hoort bovenaan bij Huidig. Dit getal gaat niet mee in de logregel.";
-  kwhNote.hidden = false;
-  return null;
-}
-
-/**
  * De laadbeurt waar de logregel over gaat. Tijdens het laden is dat de stand van nu, na het
  * afkoppelen die van de afgelopen beurt — en dan is het percentage in het veld precies wat je van
  * het dashboard hebt gelezen.
@@ -394,21 +377,21 @@ function huidigeLaadbeurt(): Entry | null {
   // die `calibrate` als 0,00 kW meerekent. Is er niets bekend, dan valt er ook niets te loggen.
   const afgelopen = finished;
   const bewaard = afgelopen === null ? undefined : logbook.find((e) => e.startMs === afgelopen.startMs);
-  const eind = percentOf(currentInput) ?? bewaard?.toPercent ?? null;
+  // Het logboek heeft zijn eigen percentageveld, en dat wint: het is wat je van het dashboard hebt
+  // gelezen, en het hoeft het plan-scherm niet te verzetten om in de regel te komen.
+  const afgelezen = percentOf(pctInput);
+  const eind = afgelezen ?? percentOf(currentInput) ?? bewaard?.toPercent ?? null;
   const bron = session
     ? {
         startMs: session.logStartMs,
         endMs: nu,
         from: session.logFrom,
-        to: percentAfter(session.from, doel, nu - session.startMs),
+        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs),
       }
     : afgelopen !== null && eind !== null
       ? { startMs: afgelopen.startMs, endMs: afgelopen.endMs, from: afgelopen.from, to: eind }
       : null;
-  if (bron === null) {
-    kwhNote.hidden = true;
-    return null;
-  }
+  if (bron === null) return null;
 
   const km = optioneelGetal(kmInput);
   return {
@@ -417,7 +400,8 @@ function huidigeLaadbeurt(): Entry | null {
     fromPercent: Math.round(bron.from),
     toPercent: Math.round(bron.to),
     km: km === null ? null : Math.round(km),
-    kwh: meterKwh(bron.endMs - bron.startMs),
+    // De kWh-kolom vult de app niet meer; wat er ooit in bewaard is blijft staan (`withEntry`).
+    kwh: null,
   };
 }
 
@@ -506,7 +490,23 @@ if (storedTarget !== null && storedTarget.trim() !== "") targetInput.value = sto
 // percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling.
 session = readSession();
 finished = readFinished();
-logbook = readLogbook();
+
+// Eenmalig: een bewaarde "meterstand" die de lader er in die uren niet doorheen kán hebben geduwd,
+// was een aflezing van het dashboard — dit veld vroeg tot 2026-09-13 om kWh van de meter, en de app
+// toont nergens een kWh. Zulke getallen verhuizen naar `eind%`, en de melding zegt dat ook: cijfers
+// in iemands logboek verzetten mag, stilletjes doen niet.
+const gelezenLogboek = readLogbook();
+const verhuisdLogboek = withMeterAsPercent(gelezenLogboek);
+const verhuisd = verhuisdLogboek.filter((e, i) => e.kwh !== gelezenLogboek[i]?.kwh).length;
+if (verhuisd > 0) {
+  writeLogbook(verhuisdLogboek);
+  logNote.textContent =
+    `${verhuisd} bewaarde laadbeurt${verhuisd === 1 ? "" : "en"} had een meterstand die geen kWh ` +
+    "kan zijn — die is als afgelezen percentage in eind% gezet. Kijk de lijst hieronder even na.";
+  logNote.hidden = false;
+} else {
+  logbook = gelezenLogboek;
+}
 renderLogbook();
 if (session !== null) currentInput.value = String(session.from);
 
@@ -533,11 +533,6 @@ for (const input of [currentInput, targetInput]) {
     render();
   });
 }
-
-// Het kWh-veld verlaten mag meteen zeggen dat het getal niet kan kloppen — wachten tot 💾 zou de
-// melding pas tonen als de regel al bewaard is. `huidigeLaadbeurt()` zet hem, en gooit verder niets
-// aan: het veld zelf blijft staan zoals je het typte.
-kwhInput.addEventListener("change", () => { huidigeLaadbeurt(); });
 
 chargeButton.addEventListener("click", toggleCharging);
 copyButton.addEventListener("click", copyLogRow);

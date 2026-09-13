@@ -32,6 +32,8 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart. Klopt de laadtijd, dan
   klopt het scherm — maar of dat 3,5 × 0,88 of 3,3 × 0,93 is, scheidt alleen de meterstand. Voor de
   vraag die de app stelt maakt het niets uit; voor de vraag of de stekker te zwaar belast wordt wel.
+  Sinds 2026-09-13 vraagt de app niet meer om die stand (het veld is de aflezing in procenten
+  geworden, zie `design.md`), dus die kolom vul je met de hand in `log.md` of hij blijft leeg.
 - ⚠️ **15 A door een gewoon stopcontact is over de grens.** De contactdoos achter de schuur is door
   de vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zes
   uur aan één stuk op 15 A. Met de aflezing van 3,5 kW is dit geen theoretisch punt meer: voel na
@@ -40,7 +42,8 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   of er hoort een echt laadpunt te komen.
 - **Vul `log.md`, en de aannames verdwijnen één voor één.** Drie van de vier constanten zijn
   geschat; het logboek vervangt ze door metingen zodra er sessies in staan (`npm run calibrate`).
-  Eén regel is al genoeg voor rendement en laadvermogen; twee opeenvolgende regels geven het
+  Eén regel geeft het effectieve laadvermogen (het product hierboven); diezelfde regel mét een
+  meterstand erbij splitst het in vermogen en rendement, en twee opeenvolgende regels geven het
   verbruik, zonder de boordcomputer te hoeven geloven.
 - **Het verbruik van 17,0 kWh/100 km is een boekwaarde.** De boordcomputer van de Leaf toont je
   eigen gemiddelde (in **km/kWh** — 5,9 km/kWh is 17 kWh/100 km, 6,5 is 15,4). Eén blik daarop en

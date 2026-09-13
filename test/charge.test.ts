@@ -4,7 +4,13 @@ import { test } from "node:test";
 import { DEFAULT_SETUP, clampPercent, estimate, maxMeterKwh, percentAfter, rangeKm } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { logRow } from "../src/core/logline.js";
-import { parseEntries, toMarkdown, withEntry, withoutEntry } from "../src/core/logbook.js";
+import {
+  parseEntries,
+  toMarkdown,
+  withEntry,
+  withMeterAsPercent,
+  withoutEntry,
+} from "../src/core/logbook.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
@@ -250,6 +256,25 @@ test("logbook: aanvullen wist niet wat er al stond", () => {
   const later = withEntry(ochtend, { ...beurt(12), km: null, kwh: null });
   assert.equal(later[0]?.km, 84210);
   assert.equal(later[0]?.kwh, 20.4);
+});
+
+// De aanleiding staat in design.md: het veld vroeg om kWh van de meter, en wie die niet heeft vult
+// in wat hij wél heeft — het percentage van het dashboard.
+test("logbook: een meterstand die geen kWh kan zijn, was een aflezing", () => {
+  const met = (kwh: number | null) => [{ ...beurt(12), kwh }];
+  // 97 kWh kan er in zeven uur niet doorheen; als percentage kan het wel, dus het wordt eind%.
+  const verhuisd = withMeterAsPercent(met(97));
+  assert.equal(verhuisd[0]?.toPercent, 97);
+  assert.equal(verhuisd[0]?.kwh, null);
+  assert.equal(verhuisd[0]?.fromPercent, 43); // de rest van de regel blijft staan
+  assert.equal(verhuisd[0]?.km, 84222);
+  // Een echte meterstand blijft met rust gelaten, en een lege kolom ook.
+  assert.deepEqual(withMeterAsPercent(met(20.4)), met(20.4));
+  assert.deepEqual(withMeterAsPercent(met(null)), met(null));
+  // Wat geen van beide kan zijn, blijft staan: raden is hier erger dan laten staan.
+  assert.deepEqual(withMeterAsPercent(met(300)), met(300));
+  // En een getal onder het startpercentage is geen eind% — de auto laadt niet achteruit.
+  assert.deepEqual(withMeterAsPercent(met(40)), met(40));
 });
 
 test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {
