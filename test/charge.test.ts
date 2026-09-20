@@ -31,7 +31,7 @@ test("estimate: 43% → 90% aan een stopcontact", () => {
 // dat de constanten staan zoals ze staan: wijkt een voorspelling meer dan vijf minuten af van wat
 // de klok zei, dan is er aan een constante gesleuteld zonder naar de metingen te kijken.
 test("estimate: de gemeten laadbeurten komen er binnen vijf minuten uit", () => {
-  for (const [van, tot, minuten] of [[74, 97, 141], [55, 90, 204], [54, 98, 261]] as const) {
+  for (const [van, tot, minuten] of [[74, 97, 141], [55, 90, 205], [54, 98, 261]] as const) {
     const afwijking = estimate(van, tot).minutes - minuten;
     assert.ok(Math.abs(afwijking) <= 5, `${van} → ${tot}: ${afwijking} minuten mis`);
   }

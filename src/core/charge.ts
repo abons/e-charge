@@ -66,8 +66,9 @@ export const EFFICIENCY = 0.88;
  * ⚠️ Aan de hoge kant kiezen is hier de veiligere fout, net als het naar boven afronden van de
  * minuten: te veel bereik beloven laat je met een lege accu langs de weg staan, te weinig kost je
  * niets. Daarom staat dit op 17,0 terwijl `log.md` het lager meet: 158 km tussen drie laadbeurten
- * door kostte 78 procentpunt, en dat is bij [USABLE_CAPACITY_KWH] 15,1 kWh/100 km. Wie het echt wil
- * weten, leest het gemiddelde verbruik van de boordcomputer en zet dat hier.
+ * door kostte 78 procentpunt, en `npm run calibrate` maakt daar bij [USABLE_CAPACITY_KWH] 15,2
+ * kWh/100 km van. Wie het echt wil weten, leest het gemiddelde verbruik van de boordcomputer en zet
+ * dat hier.
  */
 export const CONSUMPTION_KWH_PER_100KM = 17.0;
 

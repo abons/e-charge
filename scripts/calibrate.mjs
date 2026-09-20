@@ -10,7 +10,11 @@ import { readFileSync } from "node:fs";
 const { DEFAULT_SETUP } = await import("../out/src/core/charge.js");
 
 const nummer = (s) => {
-  const v = Number(String(s).trim().replace(",", "."));
+  const tekst = String(s).trim().replace(",", ".");
+  // ⚠️ Een lege kolom is geen nul. `Number("")` is 0 en eindig, en dan drukte de kolom "uit de muur"
+  // 0,00 kW af voor elke regel zonder meterstand — precies zo opgemaakt als een echte meting.
+  if (tekst === "") return null;
+  const v = Number(tekst);
   return Number.isFinite(v) ? v : null;
 };
 
@@ -41,6 +45,8 @@ if (regels.length === 0) {
 
 const uur = (m) => m / 60;
 const fmt = (v, n = 2) => (v === null ? "—" : v.toFixed(n).replace(".", ","));
+// Zonder eenheid als er niets staat: "— kW" leest als een vermogen dat gemeten is en nul bleek.
+const kW = (v) => (v === null ? "—" : `${fmt(v)} kW`);
 const cap = DEFAULT_SETUP.capacityKwh;
 
 console.log(`Gerekend met ${fmt(cap, 1)} kWh bruikbaar (USABLE_CAPACITY_KWH).\n`);
@@ -76,8 +82,8 @@ for (const c of regels) {
 
   console.log(
     `${datum}   ${(min ? `${Math.floor(min / 60)}u ${String(min % 60).padStart(2, "0")}m` : "—").padEnd(8)}` +
-      `  ${(fmt(effectief) + " kW").padStart(10)}` +
-      `  ${(fmt(muur) + " kW").padStart(11)}` +
+      `  ${kW(effectief).padStart(10)}` +
+      `  ${kW(muur).padStart(11)}` +
       `  ${(rendement === null ? "—" : `${fmt(rendement * 100, 0)}%`).padStart(9)}` +
       `  ${(verbruik === null ? "—" : `${fmt(verbruik, 1)} kWh/100 km`).padStart(20)}`,
   );

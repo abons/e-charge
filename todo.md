@@ -22,10 +22,6 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   het scheidt dus niets, en de aflezing op het blok blijft het enige harde getal.
   - **Kijk of het blok een standenknop heeft** (8/10/13/16 A). Staat hij op 16 A en toont hij 3,5,
     dan zakt het vermogen misschien nog als de stekker warm wordt; een vaste stand is rustiger.
-- ⚠️ **Plak het logboek uit de app in `log.md`.** De drie beurten van 13/17/20 sep staan er nu
-  samengevat in, zonder klokken, en op die beurten is `USABLE_CAPACITY_KWH` gefit. Eén druk op
-  **📋 Kopieer hele logboek** geeft de volledige regels, en pas dán kan `npm run calibrate` ermee
-  rekenen in plaats van een test die de uitkomst vastpint.
 - **Zonder de kWh-kolom blijft het een product, geen paar.** Uit `(eind% − start%) × capaciteit ÷
   uren` komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart — en sinds
   2026-09-20 hangt de capaciteit er ook nog aan: gemeten is `powerKw × efficiency ÷ capacityKwh`,
@@ -49,7 +45,7 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   meterstand erbij splitst het in vermogen en rendement, en twee opeenvolgende regels geven het
   verbruik, zonder de boordcomputer te hoeven geloven.
 - **Het verbruik van 17,0 kWh/100 km is een boekwaarde**, en staat er bewust nog: het logboek meet
-  15,1, maar te weinig bereik beloven kost niets en te veel wel. De boordcomputer van de Leaf toont je
+  15,2, maar te weinig bereik beloven kost niets en te veel wel. De boordcomputer van de Leaf toont je
   eigen gemiddelde (in **km/kWh** — 5,9 km/kWh is 17 kWh/100 km, 6,5 is 15,4). Eén blik daarop en
   het bereik op het scherm klopt met jouw rijstijl in plaats van met een gemiddelde Nederlander.
   Let op het seizoen: hetzelfde getal is in januari een ander getal dan in juli.

@@ -91,8 +91,9 @@ verdeling over de drie getallen is dat niet, en die volgt uit wat er wél afgele
 - **Dan is de capaciteit 30,5 kWh** in plaats van de 39 van een nieuw pakket: 3,5 × 0,88 gedeeld
   door 10,1 %/uur. Dat is SoH ≈ 78%, negen à tien van de twaalf streepjes — voor een Leaf van 2019
   met 97.000 km en geen accukoeling niet vreemd. De tegenproef staat in hetzelfde logboek: 158 km
-  tussen de beurten door kostte 78 procentpunt, en dat is bij 30,5 kWh 15,1 kWh/100 km. Bij 39 kWh
-  zou het 19,3 zijn, wat voor september veel is.
+  tussen de beurten door kostte 78 procentpunt, en dat is bij 30,5 kWh 15,1 kWh/100 km over de hele
+  afstand (`calibrate` middelt per rit en komt op 15,2). Bij 39 kWh zou het 19,3 zijn, wat voor
+  september veel is.
 - **Het rendement blijft 0,88 en ongemeten**, en ruilt één op één tegen de capaciteit: 0,93 zou
   32,2 kWh betekenen. Alleen de `kWh`-kolom — wat de huismeter over één beurt telde — splitst ze.
 

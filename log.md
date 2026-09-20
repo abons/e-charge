@@ -59,23 +59,13 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 
 | datum | km | start% | eind% | van | tot | kWh | opm |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-<!-- Voeg hieronder één regel per laadbeurt toe, nieuwste onderaan. Voorbeeld (verwijder deze regel):
-| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 | |
--->
+| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  |  |
+| 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  |  |
+| 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  |  |
 
-⚠️ **Nog te plakken: de drie beurten waar `USABLE_CAPACITY_KWH` op gefit is** (2026-09-20). Ze staan
-in de app en hier alleen samengevat, omdat de klokken van insteken en afkoppelen er nog niet uit
-gehaald zijn. Druk één keer op **📋 Kopieer hele logboek** en vervang deze alinea door de regels —
-pas dán kan `npm run calibrate` ermee rekenen.
-
-| datum | km | Δ | tijd |
-| --- | --- | --- | --- |
-| 13 sep | 96839 | 74 → 97% | 2u 21m |
-| 17 sep | 96928 | 55 → 90% | 3u 24m |
-| 20 sep | 96997 | 54 → 98% | 4u 21m |
-
-Samen 102 procentpunt in 10u06 (10,1 %/uur) en 158 km voor 78 procentpunt. Wat daaruit volgt staat
-in `design.md`.
+Samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt: dit zijn de drie beurten
+waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`. De `kWh`-kolom is nog leeg, en
+zolang dat zo is blijven capaciteit en rendement één product.
 
 ## Wat er dan uitkomt
 
