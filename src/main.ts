@@ -140,8 +140,8 @@ function render(): void {
   rangeOut.textContent = `± ${rangeKm(rangePercent)} km`;
 
   const result = estimate(from, to);
-  // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` klimt naar het doel, en
-  // dat ligt hier op of onder het startpunt. Liever de regel weg dan een bevroren getal laten staan.
+  // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` geeft dan het startpunt
+  // terug. Liever de regel weg dan een bevroren getal laten staan.
   nowLine.hidden = session === null || !result.needed;
 
   if (!result.needed) {
@@ -161,9 +161,11 @@ function render(): void {
     nowPctOut.textContent = `${soc}%`;
     nowKmOut.textContent = `± ${rangeKm(soc)} km`;
     show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
+    // Voorbij het doel blijft de schatting oplopen naar 100% — de auto kent jouw doel niet. Dus
+    // noemt deze regel `soc` en niet `to`: die laatste bevroor op 90% terwijl er 98% in zat.
     note(
       remainingMs <= 0
-        ? `Volgens de schatting staat hij op ${to}%. Klopt dat niet, vul dan het echte percentage in — dan begint de schatting opnieuw.`
+        ? `Volgens de schatting staat hij op ${soc}%. Klopt dat niet, vul dan het echte percentage in — dan begint de schatting opnieuw.`
         : null,
     );
   } else {

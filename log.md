@@ -63,6 +63,20 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 | |
 -->
 
+⚠️ **Nog te plakken: de drie beurten waar `USABLE_CAPACITY_KWH` op gefit is** (2026-09-20). Ze staan
+in de app en hier alleen samengevat, omdat de klokken van insteken en afkoppelen er nog niet uit
+gehaald zijn. Druk één keer op **📋 Kopieer hele logboek** en vervang deze alinea door de regels —
+pas dán kan `npm run calibrate` ermee rekenen.
+
+| datum | km | Δ | tijd |
+| --- | --- | --- | --- |
+| 13 sep | 96839 | 74 → 97% | 2u 21m |
+| 17 sep | 96928 | 55 → 90% | 3u 24m |
+| 20 sep | 96997 | 54 → 98% | 4u 21m |
+
+Samen 102 procentpunt in 10u06 (10,1 %/uur) en 158 km voor 78 procentpunt. Wat daaruit volgt staat
+in `design.md`.
+
 ## Wat er dan uitkomt
 
 `npm run calibrate` leest deze tabel en rekent terug:

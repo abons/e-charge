@@ -18,6 +18,9 @@ kwijtkunnen. Een paar kW zit daar zó ver onder dat de boordlader tot vlak onder
 Een curve zou hier dus doen alsof er meer bekend is dan waar is. De verliezen zitten in één
 rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een curve niet.
 
+✅ Bevestigd op 2026-09-20: drie beurten die tot 97, 90 en 98% doorliepen gaven 9,79 / 10,29 / 10,11
+procentpunt per uur. Was er een afknik, dan zou juist de beurt die tot 98% ging eruit springen.
+
 ## De constanten staan in één bestand — 2026-09-11
 
 Alle auto- en laderkennis staat boven in `src/core/charge.ts`: bruikbare capaciteit, laadvermogen,
@@ -74,11 +77,50 @@ wint van onze schatting, en het verschil is meteen de fout in capaciteit × rend
 omgekeerde zijn: wat `estimate()` als laadtijd geeft, moet `percentAfter()` exact op het doel
 uitbrengen. Anders zegt de aftelling iets anders dan de eindtijd erboven.
 
+## De capaciteit is gefit op drie laadbeurten — 2026-09-20
+
+Het scherm meldde 90% terwijl het dashboard 98% zei. Drie beurten uit het logboek (13/17/20 sep:
+74→97 in 2u21, 55→90 in 3u24, 54→98 in 4u21) geven samen 102 procentpunt in 10u06 — **10,1 %/uur**,
+waar de app op 7,9 rekende. Ruim 30% mis, en niet één keer maar alle drie.
+
+Wat de laadtijd bepaalt is één breuk: `powerKw × efficiency ÷ capacityKwh`. Die is nu gemeten. De
+verdeling over de drie getallen is dat niet, en die volgt uit wat er wél afgelezen is:
+
+- **Het vermogen staat op het blok van de kabel: 3,5 kW.** Dat is de enige directe aflezing die er
+  is, dus die blijft staan en de rest moet eromheen.
+- **Dan is de capaciteit 30,5 kWh** in plaats van de 39 van een nieuw pakket: 3,5 × 0,88 gedeeld
+  door 10,1 %/uur. Dat is SoH ≈ 78%, negen à tien van de twaalf streepjes — voor een Leaf van 2019
+  met 97.000 km en geen accukoeling niet vreemd. De tegenproef staat in hetzelfde logboek: 158 km
+  tussen de beurten door kostte 78 procentpunt, en dat is bij 30,5 kWh 15,1 kWh/100 km. Bij 39 kWh
+  zou het 19,3 zijn, wat voor september veel is.
+- **Het rendement blijft 0,88 en ongemeten**, en ruilt één op één tegen de capaciteit: 0,93 zou
+  32,2 kWh betekenen. Alleen de `kWh`-kolom — wat de huismeter over één beurt telde — splitst ze.
+
+Voor de vraag die de app stelt maakt die laatste onzekerheid niets uit; voor `rangeKm()` wel, en daar
+is een te lage capaciteit de veilige kant (te weinig km beloven kost niets). Een test pint de drie
+beurten vast op vijf minuten nauwkeurig, zodat niemand later aan één constante draait zonder naar de
+metingen te kijken.
+
+## Het doel is geen plafond voor "Nu ongeveer" — 2026-09-20
+
+`percentAfter()` klemde op het doelpercentage, met als reden "daar stopt de auto". Dat klopt niet:
+de auto kent jouw doel niet — dat staat in een browser, niet in de Leaf. Wie na de geschatte eindtijd
+blijft laden, laadt gewoon door. Het scherm bleef daardoor 90% melden terwijl er 98% in zat, en dat
+las als een rekenfout terwijl het een plafond was. Het maakte bovendien elke aflezing boven het doel
+waardeloos als kalibratie, want het verschil zat dan in de klem en niet in de constanten — precies
+wat de aflezing van 2026-09-13 onbruikbaar maakte. Nu klimt de schatting door tot 100%, en noemt de
+melding bij "Nog 0m" het gerekende percentage in plaats van het doel.
+
+De omgekeerd-test blijft staan maar vergelijkt op hele procenten: `estimate()` rondt de minuten naar
+boven, dus op het klaar-moment zit er hooguit 0,17 procentpunt overheen, en het scherm toont
+`Math.floor(soc)`.
+
 ## Kilometers zijn een vierde constante — 2026-09-11
 
 Bereik in km vraagt een verbruik, en dat is uit de andere drie niet af te leiden.
 `CONSUMPTION_KWH_PER_100KM = 17,0` is gemengd Nederlands rijden voor een Leaf 40 kWh; in de zomer
-eerder 15, met vorst ruim 20. Aan de hoge kant kiezen is hier de veiligere fout, om dezelfde reden
+eerder 15, met vorst ruim 20. Het logboek meet er sinds 2026-09-20 15,1 (zie hierboven) en toch
+blijft hij op 17,0. Aan de hoge kant kiezen is hier de veiligere fout, om dezelfde reden
 dat de minuten naar boven gaan en `rangeKm()` naar beneden afrondt: te veel bereik beloven laat je
 langs de weg staan, te weinig kost niets.
 

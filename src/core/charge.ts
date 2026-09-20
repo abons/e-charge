@@ -7,11 +7,22 @@
  */
 
 /**
- * Nissan Leaf 2019 (ZE1) met het 40 kWh-pakket: bruto 40 kWh, bruikbaar ~39 kWh — het verschil is
- * de buffer die de BMS nooit vrijgeeft. Het percentage op het dashboard loopt over dit bruikbare
- * deel, dus dit is het getal waar procenten mee vermenigvuldigd horen te worden.
+ * Wat er tussen 0% en 100% op het dashboard past. Nissan Leaf 2019 (ZE1) met het 40 kWh-pakket:
+ * bruto 40, en nieuw was daarvan ~39 bruikbaar — het verschil is de buffer die de BMS nooit
+ * vrijgeeft. Die 39 zijn er niet meer: dit is een auto van 2019 met bijna 97.000 km en zonder
+ * accukoeling.
+ *
+ * ⚠️ 30,5 is teruggerekend uit drie laadbeurten in `log.md` (13/17/20 sep 2026: 102 procentpunt in
+ * 10u06, dus 10,1 %/uur) bij de 3,5 kW die op [CHARGE_POWER_KW] staat en het rendement hieronder.
+ * Dat is SoH ≈ 78%, negen à tien van de twaalf streepjes. Tot 2026-09-20 stond hier 39,0 en was de
+ * app daardoor ruim 30% te pessimistisch.
+ *
+ * ⚠️ Wat de metingen vastpinnen is de *verhouding* `powerKw × efficiency ÷ capacityKwh` — meer
+ * bepaalt de laadtijd niet. Dit getal is dus zo goed als [EFFICIENCY] geschat is: 0,93 rendement zou
+ * 32,2 kWh betekenen. Voor de laadtijd maakt die verdeling niets uit, voor [rangeKm] wel — en een te
+ * lage capaciteit belooft te weinig km, wat de veilige kant is.
  */
-export const USABLE_CAPACITY_KWH = 39.0;
+export const USABLE_CAPACITY_KWH = 30.5;
 
 /**
  * Wat er *uit de muur* komt — een gewoon 230V-stopcontact achter de schuur, gevoed vanuit het
@@ -24,10 +35,11 @@ export const USABLE_CAPACITY_KWH = 39.0;
  * stand lager — 8 of 10 A is 1,8 of 2,3 kW — en de volle 16 A zou 3,7 kW zijn.)
  *
  * ⚠️ Het is nog steeds geen meting van de laadsessie zelf: de lader toont wat hij *nu* trekt, niet
- * wat er over zeven uur gemiddeld doorheen ging. Zodra één laadbeurt van bekend % naar bekend %
- * bekend is, is dat exact uit te rekenen: `(doel% − start%) × 0,39 ÷ uren` geeft het effectieve
- * vermogen, en gedeeld door [EFFICIENCY] het vermogen uit de muur. (De Leaf kan 6,6 kW AC aan, dus
- * de auto is hier nooit de beperking.)
+ * wat er over zeven uur gemiddeld doorheen ging. Drie beurten van bekend % naar bekend % (2026-09-20,
+ * zie `log.md`) geven 10,1 %/uur, maar daar staat `powerKw × efficiency ÷ capacityKwh` in en dus
+ * niet dit getal apart — de capaciteit is eromheen gefit, niet andersom. Dat dit hier het
+ * *afgelezen* getal is en [USABLE_CAPACITY_KWH] het gefitte, is precies de reden dat die aflezing
+ * telt. (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
  */
 export const CHARGE_POWER_KW = 3.5;
 
@@ -38,11 +50,12 @@ export const CHARGE_POWER_KW = 3.5;
  * een Leaf aan een stopcontact liggen grofweg tussen 85% en 90%; 88% is daar een eerlijk midden in.
  *
  * Dit is de helft die *niet* afgelezen is — [CHARGE_POWER_KW] staat op het blok van de kabel, dit
- * getal nergens. Bij twijfel is te laag hier de veiligere fout: dan zegt de app dat het langer
- * duurt, en sta je niet voor een auto die nog niet klaar is.
+ * getal nergens.
  *
- * Kalibreren gaat zo: laad één keer van bekend % naar bekend % en kijk hoeveel langer of korter
- * het duurde dan de app zei. 10% te lang → dit getal met ~10% omlaag.
+ * ⚠️ Sinds de laadtijd gemeten is (2026-09-20) draai je hier niet meer vrij aan: de beurten in
+ * `log.md` liggen vast, dus dit getal ruilt één op één tegen [USABLE_CAPACITY_KWH] en verandert aan
+ * de laadtijd niets. Wat het wél verschuift is het bereik in km. Alleen de `kWh`-kolom in `log.md` —
+ * wat de huismeter over één beurt telde — haalt de twee uit elkaar.
  */
 export const EFFICIENCY = 0.88;
 
@@ -52,7 +65,9 @@ export const EFFICIENCY = 0.88;
  *
  * ⚠️ Aan de hoge kant kiezen is hier de veiligere fout, net als het naar boven afronden van de
  * minuten: te veel bereik beloven laat je met een lege accu langs de weg staan, te weinig kost je
- * niets. Wie het echt wil weten, leest het gemiddelde verbruik van de boordcomputer en zet dat hier.
+ * niets. Daarom staat dit op 17,0 terwijl `log.md` het lager meet: 158 km tussen drie laadbeurten
+ * door kostte 78 procentpunt, en dat is bij [USABLE_CAPACITY_KWH] 15,1 kWh/100 km. Wie het echt wil
+ * weten, leest het gemiddelde verbruik van de boordcomputer en zet dat hier.
  */
 export const CONSUMPTION_KWH_PER_100KM = 17.0;
 
@@ -147,8 +162,11 @@ export function rangeKm(percent: number, setup: Setup = DEFAULT_SETUP): number {
 }
 
 /**
- * Het percentage dat er na [elapsedMs] laden ongeveer in zit, gestart op [fromPercent] met
- * [toPercent] als doel — nooit voorbij dat doel, want daar stopt de auto.
+ * Het percentage dat er na [elapsedMs] laden ongeveer in zit, gestart op [fromPercent].
+ *
+ * ⚠️ [toPercent] zegt hier alleen *of* er te laden valt en is **geen plafond**: de auto kent jouw
+ * doel niet — dat staat in een browser — en laadt door tot 100%. Tot 2026-09-20 klemde dit op het
+ * doel, en toen bleef het scherm 90% melden terwijl het dashboard 98% zei.
  *
  * ⚠️ Dit is gerékend, niet gemeten: de app weet niets van de auto, dus dit is [estimate] achterstevoren
  * en erft al zijn aannames. Wie het echte percentage afleest en invult, zet de schatting weer gelijk;
@@ -166,5 +184,5 @@ export function percentAfter(
 
   const addedKwh = setup.powerKw * setup.efficiency * (elapsedMs / 3_600_000);
   const added = (addedKwh / setup.capacityKwh) * 100;
-  return Math.min(to, from + added);
+  return Math.min(100, from + added);
 }

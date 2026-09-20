@@ -18,13 +18,23 @@ import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/
 test("estimate: 43% → 90% aan een stopcontact", () => {
   const result = estimate(43, 90);
   assert.equal(result.needed, true);
-  // 47% van 39 kWh = 18,33 kWh netto de batterij in.
-  assert.equal(result.energyKwh.toFixed(2), "18.33");
-  // Daarvoor moet er 18,33 / 0,88 = 20,83 kWh uit de muur komen.
-  assert.equal(result.wallEnergyKwh.toFixed(2), "20.83");
-  // 3,5 kW × 88% = 3,08 kW effectief; 18,33 / 3,08 = 5,95 uur.
+  // 47% van 30,5 kWh = 14,34 kWh netto de batterij in.
+  assert.equal(result.energyKwh.toFixed(2), "14.34");
+  // Daarvoor moet er 14,34 / 0,88 = 16,29 kWh uit de muur komen.
+  assert.equal(result.wallEnergyKwh.toFixed(2), "16.29");
+  // 3,5 kW × 88% = 3,08 kW effectief; 14,34 / 3,08 = 4,66 uur.
   assert.equal(result.effectivePowerKw.toFixed(3), "3.080");
-  assert.equal(duration(result.minutes), "5u 58m");
+  assert.equal(duration(result.minutes), "4u 40m");
+});
+
+// De drie beurten uit `log.md` waar de capaciteit op gefit is (2026-09-20). Deze test is de reden
+// dat de constanten staan zoals ze staan: wijkt een voorspelling meer dan vijf minuten af van wat
+// de klok zei, dan is er aan een constante gesleuteld zonder naar de metingen te kijken.
+test("estimate: de gemeten laadbeurten komen er binnen vijf minuten uit", () => {
+  for (const [van, tot, minuten] of [[74, 97, 141], [55, 90, 204], [54, 98, 261]] as const) {
+    const afwijking = estimate(van, tot).minutes - minuten;
+    assert.ok(Math.abs(afwijking) <= 5, `${van} → ${tot}: ${afwijking} minuten mis`);
+  }
 });
 
 test("estimate: rendement maakt het langer, nooit korter", () => {
@@ -53,7 +63,7 @@ test("estimate: doel al gehaald betekent niet laden", () => {
 });
 
 test("estimate: rondt minuten naar boven en klemt percentages", () => {
-  assert.equal(estimate(-10, 200).energyKwh, 39); // 0 → 100
+  assert.equal(estimate(-10, 200).energyKwh, 30.5); // 0 → 100
   assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
   assert.ok(Number.isInteger(estimate(43, 90).minutes));
 });
@@ -79,35 +89,35 @@ test("maxMeterKwh: een percentage is geen meterstand", () => {
 });
 
 test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
-  // 39 kWh bij 17 kWh/100 km = 229 km vol; 90% daarvan is 206.
-  assert.equal(rangeKm(100), 229);
-  assert.equal(rangeKm(90), 206);
-  assert.equal(rangeKm(43), 98);
+  // 30,5 kWh bij 17 kWh/100 km = 179 km vol; 90% daarvan is 161.
+  assert.equal(rangeKm(100), 179);
+  assert.equal(rangeKm(90), 161);
+  assert.equal(rangeKm(43), 77);
   assert.equal(rangeKm(0), 0);
   // Een zuiniger of dorstiger auto verzet het bereik, net als bij estimate().
-  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, consumptionKwhPer100Km: 13 }), 300);
-  // Een versleten pakket levert minder km bij hetzelfde percentage.
-  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 35.1 }), 206);
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, consumptionKwhPer100Km: 13 }), 234);
+  // Een ongesleten pakket levert meer km bij hetzelfde percentage.
+  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 39 }), 229);
 });
 
 test("rangeKm: een gebroken percentage gaat naar beneden, niet naar het dichtstbijzijnde", () => {
   // 59,7% mag geen kilometers van 60% opleveren: het scherm toont Math.floor(soc) ernaast, en dan
-  // zou er "59% ± 137 km" staan terwijl 137 km bij 60% hoort.
+  // zou er "59% ± 107 km" staan terwijl 107 km bij 60% hoort.
   assert.equal(rangeKm(59.7), rangeKm(59));
-  assert.equal(rangeKm(59), 135);
-  assert.equal(rangeKm(60), 137);
+  assert.equal(rangeKm(59), 105);
+  assert.equal(rangeKm(60), 107);
   assert.equal(rangeKm(-0.5), 0);
 });
 
-test("percentAfter: loopt op met het laadvermogen en stopt op het doel", () => {
-  // 3,08 kW effectief in 39 kWh: 7,90 procentpunt per uur.
+test("percentAfter: loopt op met het laadvermogen en stopt pas op 100%", () => {
+  // 3,08 kW effectief in 30,5 kWh: 10,10 procentpunt per uur.
   assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
-  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "50.9");
-  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "66.7");
-  // Na de geschatte laadtijd staat hij precies op het doel, en gaat er niet overheen.
-  const minutes = estimate(43, 90).minutes;
-  assert.equal(percentAfter(43, 90, minutes * 60_000), 90);
-  assert.equal(percentAfter(43, 90, 99 * 3_600_000), 90);
+  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "53.1");
+  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "73.3");
+  // ⚠️ Het doel is géén plafond: de auto weet er niets van en laadt door. Dit klemde tot 2026-09-20
+  // op `to`, en toen bleef het scherm 90% melden terwijl het dashboard 98% zei.
+  assert.equal(percentAfter(43, 90, 5 * 3_600_000).toFixed(1), "93.5");
+  assert.equal(percentAfter(43, 90, 99 * 3_600_000), 100);
 });
 
 test("percentAfter: onzinnige invoer levert gewoon het startpunt op", () => {
@@ -117,11 +127,14 @@ test("percentAfter: onzinnige invoer levert gewoon het startpunt op", () => {
 });
 
 test("percentAfter en estimate zijn elkaars omgekeerde", () => {
-  // Wat estimate() als laadtijd geeft, moet percentAfter() precies op het doel uitbrengen — anders
-  // zou de aftelling op het scherm iets anders zeggen dan de eindtijd erboven.
+  // Wat estimate() als laadtijd geeft, moet percentAfter() op het doel uitbrengen — anders zou de
+  // aftelling op het scherm iets anders zeggen dan de eindtijd erboven. Het scherm toont
+  // `Math.floor(soc)`, dus gelijk tot op de hele procent is wat er te controleren valt: estimate()
+  // rondt de minuten naar boven af, en dan zit er hooguit één minuut (0,17 procentpunt) overheen.
   for (const [from, to] of [[10, 80], [43, 90], [0, 100], [65, 66]] as const) {
     const ms = estimate(from, to).minutes * 60_000;
-    assert.equal(percentAfter(from, to, ms), to, `${from} → ${to}`);
+    const soc = percentAfter(from, to, ms);
+    assert.equal(Math.floor(soc), to, `${from} → ${to}: ${soc}`);
     // Eén minuut eerder is hij er nog net niet (afronden naar boven zit in estimate).
     assert.ok(percentAfter(from, to, ms - 60_000) < to, `${from} → ${to}`);
   }

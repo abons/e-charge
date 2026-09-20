@@ -45,10 +45,15 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 
 | constante              | waarde | waarom                                                   |
 | ---------------------- | ------ | -------------------------------------------------------- |
-| `USABLE_CAPACITY_KWH`  | 39,0   | Leaf ZE1 40 kWh: bruto 40, bruikbaar ~39                 |
+| `USABLE_CAPACITY_KWH`  | 30,5   | teruggerekend uit drie laadbeurten; SoH ≈ 78% van de 39 nieuw |
 | `CHARGE_POWER_KW`      | 3,5    | ~15 A × 230 V, afgelezen op de laadkabel                 |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 | `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
+
+De capaciteit stond tot 2026-09-20 op 39,0, de waarde van een nieuw pakket, en de app was daardoor
+ruim 30% te pessimistisch: drie gemeten laadbeurten laten 10,1 procentpunt per uur zien waar de app
+7,9 rekende. Wat gemeten is, is de verhouding `powerKw × efficiency ÷ capacityKwh`; de verdeling
+daarover leunt op het rendement en vraagt nog één meterstand. Zie [`design.md`](design.md).
 
 Kalibreren gaat via [`log.md`](log.md): noteer per laadbeurt de kilometerstand, de percentages en de
 klok, en `npm run calibrate` rekent er laadvermogen en verbruik uit terug. De `kWh`-kolom van je
