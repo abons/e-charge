@@ -10,11 +10,16 @@ en loopt het percentage gerékend op — een aftelling in plaats van een schatti
 
 Zelfde bouw als de webkant van de andere projecten (`wordguesser-src/web/`): **plain TypeScript +
 DOM, geen framework**, esbuild bundelt naar één `app.js`, en de verzonden pagina heeft **nul
-runtime-dependencies**. Installeerbaar als app (PWA) en compleet offline — er is niets dat van een
-netwerk moet komen.
+runtime-dependencies**. Installeerbaar als app (PWA) en offline bruikbaar: het enige dat van het net
+komt is de stroomprijs per kwartier, en zonder bereik rekent de app door met de laatst opgehaalde.
 
 Geen backend, geen login, geen cloud, geen Nissan- of OBD-koppeling. De app weet niets van de auto:
 jij typt het percentage, de app rekent.
+
+Sinds 2026-09-25 staat er ook wat de laadbeurt **kost bij Zonneplan**: de EPEX-prijs per kwartier
+(publiek, via EnergyZero of Energy-Charts) plus de opslag van Zonneplan en de energiebelasting, met
+btw. Elk kwartier van de laadbeurt telt tegen zijn eigen prijs; de prijzen van morgen zijn er pas
+rond 13:00, en tot die tijd zegt de regel "deels geschat".
 
 ## Installeren
 
@@ -68,9 +73,10 @@ vreemd voelt, is zo te herleiden.
 ## Layout
 
 - `src/core/` — de pure stukken, één bestand elk: `charge` (de rekenkern), `time` (klok, duur,
-  "morgen"), `ics` (de agenda-afspraak).
+  "morgen"), `ics` (de agenda-afspraak), `price` (de tariefopbouw en de kostensom per kwartier).
+- `src/prices.ts` — het ophalen en bewaren van de kwartierprijzen; de enige plek met netwerk.
 - `src/main.ts` + `web/` — het enige scherm, de PWA-manifest en de service worker.
-- `test/charge.test.ts` — de rekentests.
+- `test/charge.test.ts`, `test/price.test.ts` — de rekentests.
 - `scripts/build.mjs` — bundel en dev-server.
 
 Openstaand werk staat in `todo.md`, keuzes in `design.md`, regels voor een volgende sessie in

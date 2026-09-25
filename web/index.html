@@ -51,6 +51,10 @@
   .line .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 30px; color: #7fd4a0; }
   .line .day { font-size: 14px; font-weight: 600; color: #9a9a9a; padding-left: 6px; }
+  /* ⚠️ De rechterkant mag niet omslaan: de kostennotitie ("35 ct/kWh, deels geschat") verandert
+     vanuit de fetch-callback, dus op een willekeurig moment — en een tweede regel hier verschuift
+     de knoppen onder je duim. Liever een afgeknipte notitie dan een kaart die van hoogte wisselt. */
+  .line > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .note { margin: 14px 0 0; padding: 11px 13px; border-radius: 10px; background: #14361f;
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }
@@ -127,6 +131,13 @@
         <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
       <div class="line"><span class="k" id="rangelabel">Bereik bij doel</span><span class="v" id="range">–</span></div>
       <div class="line"><span class="k">Laadvermogen</span><span class="v" id="power">–</span></div>
+      <!--
+        De kosten van de hele laadbeurt bij Zonneplan: elk kwartier tegen zijn eigen prijs (zie
+        `src/core/price.ts`). De regel staat er altijd, ook als er (nog) geen prijzen zijn — dan
+        staat er een streepje en zegt het woordje erachter waarom. Zo verandert er niets van hoogte.
+      -->
+      <div class="line"><span class="k">Kosten</span>
+        <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
     </div>
 
     <!--
@@ -200,13 +211,15 @@
     <p>Deze pagina <em>is</em> de app. Open
       <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
       <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
-      zonder bereik, want er is niets dat van een netwerk moet komen.</p>
+      zonder bereik. Alleen de stroomprijzen komen van het net; zonder bereik rekent hij door met
+      de laatst opgehaalde.</p>
     <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
       <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
     <button id="install" type="button" hidden>📲 Installeer als app</button>
   </div>
 
   <footer id="setup"></footer>
+  <footer id="tariff"></footer>
 </main>
 <script src="app.js"></script>
 </body>

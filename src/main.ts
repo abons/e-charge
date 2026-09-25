@@ -8,7 +8,9 @@ import {
   withoutEntry,
   type Entry,
 } from "./core/logbook.js";
+import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, type Cost } from "./core/price.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
+import * as prices from "./prices.js";
 
 /**
  * Het enige scherm. Plain DOM, geen framework: de opmaak staat in `web/index.html` en dit bestand
@@ -55,6 +57,9 @@ const readyDayOut = el("readyday");
 const rangeLabel = el("rangelabel");
 const rangeOut = el("range");
 const powerOut = el("power");
+const costOut = el("cost");
+const costNote = el("costnote");
+const tariffOut = el("tariff");
 const noteOut = el("note");
 const setupOut = el("setup");
 const kmInput = el<HTMLInputElement>("km");
@@ -89,7 +94,7 @@ let finished: Finished | null = null;
 let logbook: Entry[] = [];
 
 /** Wat de laatste render uitrekende — wat de agendaknop in het `.ics` zet. */
-let ready: { startMs: number; readyMs: number; from: number; to: number; label: string } | null = null;
+let ready: { startMs: number; readyMs: number; from: number; to: number; label: string; cost: Cost | null } | null = null;
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
 function percentOf(input: HTMLInputElement): number | null {
@@ -126,6 +131,7 @@ function render(): void {
     rangeLabel.textContent = `Bereik bij ${to}%`;
     rangeOut.textContent = "–";
     show("–", "–", null, "–");
+    showCost(null);
     note("Vul je huidige batterijpercentage in.", "info");
     calendarButton.disabled = true;
     chargeButton.disabled = true;
@@ -146,6 +152,7 @@ function render(): void {
 
   if (!result.needed) {
     show("—", "—", null, "—");
+    showCost(null);
     note(`Laden is niet nodig — je zit met ${from}% al op of boven je doel van ${to}%.`, "ok");
     calendarButton.disabled = true;
     chargeButton.disabled = session === null;
@@ -155,6 +162,18 @@ function render(): void {
   const readyMs = startMs + result.minutes * 60_000;
   const label = dayLabel(now, readyMs);
   const remainingMs = readyMs - now;
+
+  // De kosten gaan over de hele laadbeurt — vanaf het insteken, niet vanaf de laatste aflezing — met
+  // het vermogen uit de muur, want dát staat op de rekening. Ontbreken er kwartieren, dan haalt
+  // `ensure` ze op en rendert opnieuw zodra ze er zijn; dit scherm wacht daar niet op.
+  const cost = chargingCost(shownStartMs, readyMs, DEFAULT_SETUP.powerKw, prices.known());
+  // Eerst `ensure`, dán tonen: anders leest `showCost` de status van vóór het ophalen en staat er
+  // op de eerste render een kaal streepje zonder "prijzen ophalen…".
+  prices.ensure(shownStartMs, readyMs, () => {
+    renderTariff();
+    render();
+  });
+  showCost(cost, true);
 
   if (session) {
     const soc = Math.floor(percentAfter(session.from, to, now - session.startMs));
@@ -181,6 +200,7 @@ function render(): void {
     from: session ? session.logFrom : from,
     to,
     label: label ?? "",
+    cost,
   };
   calendarButton.disabled = false;
   chargeButton.disabled = false;
@@ -200,6 +220,23 @@ function show(durationText: string, readyText: string, day: string | null, power
   powerOut.textContent = powerText;
 }
 
+/**
+ * De kostenregel. `null` is "niets te rekenen" én "geen prijzen"; alleen in dat tweede geval
+ * ([expected]) zegt het woordje erachter waarom: tijdens het ophalen, of als beide bronnen weigerden.
+ * Een schatting over kwartieren die nog niet geprijsd zijn (morgen, vóór 13:00) heet ook zo — de
+ * rekening is dan nog niet bekend.
+ */
+function showCost(cost: Cost | null, expected = false): void {
+  if (cost === null) {
+    costOut.textContent = "–";
+    const status = expected ? prices.status() : "stil";
+    costNote.textContent = status === "ophalen" ? "prijzen ophalen…" : status === "mislukt" ? "geen prijzen" : "";
+    return;
+  }
+  costOut.textContent = `€ ${nl(cost.eur, 2)}`;
+  costNote.textContent = `${Math.round(cost.avgEurPerKwh * 100)} ct/kWh${cost.complete ? "" : ", deels geschat"}`;
+}
+
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
   noteOut.hidden = text === null;
   noteOut.textContent = text ?? "";
@@ -216,7 +253,11 @@ function addToCalendar(): void {
     description:
       `Gestart om ${clock(ready.startMs)} op ${ready.from}%, doel ${ready.to}%.\n` +
       `${nl(result.energyKwh)} kWh nodig, ± ${nl(result.effectivePowerKw)} kW, ` +
-      `${duration(result.minutes)} laden.`,
+      `${duration(result.minutes)} laden.` +
+      (ready.cost === null
+        ? ""
+        : `\nKosten ≈ € ${nl(ready.cost.eur, 2)} (${Math.round(ready.cost.avgEurPerKwh * 100)} ct/kWh, Zonneplan` +
+          `${ready.cost.complete ? "" : ", deels geschat"}).`),
   });
   const url = URL.createObjectURL(new Blob([text], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");
@@ -233,6 +274,18 @@ setupOut.textContent =
   `${nl(DEFAULT_SETUP.capacityKwh)} kWh bruikbaar · ${nl(DEFAULT_SETUP.powerKw)} kW uit de muur · ` +
   `${Math.round(DEFAULT_SETUP.efficiency * 100)}% rendement · ` +
   `${nl(DEFAULT_SETUP.consumptionKwhPer100Km)} kWh/100 km`;
+
+// En de tariefopbouw, uit dezelfde constanten als de kostensom (`price.ts`): de marktprijs per
+// kwartier plus wat Zonneplan en de fiscus erbovenop leggen. De bron komt erbij zodra er een is —
+// Energy-Charts (Fraunhofer ISE) vraagt naamsvermelding, en dat is toch al eerlijk.
+function renderTariff(): void {
+  const bron = prices.sourceName();
+  tariffOut.textContent =
+    `Kosten: EPEX-kwartierprijs + ${nl(SUPPLIER_MARKUP_EUR_PER_KWH * 100)} ct opslag Zonneplan + ` +
+    `${nl(ENERGY_TAX_EUR_PER_KWH * 100)} ct energiebelasting, × ${nl(VAT, 2)} btw` +
+    (bron === "" ? "" : ` · prijzen via ${bron}`);
+}
+renderTariff();
 
 /**
  * Het doelpercentage is een voorkeur en geen vereiste, dus mag opslag ook ontbreken: met cookies

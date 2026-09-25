@@ -11,6 +11,37 @@ een rekenmachine met twee invoervelden, en die werkt offline, gaat nooit stuk do
 verandert, en heeft niets te onderhouden. Wie ooit "maar dan haalt hij het percentage zelf op" wil,
 bouwt een andere app.
 
+## De stroomprijs komt van het net, en dat is de enige uitzondering — 2026-09-25
+
+De vraag was: *zijn de stroomkosten van Zonneplan publiek, zodat ik de laadkosten in de app kan
+zien?* Het antwoord is ja en nee. De kwartierprijzen staan open op zonneplan.nl en in hun app, maar
+een API is er niet — de Home Assistant-koppeling gebruikt de privé-API van de app, met inloggen, en
+Zonneplan heeft die al eens dichtgezet. Wat wél publiek en stabiel is, is waar Zonneplan zijn prijs
+van maakt: de EPEX day-ahead-prijs per kwartier, plus een inkoopvergoeding, plus energiebelasting,
+plus btw. Die opbouw staat in `src/core/price.ts` als drie constanten, naast de vier autoconstanten
+in `charge.ts`.
+
+De eigenaar wilde dit ondanks de regel *de app weet niets van de auto* — en dat is ook geen
+tegenspraak: de app weet nog steeds niets van de auto, ze weet nu iets van de markt. De grenzen die
+blijven staan:
+
+- **Eén bestand raakt het net aan** (`src/prices.ts`), met twee bronnen zonder sleutel
+  (EnergyZero, dan Energy-Charts van Fraunhofer ISE). Twee, omdat vanaf een bureau niet te zien is
+  welke de browser vanaf `abons.github.io` toelaat (CORS) — het proxy-netwerk van de bouwsessie
+  blokkeerde beide. Eén mislukte bron mag de regel niet leeg laten.
+- **Zuinig en offline-bestendig.** Prijzen gaan naar `localStorage`; ophalen gebeurt alleen als de
+  laadbeurt buiten de bekende kwartieren valt, en hooguit één keer per kwartier. Zonder bereik staat
+  er wat er het laatst was, of "geen prijzen" — nooit een leeg scherm.
+- **Elk kwartier tegen zijn eigen prijs**, met het vermogen uit de muur (dát staat op de rekening),
+  over de héle laadbeurt vanaf het insteken. De prijzen van morgen komen rond 13:00; tot die tijd
+  wordt het onbekende deel geschat op het gemiddelde van wat bekend is, en zegt de regel dat erbij.
+- **Het is de eerste afgeleide euro op het scherm**, naast de vier uitkomstregels. Hij staat als
+  vijfde regel onder Laadvermogen, is er altijd (ook als streepje), en verandert dus nooit iets van
+  hoogte boven de knoppen. De agenda-afspraak krijgt hetzelfde bedrag mee.
+
+Bewust níét: een sleutel of token in de bundel (publieke pagina), een eigen proxy, en iets anders
+ophalen dan de prijs.
+
 ## Lineair rekenen, geen laadcurve — 2026-09-11
 
 Een laadcurve hoort bij snelladen: daar knijpt de auto af zodra de cellen het vermogen niet meer
@@ -135,8 +166,7 @@ websitegegevens of een nieuwe telefoon. Eén knop kopieert het hele logboek als 
 is dan het enige handwerk dat overblijft.
 
 Wat de app níet doet is ergens naartoe schrijven. Een commit vanuit de pagina vraagt een token in
-publieke code, en dat is een gelekt token; bovendien zou het netwerk terugbrengen in een app die
-volledig offline werkt. Het klembord is tekst, geen verbinding.
+publieke code, en dat is een gelekt token. Het klembord is tekst, geen verbinding.
 
 Bewaren is idempotent op starttijd: dezelfde laadbeurt nog eens bewaren werkt de regel bij in plaats
 van er een tweede naast te zetten. Dat is nodig omdat de knop blijft staan en de afgelopen beurt een

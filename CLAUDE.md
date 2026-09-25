@@ -9,15 +9,26 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 ## Standing rules
 
 - **De app weet niets van de auto, en dat blijft zo.** Geen backend, geen login, geen cloud, geen
-  Nissan API, geen OBD, geen externe service — dat was de opdracht bij het ontstaan (2026-09-11) en
-  het is ook de reden dat deze app offline werkt en niets te onderhouden heeft. Een feature die een
-  netwerk nodig heeft, hoort hier niet.
+  Nissan API, geen OBD — dat was de opdracht bij het ontstaan (2026-09-11) en het is ook de reden dat
+  deze app offline werkt en niets te onderhouden heeft.
+- ⚠️ **Eén uitzondering, sinds 2026-09-25: de stroomprijs komt van het net.** De eigenaar wilde de
+  laadkosten bij Zonneplan per kwartier zien, en die zijn niet te raden. `src/prices.ts` is de
+  **enige** plek die `fetch` aanraakt: twee publieke EPEX-bronnen zonder sleutel (EnergyZero, dan
+  Energy-Charts), resultaat in `localStorage`, hooguit één poging per kwartier en alleen als de
+  laadbeurt buiten de bekende prijzen valt. Zonder bereik rekent alles door met wat er staat, en de
+  kostenregel zegt "geen prijzen" in plaats van het scherm mee te slepen. Zonneplan zelf heeft geen
+  open API; zijn prijs is EPEX + een vaste opbouw, en die drie getallen staan in `src/core/price.ts`
+  — de tarief-tegenhanger van de vier autoconstanten. Wat nog steeds niet mag: een token of sleutel
+  in de bundel (het is een publieke pagina), en iets ophalen dat niet de prijs is.
+  ⚠️ **CORS is niet vanaf een bureau te testen.** Welke van de twee bronnen de browser vanaf
+  `abons.github.io` toelaat, blijkt pas op de telefoon; daarom zijn het er twee, en zegt de regel
+  onderaan het scherm welke het werd.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
   klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon
   overleeft, en `npm run calibrate` rekent daaruit de constanten terug. Wat de app **niet** doet is
   ergens naartoe schrijven: geen server, geen token — een token in een publieke pagina is een gelekt
-  token, en de vorige regel blijft gelden. Klembord is tekst, geen netwerk.
+  token. Klembord is tekst, geen netwerk.
   ⚠️ De kolomvolgorde in `src/core/logline.ts` is een contract met `scripts/calibrate.mjs`, dat op
   positie leest en niet op naam — een test pint het formaat vast.
   ⚠️ **De app vraagt niet meer om een meterstand** (2026-09-13): het scherm toont nergens een kWh,
