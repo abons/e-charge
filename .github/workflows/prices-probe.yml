@@ -1,0 +1,23 @@
+# Tijdelijk: bekijkt vanaf een runner hoe de twee prijsbronnen antwoorden op een browser-achtige
+# aanvraag vanaf abons.github.io, want vanaf de telefoon zeggen ze alleen "geen prijzen".
+name: prices-probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          FROM=$(date -u -d 'today 00:00' +%Y-%m-%dT%H:%M:%S.000Z)
+          TILL=$(date -u -d 'tomorrow 23:59:59' +%Y-%m-%dT%H:%M:%S.999Z)
+          for U in \
+            "https://api.energyzero.nl/v1/energyprices?fromDate=$FROM&tillDate=$TILL&interval=3&usageType=1&inclBtw=false" \
+            "https://api.energyzero.nl/v1/energyprices?fromDate=$FROM&tillDate=$TILL&interval=4&usageType=1&inclBtw=false" \
+            "https://api.energy-charts.info/price?bzn=NL&start=$FROM&end=$TILL" \
+            "https://api.energy-charts.info/price?bzn=NL&start=$(date -u +%Y-%m-%d)&end=$(date -u -d tomorrow +%Y-%m-%d)" ; do
+            echo "=================== $U"
+            curl -sS -m 20 -D - -o body.txt -H "Origin: https://abons.github.io" -H "Accept: application/json" "$U" || true
+            echo "--- body ($(wc -c < body.txt) bytes):"
+            head -c 600 body.txt; echo
+            echo "--- preflight:"
+            curl -sS -m 20 -D - -o /dev/null -X OPTIONS -H "Origin: https://abons.github.io" -H "Access-Control-Request-Method: GET" "$U" || true
+          done
