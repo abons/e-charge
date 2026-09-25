@@ -1,4 +1,5 @@
-# Tijdelijk: bekijkt vanaf een runner hoe EnergyZero antwoordt. Ronde 4: de enum-namen.
+# Tijdelijk: bekijkt vanaf een runner hoe EnergyZero antwoordt. Ronde 5: wat de API zelf zegt
+# over de invoer, en nog wat namen voor het kwartier.
 name: prices-probe
 on:
   push:
@@ -9,12 +10,13 @@ jobs:
     steps:
       - run: |
           FROM=$(date -u -d 'today 00:00' +%Y-%m-%dT%H:%M:%S.000Z)
-          TILL=$(date -u -d 'tomorrow 23:59:59' +%Y-%m-%dT%H:%M:%S.999Z)
+          TILL=$(date -u -d 'today 03:00' +%Y-%m-%dT%H:%M:%S.000Z)
           GQL=https://api.energyzero.nl/v1/gql
-          for IV in Hourly Quarterly Quarter QuarterHourly QuarterHour FifteenMinutes Daily; do
-            echo "=================== gql intervalType=$IV"
-            curl -sS -m 20 -o body.txt -w "%{http_code}\n" -H "Origin: https://abons.github.io" -H "Content-Type: application/json" \
-              -d "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcl energyPriceIncl } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"intervalType\":\"$IV\",\"type\":\"Electricity\"}}}" "$GQL" || true
-            echo "--- body ($(wc -c < body.txt) bytes):"; head -c 700 body.txt; echo
-            echo "aantal: $(jq -r '.data.energyMarketPrices.prices | length' body.txt 2>/dev/null)"
+          q() { echo "=================== $1"; curl -sS -m 20 -o body.txt -w "%{http_code}\n" -H "Content-Type: application/json" -d "$2" "$GQL" || true; head -c 900 body.txt; echo; }
+          q "zonder intervalType" "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcl } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"type\":\"Electricity\"}}}"
+          q "onbekend veld" "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcl } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"type\":\"Electricity\",\"intervalType\":\"Hourly\",\"interval\":\"x\",\"resolution\":\"x\",\"granularity\":\"x\"}}}"
+          q "leeg intervalType" "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcl } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"type\":\"Electricity\",\"intervalType\":\"\"}}}"
+          q "letterlijk enum in query" "{\"query\":\"{ energyMarketPrices(input: {from: \\\"$FROM\\\", till: \\\"$TILL\\\", type: Electricity, intervalType: Kwartier}) { prices { from till energyPriceExcl } } }\"}"
+          for IV in QuarterOfHour Quarterhour Quarterhourly Minutes15 Minute15 FifteenMinute Min15 PT15M QuarterlyHour HalfHourly Quarters Every15Minutes; do
+            q "intervalType=$IV" "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcl } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"type\":\"Electricity\",\"intervalType\":\"$IV\"}}}"
           done
