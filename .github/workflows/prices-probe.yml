@@ -1,5 +1,5 @@
-# Tijdelijk: bekijkt vanaf een runner hoe de twee prijsbronnen antwoorden op een browser-achtige
-# aanvraag vanaf abons.github.io, want vanaf de telefoon zeggen ze alleen "geen prijzen".
+# Tijdelijk: bekijkt vanaf een runner hoe EnergyZero antwoordt, want vanaf de telefoon zegt de app
+# alleen "geen prijzen". Ronde 2: het GraphQL-endpoint voor kwartierprijzen, plus de REST-intervals.
 name: prices-probe
 on:
   push:
@@ -11,15 +11,16 @@ jobs:
       - run: |
           FROM=$(date -u -d 'today 00:00' +%Y-%m-%dT%H:%M:%S.000Z)
           TILL=$(date -u -d 'tomorrow 23:59:59' +%Y-%m-%dT%H:%M:%S.999Z)
-          for U in \
-            "https://api.energyzero.nl/v1/energyprices?fromDate=$FROM&tillDate=$TILL&interval=3&usageType=1&inclBtw=false" \
-            "https://api.energyzero.nl/v1/energyprices?fromDate=$FROM&tillDate=$TILL&interval=4&usageType=1&inclBtw=false" \
-            "https://api.energy-charts.info/price?bzn=NL&start=$FROM&end=$TILL" \
-            "https://api.energy-charts.info/price?bzn=NL&start=$(date -u +%Y-%m-%d)&end=$(date -u -d tomorrow +%Y-%m-%d)" ; do
-            echo "=================== $U"
-            curl -sS -m 20 -D - -o body.txt -H "Origin: https://abons.github.io" -H "Accept: application/json" "$U" || true
-            echo "--- body ($(wc -c < body.txt) bytes):"
-            head -c 600 body.txt; echo
-            echo "--- preflight:"
-            curl -sS -m 20 -D - -o /dev/null -X OPTIONS -H "Origin: https://abons.github.io" -H "Access-Control-Request-Method: GET" "$U" || true
+          GQL=https://api.energyzero.nl/v1/gql
+          post() { echo "=================== $1"; curl -sS -m 20 -D - -o body.txt -H "Origin: https://abons.github.io" -H "Content-Type: application/json" -d "$2" "$GQL" || true; echo "--- body ($(wc -c < body.txt) bytes):"; head -c 1500 body.txt; echo; }
+          post "introspectie input" '{"query":"{ __type(name: \"EnergyMarketPricesInput\") { inputFields { name type { name kind ofType { name kind enumValues { name } } enumValues { name } } } } }"}'
+          post "introspectie result" '{"query":"{ __type(name: \"EnergyMarketPrices\") { fields { name type { name kind ofType { name } } } } }"}'
+          post "introspectie price" '{"query":"{ __type(name: \"EnergyMarketPrice\") { fields { name type { name kind ofType { name } } } } }"}'
+          post "kwartierprijzen" "{\"query\":\"query(\$input: EnergyMarketPricesInput!) { energyMarketPrices(input: \$input) { prices { from till energyPriceExcludingTax energyPriceIncludingTax } } }\",\"variables\":{\"input\":{\"from\":\"$FROM\",\"till\":\"$TILL\",\"intervalType\":\"QUARTER\",\"type\":\"ELECTRICITY\"}}}"
+          echo "=================== preflight POST"
+          curl -sS -m 20 -D - -o /dev/null -X OPTIONS -H "Origin: https://abons.github.io" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$GQL" || true
+          for I in 1 2 5 6; do
+            U="https://api.energyzero.nl/v1/energyprices?fromDate=$FROM&tillDate=$TILL&interval=$I&usageType=1&inclBtw=false"
+            echo "=================== REST interval=$I"
+            curl -sS -m 20 -o body.txt -w "%{http_code}\n" "$U" || true; head -c 300 body.txt; echo
           done
