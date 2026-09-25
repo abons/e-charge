@@ -17,8 +17,8 @@ Geen backend, geen login, geen cloud, geen Nissan- of OBD-koppeling. De app weet
 jij typt het percentage, de app rekent.
 
 Sinds 2026-09-25 staat er ook wat de laadbeurt **kost bij Zonneplan**: de EPEX-prijs per kwartier
-(publiek, via EnergyZero of Energy-Charts) plus de opslag van Zonneplan en de energiebelasting, met
-btw. Elk kwartier van de laadbeurt telt tegen zijn eigen prijs; de prijzen van morgen zijn er pas
+(publiek, via de prijzen-API van EnergyZero) plus de opslag van Zonneplan en de energiebelasting,
+met btw. Elk kwartier van de laadbeurt telt tegen zijn eigen prijs; de prijzen van morgen zijn er pas
 rond 13:00, en tot die tijd zegt de regel "deels geschat".
 
 ## Installeren

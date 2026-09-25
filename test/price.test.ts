@@ -9,7 +9,6 @@ import {
   chargingCost,
   covered,
   mergeQuarters,
-  parseEnergyCharts,
   parseEnergyZero,
   parseQuarters,
   type Quarter,
@@ -28,71 +27,46 @@ test("allInEurPerKwh: marktprijs + opslag + belasting, en daar btw over", () => 
   assert.ok(allInEurPerKwh(-0.05) > 0);
 });
 
-test("parseEnergyZero: kwartieren uit Prices[], marktprijs naar all-in", () => {
+const blok = (start: string, end: string, value: string | number) => ({ start, end, price: { value } });
+
+test("parseEnergyZero: kwartieren uit base[], marktprijs (als tekst) naar all-in", () => {
   const json = {
-    Prices: [
-      { price: 0.1, readingDate: "2026-09-25T20:00:00Z" },
-      { price: 0.08, readingDate: "2026-09-25T20:15:00Z" },
-      { price: "kapot", readingDate: "2026-09-25T20:30:00Z" },
-      { price: 0.12, readingDate: "2026-09-25T20:45:00Z" },
+    interval: "RESPONSE_INTERVAL_QUARTER",
+    range: { start: "2026-09-25T20:00:00Z", end: "2026-09-25T21:00:00Z" },
+    base: [
+      blok("2026-09-25T20:00:00Z", "2026-09-25T20:15:00Z", "0.19701"),
+      blok("2026-09-25T20:15:00Z", "2026-09-25T20:30:00Z", "0.08"),
+      blok("2026-09-25T20:30:00Z", "2026-09-25T20:45:00Z", "kapot"),
+      blok("2026-09-25T20:45:00Z", "2026-09-25T21:00:00Z", 0.12),
     ],
-    intervalType: 3,
+    base_with_vat: [blok("2026-09-25T20:00:00Z", "2026-09-25T20:15:00Z", "0.2384")],
   };
   const q = parseEnergyZero(json);
   assert.equal(q.length, 3);
   assert.deepEqual(q.map((x) => x.startMs), [T0, T0 + Q, T0 + 3 * Q]);
   assert.equal(q[0]?.endMs, T0 + Q);
-  assert.equal(q[0]?.eurPerKwh.toFixed(4), allInEurPerKwh(0.1).toFixed(4));
+  assert.equal(q[0]?.eurPerKwh.toFixed(5), allInEurPerKwh(0.19701).toFixed(5));
+  assert.equal(q[2]?.eurPerKwh.toFixed(4), allInEurPerKwh(0.12).toFixed(4));
   // Onzin levert een lege lijst, geen uitzondering.
   assert.deepEqual(parseEnergyZero(null), []);
-  assert.deepEqual(parseEnergyZero({ Prices: "nee" }), []);
-  assert.deepEqual(parseEnergyZero({ Prices: [{ price: 1 }] }), []);
+  assert.deepEqual(parseEnergyZero({ base: "nee" }), []);
+  assert.deepEqual(parseEnergyZero({ Prices: [{ price: 1, readingDate: "2026-09-25T20:00:00Z" }] }), []);
+  assert.deepEqual(parseEnergyZero({ base: [{ start: "2026-09-25T20:00:00Z", end: "x", price: { value: "1" } }] }), []);
 });
 
-test("parseEnergyZero: een bron die per uur levert, dekt het hele uur", () => {
+test("parseEnergyZero: een dubbele start telt één keer, een dagblok telt niet", () => {
   const q = parseEnergyZero({
-    Prices: [
-      { price: 0.1, readingDate: "2026-09-25T20:00:00Z" },
-      { price: 0.1, readingDate: "2026-09-25T21:00:00Z" },
+    base: [
+      blok("2026-09-25T20:00:00Z", "2026-09-25T20:15:00Z", "0.1"),
+      blok("2026-09-25T20:00:00Z", "2026-09-25T20:15:00Z", "0.2"),
+      blok("2026-09-25T20:15:00Z", "2026-09-25T20:00:00Z", "0.3"), // eind vóór begin
+      blok("2026-09-25T00:00:00Z", "2026-09-26T00:00:00Z", "0.4"), // een dag is geen kwartier
+      blok("2026-09-25T21:00:00Z", "2026-09-25T22:00:00Z", "0.5"), // een uur mag nog
     ],
   });
-  assert.equal(q[0]?.endMs, T0 + 4 * Q);
-  assert.equal(q[1]?.endMs, T0 + 8 * Q);
-});
-
-test("parseEnergyZero: een gat aan het begin bepaalt de bloklengte niet", () => {
-  // 10:00, dan pas 20:00, 21:00, 22:00: de uurstappen tellen, het gat van tien uur niet.
-  const q = parseEnergyZero({
-    Prices: [
-      { price: 0.1, readingDate: "2026-09-25T10:00:00Z" },
-      { price: 0.1, readingDate: "2026-09-25T20:00:00Z" },
-      { price: 0.1, readingDate: "2026-09-25T21:00:00Z" },
-      { price: 0.1, readingDate: "2026-09-25T22:00:00Z" },
-    ],
-  });
-  assert.equal(q.length, 4);
-  for (const x of q) assert.equal(x.endMs - x.startMs, 4 * Q);
-});
-
-test("parseEnergyZero: een dagreeks is geen kwartierprijs en telt niet mee", () => {
-  const q = parseEnergyZero({
-    Prices: [
-      { price: 0.1, readingDate: "2026-09-25T00:00:00Z" },
-      { price: 0.1, readingDate: "2026-09-26T00:00:00Z" },
-    ],
-  });
-  assert.deepEqual(q, []);
-  // Eén punt kan niets anders zijn dan een kwartier.
-  assert.equal(parseEnergyZero({ Prices: [{ price: 0.1, readingDate: "2026-09-25T00:00:00Z" }] })[0]?.endMs, Date.parse("2026-09-25T00:15:00Z"));
-});
-
-test("parseEnergyCharts: twee rijen, €/MWh naar €/kWh", () => {
-  const q = parseEnergyCharts({ unix_seconds: [T0 / 1000, T0 / 1000 + 900], price: [80, 120], unit: "EUR / MWh" });
   assert.equal(q.length, 2);
-  assert.equal(q[0]?.eurPerKwh.toFixed(4), allInEurPerKwh(0.08).toFixed(4));
-  assert.equal(q[1]?.startMs, T0 + Q);
-  assert.deepEqual(parseEnergyCharts({ unix_seconds: [1], price: "x" }), []);
-  assert.deepEqual(parseEnergyCharts(undefined), []);
+  assert.equal(q[0]?.eurPerKwh.toFixed(4), allInEurPerKwh(0.2).toFixed(4));
+  assert.equal((q[1]?.endMs ?? 0) - (q[1]?.startMs ?? 0), 4 * Q);
 });
 
 test("parseQuarters: wat uit opslag komt wordt niet vertrouwd", () => {

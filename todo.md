@@ -13,12 +13,11 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
 
 ## Hier begint de volgende sessie
 
-- ⚠️ **De kostenregel is nog niet op een echte telefoon gezien** (2026-09-25). In Chromium met
-  nagespeelde API's werkt alles (terugval naar de tweede bron, opslag over een herlaad heen, "geen
-  prijzen" als beide weigeren), maar of `api.energyzero.nl` of `api.energy-charts.info` de browser
-  vanaf `abons.github.io` toelaat (CORS) is vanaf een bureau niet te testen. Open de app, kijk of er
-  een bedrag staat en welke bron de regel onderaan noemt. Staat er "geen prijzen" terwijl je bereik
-  hebt, dan weigeren beide en is een derde bron of een proxy de volgende stap.
+- **De kostenregel op de telefoon nakijken** (2026-09-25, tweede poging). De eerste versie zei
+  "geen prijzen"; de bron is nu `public.api.energyzero.nl`, waarvan een GitHub-runner de CORS-header
+  voor `abons.github.io` heeft gezien en die 288 kwartieren per aanroep gaf. Open de app: er hoort
+  een bedrag te staan met "EnergyZero" in de regel onderaan. Een laadbeurt die over 13:00 heen
+  loopt naar morgen staat tot dan als "deels geschat".
 - **De tariefconstanten controleren tegen je Zonneplan-rekening**: 1,652 ct opslag (excl. btw) en
   9,161 ct energiebelasting 2026 komen van vergelijkingssites, niet van de tariefkaart zelf. Eén
   kwartier in de Zonneplan-app naast de app leggen zegt genoeg; ze staan in `src/core/price.ts`.

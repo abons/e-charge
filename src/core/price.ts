@@ -11,9 +11,9 @@
  * belastingtabel; verandert een van beide, dan verandert hier één getal. Een andere leverancier is
  * een andere opslag, meer niet — het kwartiermodel is bij elk dynamisch contract hetzelfde.
  *
- * Alles hier is puur: wat er van het net komt (`parseEnergyZero`, `parseEnergyCharts`) en wat er
- * uit opslag komt (`parseQuarters`) wordt niet vertrouwd, en de kostensom werkt op tijdstippen in
- * ms — de kwartieren komen als UTC-momenten binnen en het scherm maakt er lokale klok van.
+ * Alles hier is puur: wat er van het net komt (`parseEnergyZero`) en wat er uit opslag komt
+ * (`parseQuarters`) wordt niet vertrouwd, en de kostensom werkt op tijdstippen in ms — de
+ * kwartieren komen als UTC-momenten binnen en het scherm maakt er lokale klok van.
  */
 
 /** Inkoopvergoeding van Zonneplan bij een dynamisch contract, per kWh excl. btw (sept 2026). */
@@ -34,70 +34,35 @@ export interface Quarter {
   eurPerKwh: number;
 }
 
-const QUARTER_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
 
 /**
- * Van losse (start, marktprijs)-punten naar aaneengesloten blokken. De bloklengte is de kleinste
- * stap van hooguit een uur tussen twee punten, zodat een bron die toch per uur levert niet
- * stilletjes driekwart van de tijd onbedekt laat, en een gat aan het begin de maat niet bepaalt.
- * Zonder tweede punt is een kwartier de aanname. Zijn er wél meer punten maar liggen ze allemaal
- * verder dan een uur uit elkaar (een dagreeks), dan is dit geen kwartierprijs en telt de bron niet
- * mee — liever de volgende bron dan één prijs per dag als kwartier verkopen. Dubbele starts vallen
- * weg (de laatste wint), en wat geen getal is ook.
- */
-function toQuarters(points: Array<{ startMs: number; eurPerKwh: number }>): Quarter[] {
-  const byStart = new Map<number, number>();
-  for (const p of points) {
-    if (Number.isFinite(p.startMs) && Number.isFinite(p.eurPerKwh) && p.startMs > 0) byStart.set(p.startMs, p.eurPerKwh);
-  }
-  const starts = [...byStart.keys()].sort((a, b) => a - b);
-  let step = Infinity;
-  for (let i = 1; i < starts.length; i++) {
-    const d = (starts[i] ?? 0) - (starts[i - 1] ?? 0);
-    if (d > 0 && d <= HOUR_MS && d < step) step = d;
-  }
-  if (step === Infinity) {
-    if (starts.length > 1) return [];
-    step = QUARTER_MS;
-  }
-  return starts.map((startMs) => ({ startMs, endMs: startMs + step, eurPerKwh: byStart.get(startMs) ?? 0 }));
-}
-
-/**
- * Het antwoord van `api.energyzero.nl/v1/energyprices` met `inclBtw=false`: `Prices[].price` is de
- * marktprijs in €/kWh excl. btw, `readingDate` het begin van het blok als ISO-tijd in UTC.
+ * Het antwoord van `public.api.energyzero.nl/public/v1/prices` met `interval=INTERVAL_QUARTER`:
+ * `base[]` is de kale marktprijs (excl. btw, zonder opslag of belasting — gecontroleerd tegen de
+ * EPEX-prijs van Energy-Charts op 2026-09-25), per blok met `start`, `end` en `price.value`. Die
+ * waarde is een *string* ("0.19701"). Eén aanroep met de datum van vandaag geeft gisteren, vandaag
+ * en — vanaf ±13:00 — morgen.
+ *
+ * Een blok langer dan een uur is geen kwartier- of uurprijs en telt niet mee: liever geen prijs dan
+ * één dagprijs als kwartier verkopen. Dubbele starts vallen weg (de laatste wint), onzin ook.
  */
 export function parseEnergyZero(json: unknown): Quarter[] {
   if (typeof json !== "object" || json === null) return [];
-  const prices = (json as Record<string, unknown>)["Prices"];
-  if (!Array.isArray(prices)) return [];
-  const points: Array<{ startMs: number; eurPerKwh: number }> = [];
-  for (const row of prices) {
+  const base = (json as Record<string, unknown>)["base"];
+  if (!Array.isArray(base)) return [];
+  const byStart = new Map<number, Quarter>();
+  for (const row of base) {
     if (typeof row !== "object" || row === null) continue;
-    const { price, readingDate } = row as Record<string, unknown>;
-    if (typeof price !== "number" || typeof readingDate !== "string") continue;
-    points.push({ startMs: Date.parse(readingDate), eurPerKwh: allInEurPerKwh(price) });
+    const { start, end, price } = row as Record<string, unknown>;
+    if (typeof start !== "string" || typeof end !== "string" || typeof price !== "object" || price === null) continue;
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    const value = Number((price as Record<string, unknown>)["value"]);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || !Number.isFinite(value)) continue;
+    if (endMs <= startMs || endMs - startMs > HOUR_MS) continue;
+    byStart.set(startMs, { startMs, endMs, eurPerKwh: allInEurPerKwh(value) });
   }
-  return toQuarters(points);
-}
-
-/**
- * Het antwoord van `api.energy-charts.info/price?bzn=NL` (Fraunhofer ISE, CC BY 4.0): twee even
- * lange rijen, `unix_seconds` en `price` in €/MWh excl. btw.
- */
-export function parseEnergyCharts(json: unknown): Quarter[] {
-  if (typeof json !== "object" || json === null) return [];
-  const { unix_seconds: seconds, price } = json as Record<string, unknown>;
-  if (!Array.isArray(seconds) || !Array.isArray(price)) return [];
-  const points: Array<{ startMs: number; eurPerKwh: number }> = [];
-  for (let i = 0; i < Math.min(seconds.length, price.length); i++) {
-    const s = seconds[i];
-    const p = price[i];
-    if (typeof s !== "number" || typeof p !== "number") continue;
-    points.push({ startMs: s * 1000, eurPerKwh: allInEurPerKwh(p / 1000) });
-  }
-  return toQuarters(points);
+  return [...byStart.values()].sort((a, b) => a.startMs - b.startMs);
 }
 
 /** Wat er in `localStorage` bewaard staat: dezelfde vorm als [Quarter], maar niet te vertrouwen. */
@@ -117,9 +82,9 @@ export function parseQuarters(value: unknown): Quarter[] {
 
 /**
  * Nieuwe blokken over de oude heen, en alles ouder dan [keepFromMs] weg. Een oud blok dat een nieuw
- * blok ook maar raakt, verdwijnt — niet alleen bij gelijke start: de twee bronnen kunnen in
- * bloklengte verschillen, en een uurblok bovenop drie achtergebleven kwartierblokken telt anders
- * zeven kwartieren energie in één uur.
+ * blok ook maar raakt, verdwijnt — niet alleen bij gelijke start: verandert de bron ooit van
+ * bloklengte, dan telt een uurblok bovenop drie achtergebleven kwartierblokken anders zeven
+ * kwartieren energie in één uur.
  */
 export function mergeQuarters(oud: Quarter[], nieuw: Quarter[], keepFromMs: number): Quarter[] {
   const overlapt = (a: Quarter, b: Quarter): boolean => a.startMs < b.endMs && b.startMs < a.endMs;
