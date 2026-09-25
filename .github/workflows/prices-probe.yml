@@ -1,7 +1,9 @@
 # Tijdelijk: bekijkt vanaf een runner hoe de twee prijsbronnen antwoorden op een browser-achtige
 # aanvraag vanaf abons.github.io, want vanaf de telefoon zeggen ze alleen "geen prijzen".
 name: prices-probe
-on: workflow_dispatch
+on:
+  push:
+    branches: [claude/zonneplan-stroomkosten-zichtbaarheid-hiqcez]
 jobs:
   probe:
     runs-on: ubuntu-latest
