@@ -51,6 +51,10 @@
   .line .v { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 30px; color: #7fd4a0; }
   .line .day { font-size: 14px; font-weight: 600; color: #9a9a9a; padding-left: 6px; }
+  /* ⚠️ De rechterkant mag niet omslaan: de kostennotitie ("35 ct/kWh, deels geschat") verandert
+     vanuit de fetch-callback, dus op een willekeurig moment — en een tweede regel hier verschuift
+     de knoppen onder je duim. Liever een afgeknipte notitie dan een kaart die van hoogte wisselt. */
+  .line > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .note { margin: 14px 0 0; padding: 11px 13px; border-radius: 10px; background: #14361f;
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }

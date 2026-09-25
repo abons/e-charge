@@ -60,6 +60,32 @@ test("parseEnergyZero: een bron die per uur levert, dekt het hele uur", () => {
   assert.equal(q[1]?.endMs, T0 + 8 * Q);
 });
 
+test("parseEnergyZero: een gat aan het begin bepaalt de bloklengte niet", () => {
+  // 10:00, dan pas 20:00, 21:00, 22:00: de uurstappen tellen, het gat van tien uur niet.
+  const q = parseEnergyZero({
+    Prices: [
+      { price: 0.1, readingDate: "2026-09-25T10:00:00Z" },
+      { price: 0.1, readingDate: "2026-09-25T20:00:00Z" },
+      { price: 0.1, readingDate: "2026-09-25T21:00:00Z" },
+      { price: 0.1, readingDate: "2026-09-25T22:00:00Z" },
+    ],
+  });
+  assert.equal(q.length, 4);
+  for (const x of q) assert.equal(x.endMs - x.startMs, 4 * Q);
+});
+
+test("parseEnergyZero: een dagreeks is geen kwartierprijs en telt niet mee", () => {
+  const q = parseEnergyZero({
+    Prices: [
+      { price: 0.1, readingDate: "2026-09-25T00:00:00Z" },
+      { price: 0.1, readingDate: "2026-09-26T00:00:00Z" },
+    ],
+  });
+  assert.deepEqual(q, []);
+  // Eén punt kan niets anders zijn dan een kwartier.
+  assert.equal(parseEnergyZero({ Prices: [{ price: 0.1, readingDate: "2026-09-25T00:00:00Z" }] })[0]?.endMs, Date.parse("2026-09-25T00:15:00Z"));
+});
+
 test("parseEnergyCharts: twee rijen, €/MWh naar €/kWh", () => {
   const q = parseEnergyCharts({ unix_seconds: [T0 / 1000, T0 / 1000 + 900], price: [80, 120], unit: "EUR / MWh" });
   assert.equal(q.length, 2);
@@ -84,6 +110,18 @@ test("mergeQuarters: nieuw wint op gelijke start, oud verdwijnt", () => {
   const nieuw: Quarter[] = [{ startMs: T0, endMs: T0 + Q, eurPerKwh: 0.3 }];
   const samen = mergeQuarters(oud, nieuw, T0 - Q);
   assert.deepEqual(samen, nieuw);
+});
+
+test("mergeQuarters: een uurblok van de andere bron veegt de kwartieren eronder weg", () => {
+  const kwartieren: Quarter[] = [0, 1, 2, 3, 4].map((i) => ({ startMs: T0 + i * Q, endMs: T0 + (i + 1) * Q, eurPerKwh: 0.2 }));
+  const uur: Quarter[] = [{ startMs: T0, endMs: T0 + 4 * Q, eurPerKwh: 0.3 }];
+  const samen = mergeQuarters(kwartieren, uur, 0);
+  assert.deepEqual(samen, [uur[0], kwartieren[4]]);
+  // En dus telt een uur laden één uur energie, niet zeven kwartieren.
+  const kost = chargingCost(T0, T0 + 4 * Q, 3.5, samen);
+  assert.ok(kost !== null && kost.complete);
+  assert.equal(kost.coveredMs, 4 * Q);
+  assert.equal(kost.eur.toFixed(4), (3.5 * 0.3).toFixed(4));
 });
 
 const prijzen: Quarter[] = [0.2, 0.3, 0.4, 0.5].map((eurPerKwh, i) => ({ startMs: T0 + i * Q, endMs: T0 + (i + 1) * Q, eurPerKwh }));

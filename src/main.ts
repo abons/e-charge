@@ -167,11 +167,13 @@ function render(): void {
   // het vermogen uit de muur, want dát staat op de rekening. Ontbreken er kwartieren, dan haalt
   // `ensure` ze op en rendert opnieuw zodra ze er zijn; dit scherm wacht daar niet op.
   const cost = chargingCost(shownStartMs, readyMs, DEFAULT_SETUP.powerKw, prices.known());
-  showCost(cost, true);
+  // Eerst `ensure`, dán tonen: anders leest `showCost` de status van vóór het ophalen en staat er
+  // op de eerste render een kaal streepje zonder "prijzen ophalen…".
   prices.ensure(shownStartMs, readyMs, () => {
     renderTariff();
     render();
   });
+  showCost(cost, true);
 
   if (session) {
     const soc = Math.floor(percentAfter(session.from, to, now - session.startMs));
@@ -252,7 +254,10 @@ function addToCalendar(): void {
       `Gestart om ${clock(ready.startMs)} op ${ready.from}%, doel ${ready.to}%.\n` +
       `${nl(result.energyKwh)} kWh nodig, ± ${nl(result.effectivePowerKw)} kW, ` +
       `${duration(result.minutes)} laden.` +
-      (ready.cost === null ? "" : `\nKosten ≈ € ${nl(ready.cost.eur, 2)} (${Math.round(ready.cost.avgEurPerKwh * 100)} ct/kWh, Zonneplan).`),
+      (ready.cost === null
+        ? ""
+        : `\nKosten ≈ € ${nl(ready.cost.eur, 2)} (${Math.round(ready.cost.avgEurPerKwh * 100)} ct/kWh, Zonneplan` +
+          `${ready.cost.complete ? "" : ", deels geschat"}).`),
   });
   const url = URL.createObjectURL(new Blob([text], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");

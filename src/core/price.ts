@@ -38,9 +38,12 @@ const QUARTER_MS = 15 * 60_000;
 const HOUR_MS = 60 * 60_000;
 
 /**
- * Van losse (start, marktprijs)-punten naar aaneengesloten blokken. De bloklengte volgt uit de
- * kleinste stap tussen twee punten, zodat een bron die toch per uur levert niet stilletjes driekwart
- * van de tijd onbedekt laat; zonder tweede punt is een kwartier de aanname. Dubbele starts vallen
+ * Van losse (start, marktprijs)-punten naar aaneengesloten blokken. De bloklengte is de kleinste
+ * stap van hooguit een uur tussen twee punten, zodat een bron die toch per uur levert niet
+ * stilletjes driekwart van de tijd onbedekt laat, en een gat aan het begin de maat niet bepaalt.
+ * Zonder tweede punt is een kwartier de aanname. Zijn er wél meer punten maar liggen ze allemaal
+ * verder dan een uur uit elkaar (een dagreeks), dan is dit geen kwartierprijs en telt de bron niet
+ * mee — liever de volgende bron dan één prijs per dag als kwartier verkopen. Dubbele starts vallen
  * weg (de laatste wint), en wat geen getal is ook.
  */
 function toQuarters(points: Array<{ startMs: number; eurPerKwh: number }>): Quarter[] {
@@ -49,10 +52,14 @@ function toQuarters(points: Array<{ startMs: number; eurPerKwh: number }>): Quar
     if (Number.isFinite(p.startMs) && Number.isFinite(p.eurPerKwh) && p.startMs > 0) byStart.set(p.startMs, p.eurPerKwh);
   }
   const starts = [...byStart.keys()].sort((a, b) => a - b);
-  let step = QUARTER_MS;
+  let step = Infinity;
   for (let i = 1; i < starts.length; i++) {
     const d = (starts[i] ?? 0) - (starts[i - 1] ?? 0);
-    if (d > 0 && d <= HOUR_MS && (i === 1 || d < step)) step = d;
+    if (d > 0 && d <= HOUR_MS && d < step) step = d;
+  }
+  if (step === Infinity) {
+    if (starts.length > 1) return [];
+    step = QUARTER_MS;
   }
   return starts.map((startMs) => ({ startMs, endMs: startMs + step, eurPerKwh: byStart.get(startMs) ?? 0 }));
 }
@@ -108,11 +115,16 @@ export function parseQuarters(value: unknown): Quarter[] {
   return out.sort((a, b) => a.startMs - b.startMs);
 }
 
-/** Nieuwe blokken over de oude heen (gelijke start wint), en alles ouder dan [keepFromMs] weg. */
+/**
+ * Nieuwe blokken over de oude heen, en alles ouder dan [keepFromMs] weg. Een oud blok dat een nieuw
+ * blok ook maar raakt, verdwijnt — niet alleen bij gelijke start: de twee bronnen kunnen in
+ * bloklengte verschillen, en een uurblok bovenop drie achtergebleven kwartierblokken telt anders
+ * zeven kwartieren energie in één uur.
+ */
 export function mergeQuarters(oud: Quarter[], nieuw: Quarter[], keepFromMs: number): Quarter[] {
-  const byStart = new Map<number, Quarter>();
-  for (const q of [...oud, ...nieuw]) if (q.endMs > keepFromMs) byStart.set(q.startMs, q);
-  return [...byStart.values()].sort((a, b) => a.startMs - b.startMs);
+  const overlapt = (a: Quarter, b: Quarter): boolean => a.startMs < b.endMs && b.startMs < a.endMs;
+  const rest = oud.filter((o) => !nieuw.some((n) => overlapt(o, n)));
+  return [...rest, ...nieuw].filter((q) => q.endMs > keepFromMs).sort((a, b) => a.startMs - b.startMs);
 }
 
 export interface Cost {

@@ -120,20 +120,24 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
   // begonnen zijn, en morgen is het verst dat de markt vooruit prijst.
   const windowFrom = startOfLocalDay(Math.min(fromMs, now));
   const windowTo = startOfLocalDay(now) + 2 * DAY_MS;
-  void fetchQuarters(windowFrom, windowTo).then((result) => {
-    inflight = false;
-    failed = result === null;
-    if (result === null) {
+  void fetchQuarters(windowFrom, windowTo)
+    .then((result) => {
+      inflight = false;
+      failed = result === null;
+      if (result !== null) {
+        // Ouder dan drie dagen is voor deze app verleden tijd — behalve als de laadbeurt zelf zo
+        // oud is: wat net voor haar is opgehaald, mag niet meteen weer weg, anders is ze nooit
+        // gedekt en gaat elk kwartier hetzelfde venster opnieuw naar de bronnen.
+        const keepFromMs = Math.min(windowFrom, startOfLocalDay(now) - 3 * DAY_MS);
+        write({ source: result.source, quarters: mergeQuarters(stored.quarters, result.quarters, keepFromMs) });
+      }
       onUpdate();
-      return;
-    }
-    // Ouder dan drie dagen is voor deze app verleden tijd; de laadbeurt van gisteravond niet.
-    write({
-      source: result.source,
-      quarters: mergeQuarters(stored.quarters, result.quarters, startOfLocalDay(now) - 3 * DAY_MS),
+    })
+    .catch((e: unknown) => {
+      // `fetchQuarters` verwerpt zelf nooit; dit vangt een `onUpdate` (→ `render`) die gooit.
+      inflight = false;
+      console.error("prijzen: bijwerken mislukt", e);
     });
-    onUpdate();
-  });
 }
 
 async function fetchQuarters(fromMs: number, toMs: number): Promise<{ source: string; quarters: Quarter[] } | null> {
