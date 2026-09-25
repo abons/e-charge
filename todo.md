@@ -13,6 +13,15 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
 
 ## Hier begint de volgende sessie
 
+- ⚠️ **De kostenregel is nog niet op een echte telefoon gezien** (2026-09-25). In Chromium met
+  nagespeelde API's werkt alles (terugval naar de tweede bron, opslag over een herlaad heen, "geen
+  prijzen" als beide weigeren), maar of `api.energyzero.nl` of `api.energy-charts.info` de browser
+  vanaf `abons.github.io` toelaat (CORS) is vanaf een bureau niet te testen. Open de app, kijk of er
+  een bedrag staat en welke bron de regel onderaan noemt. Staat er "geen prijzen" terwijl je bereik
+  hebt, dan weigeren beide en is een derde bron of een proxy de volgende stap.
+- **De tariefconstanten controleren tegen je Zonneplan-rekening**: 1,652 ct opslag (excl. btw) en
+  9,161 ct energiebelasting 2026 komen van vergelijkingssites, niet van de tariefkaart zelf. Eén
+  kwartier in de Zonneplan-app naast de app leggen zegt genoeg; ze staan in `src/core/price.ts`.
 - **Het laadvermogen staat op 3,5 kW, afgelezen op de lader zelf** (2026-09-13), en is sinds
   2026-09-20 het anker waar de capaciteit omheen gefit is — zie `design.md`. Dat verving de
   3,0 kW die uit het huisverbruik aan de meter was afgeleid; het display van het blok is directer

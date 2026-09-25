@@ -1,5 +1,6 @@
-/* Cache-first shell, zodat de rekenhulp in een parkeergarage zonder bereik ook opent — er is niets
- * dat van het netwerk moet komen, de app-shell is alles wat er is. VERSION wordt bij elke build
+/* Cache-first shell, zodat de rekenhulp in een parkeergarage zonder bereik ook opent — de app-shell
+ * is alles wat er hoeft te zijn. De stroomprijzen (`src/prices.ts`) gaan naar een andere origin en
+ * dus buiten deze worker om; zonder bereik staan ze in localStorage. VERSION wordt bij elke build
  * door `scripts/build.mjs` gestempeld (hier staat de letterlijke `v1` die hij zoekt);
  * `skipWaiting`/`clients.claim` plus de reload in main.ts maken dat een nieuwe versie zichzelf
  * doorzet in plaats van achter een oude tab te blijven wachten. */
