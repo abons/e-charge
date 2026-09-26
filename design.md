@@ -46,6 +46,17 @@ blijven staan:
 Bewust níét: een sleutel of token in de bundel (publieke pagina), een eigen proxy, en iets anders
 ophalen dan de prijs.
 
+## Kosten in het logboek en per kilometer — 2026-09-26
+
+De kosten van een beurt gaan mee het logboek in, als `€`-kolom tussen `kWh` en `opm`, en alleen als
+elk kwartier van de beurt een prijs had: een deels geschat bedrag in een tabel die `calibrate` als
+meting leest, is dezelfde fout als het dashboardpercentage in de kWh-kolom. Het scherm toont
+daarnaast "Kosten per km", gerekend: gemiddelde prijs × verbruik ÷ rendement, met hetzelfde verbruik
+als de regel "Bereik" — dus die twee kunnen elkaar niet tegenspreken. De gemeten tegenhanger staat
+in `calibrate`: wat er sinds de vorige beurt uit de accu ging kwam bij díe beurt uit de muur, tegen
+de gemiddelde prijs van díe beurt, over de gereden kilometers. Dat is dezelfde "twee regels na
+elkaar"-som als het verbruik, en hij slaat dezelfde regels over (`elders geladen`).
+
 ## Lineair rekenen, geen laadcurve — 2026-09-11
 
 Een laadcurve hoort bij snelladen: daar knijpt de auto af zodra de cellen het vermogen niet meer

@@ -214,8 +214,8 @@ test("logRow: de kolommen van log.md, in die volgorde", () => {
   const start = new Date(2026, 8, 12, 22, 10).getTime();
   const eind = new Date(2026, 8, 13, 5, 5).getTime(); // over middernacht
   assert.equal(
-    logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90, km: 84210, kwh: 20.4 }),
-    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 |  |",
+    logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90, km: 84210, kwh: 20.4, eur: 3.3 }),
+    "| 2026-09-12 | 84210 | 43 | 90 | 22:10 | 05:05 | 20,4 | 3,30 |  |",
   );
   // De datum is die van het insteken, ook als het afkoppelen de volgende dag is.
   assert.ok(logRow({ startMs: start, endMs: eind, fromPercent: 43, toPercent: 90 }).startsWith("| 2026-09-12 |"));
@@ -225,7 +225,7 @@ test("logRow: lege kolommen blijven leeg, percentages worden heel", () => {
   const start = new Date(2026, 8, 12, 9, 0).getTime();
   assert.equal(
     logRow({ startMs: start, endMs: start + 3_600_000, fromPercent: 43.4, toPercent: 89.6 }),
-    "| 2026-09-12 |  | 43 | 90 | 09:00 | 10:00 |  |  |",
+    "| 2026-09-12 |  | 43 | 90 | 09:00 | 10:00 |  |  |  |",
   );
 });
 
@@ -236,6 +236,7 @@ const beurt = (dag: number, van = 43, tot = 90) => ({
   toPercent: tot,
   km: 84210 + dag,
   kwh: null,
+  eur: null,
 });
 
 test("logbook: wat uit opslag komt wordt niet vertrouwd", () => {
@@ -290,6 +291,20 @@ test("logbook: een meterstand die geen kWh kan zijn, was een aflezing", () => {
   assert.deepEqual(withMeterAsPercent(met(40)), met(40));
 });
 
+test("logbook: de kosten reizen mee, en een beurt zonder prijzen wist ze niet", () => {
+  // Tijdens het laden bewaard zonder prijzen, na het afkoppelen mét: de nieuwste wint.
+  const zonder = withEntry([], { ...beurt(12), eur: null });
+  const met = withEntry(zonder, { ...beurt(12), eur: 3.3 });
+  assert.equal(met[0]?.eur, 3.3);
+  // Later nog eens bewaren (km-stand erbij) als de prijzen uit opslag zijn: het bedrag blijft.
+  const later = withEntry(met, { ...beurt(12), km: 84300, eur: null });
+  assert.equal(later[0]?.eur, 3.3);
+  assert.equal(later[0]?.km, 84300);
+  // Uit opslag: een oude regel zonder `eur` leest als null, geen 0.
+  assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), eur: undefined }]))[0]?.eur, null);
+  assert.ok(toMarkdown(met).includes("| 3,30 |"));
+});
+
 test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {
   const lijst = withEntry(withEntry([], beurt(19)), beurt(12));
   assert.deepEqual(lijst.map((e) => e.km), [84222, 84229]);
@@ -300,8 +315,8 @@ test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {
 test("logbook: markdown is precies wat je onder de kop in log.md plakt", () => {
   assert.equal(
     toMarkdown(withEntry(withEntry([], beurt(19, 38)), beurt(12))),
-    "| 2026-09-12 | 84222 | 43 | 90 | 22:10 | 05:05 |  |  |\n" +
-      "| 2026-09-19 | 84229 | 38 | 90 | 22:10 | 05:05 |  |  |",
+    "| 2026-09-12 | 84222 | 43 | 90 | 22:10 | 05:05 |  |  |  |\n" +
+      "| 2026-09-19 | 84229 | 38 | 90 | 22:10 | 05:05 |  |  |  |",
   );
   assert.equal(toMarkdown([]), "");
 });

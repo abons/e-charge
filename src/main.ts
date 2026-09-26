@@ -8,7 +8,7 @@ import {
   withoutEntry,
   type Entry,
 } from "./core/logbook.js";
-import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, type Cost } from "./core/price.js";
+import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 import * as prices from "./prices.js";
 
@@ -59,6 +59,7 @@ const rangeOut = el("range");
 const powerOut = el("power");
 const costOut = el("cost");
 const costNote = el("costnote");
+const costKmOut = el("costkm");
 const tariffOut = el("tariff");
 const noteOut = el("note");
 const setupOut = el("setup");
@@ -229,12 +230,17 @@ function show(durationText: string, readyText: string, day: string | null, power
 function showCost(cost: Cost | null, expected = false): void {
   if (cost === null) {
     costOut.textContent = "–";
+    costKmOut.textContent = "–";
     const status = expected ? prices.status() : "stil";
     costNote.textContent = status === "ophalen" ? "prijzen ophalen…" : status === "mislukt" ? "geen prijzen" : "";
     return;
   }
   costOut.textContent = `€ ${nl(cost.eur, 2)}`;
   costNote.textContent = `${Math.round(cost.avgEurPerKwh * 100)} ct/kWh${cost.complete ? "" : ", deels geschat"}`;
+  // Per kilometer bij de gemiddelde prijs van deze beurt en het verbruik uit `charge.ts` — dezelfde
+  // aanname als "Bereik", dus de twee regels kunnen elkaar niet tegenspreken.
+  const perKm = eurPerKm(cost.avgEurPerKwh, DEFAULT_SETUP.consumptionKwhPer100Km, DEFAULT_SETUP.efficiency);
+  costKmOut.textContent = `${nl(perKm * 100)} ct`;
 }
 
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
@@ -449,6 +455,10 @@ function huidigeLaadbeurt(): Entry | null {
   if (bron === null) return null;
 
   const km = optioneelGetal(kmInput);
+  // De kosten uit de kwartierprijzen, alleen als elk kwartier van de beurt er een heeft — een
+  // deels geschat bedrag hoort niet in een logboek dat `calibrate` als meting leest. Tijdens het
+  // laden is dit de stand tot nu; de bewaarde waarde na het afkoppelen overschrijft hem (`withEntry`).
+  const kosten = chargingCost(bron.startMs, bron.endMs, DEFAULT_SETUP.powerKw, prices.known());
   return {
     startMs: bron.startMs,
     endMs: bron.endMs,
@@ -457,6 +467,7 @@ function huidigeLaadbeurt(): Entry | null {
     km: km === null ? null : Math.round(km),
     // De kWh-kolom vult de app niet meer; wat er ooit in bewaard is blijft staan (`withEntry`).
     kwh: null,
+    eur: kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null,
   };
 }
 
@@ -513,6 +524,7 @@ function renderLogbook(): void {
     const delen = [duration((e.endMs - e.startMs) / 60_000)];
     if (e.km !== null) delen.push(`${e.km} km`);
     if (e.kwh !== null) delen.push(`${nl(e.kwh)} kWh`);
+    if (e.eur !== null) delen.push(`€ ${nl(e.eur, 2)}`);
     rest.textContent = delen.join(" · ");
     const wis = document.createElement("button");
     wis.type = "button";

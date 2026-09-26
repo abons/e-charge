@@ -19,6 +19,8 @@ export interface LogEntry {
   km?: number | null;
   /** Wat de meter over deze periode telde; vul je meestal later in. */
   kwh?: number | null;
+  /** Wat de beurt kostte bij Zonneplan, uit de kwartierprijzen — de app vult dit bij het bewaren. */
+  eur?: number | null;
   note?: string;
 }
 
@@ -42,6 +44,7 @@ export function logRow(entry: LogEntry): string {
     clock(entry.endMs),
     // Met een komma, zoals de rest van `log.md` en zoals je het intypt; calibrate.mjs neemt beide aan.
     entry.kwh === null || entry.kwh === undefined ? "" : nl(entry.kwh),
+    entry.eur === null || entry.eur === undefined ? "" : nl(entry.eur, 2),
     cel(entry.note),
   ];
   return `| ${kolommen.join(" | ")} |`;

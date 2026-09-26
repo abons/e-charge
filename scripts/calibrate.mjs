@@ -36,7 +36,9 @@ const regels = readFileSync("log.md", "utf8")
   .split("\n")
   .filter((r) => r.trim().startsWith("|"))
   .map((r) => r.split("|").slice(1, -1).map((c) => c.trim()))
-  .filter((c) => c.length >= 7 && /^\d{4}-\d{2}-\d{2}$/.test(c[0]));
+  .filter((c) => c.length >= 7 && /^\d{4}-\d{2}-\d{2}$/.test(c[0]))
+  // Regels van vóór de €-kolom (2026-09-26) hebben acht cellen; daar staat `opm` op de plek van `€`.
+  .map((c) => (c.length === 8 ? [...c.slice(0, 7), "", c[7]] : c));
 
 if (regels.length === 0) {
   console.log("Nog geen sessies in log.md — noteer er één en draai dit opnieuw.");
@@ -50,16 +52,19 @@ const kW = (v) => (v === null ? "—" : `${fmt(v)} kW`);
 const cap = DEFAULT_SETUP.capacityKwh;
 
 console.log(`Gerekend met ${fmt(cap, 1)} kWh bruikbaar (USABLE_CAPACITY_KWH).\n`);
-console.log("datum        laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige");
-console.log("-".repeat(86));
+console.log(
+  "datum        laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige     kosten   per km",
+);
+console.log("-".repeat(112));
 
 const rendementen = [];
 const verbruiken = [];
+const perKms = [];
 let vorige = null;
 
 for (const c of regels) {
-  const [datum, km, start, eind, van, tot, kwh, opm = ""] = c;
-  const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh) };
+  const [datum, km, start, eind, van, tot, kwh, eur, opm = ""] = c;
+  const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh), eur: nummer(eur) };
   const min = minuten(van, tot);
   const inAccu = d.start !== null && d.eind !== null ? ((d.eind - d.start) * cap) / 100 : null;
 
@@ -67,6 +72,11 @@ for (const c of regels) {
   const muur = d.kwh !== null && min ? d.kwh / uur(min) : null;
   const rendement = inAccu !== null && d.kwh ? inAccu / d.kwh : null;
   if (rendement !== null) rendementen.push(rendement);
+
+  // De gemiddelde prijs van deze beurt: wat hij kostte gedeeld door wat er uit de muur kwam — de
+  // meterstand als die er is, anders het laadvermogen maal de tijd, net als de app rekent.
+  const muurKwh = d.kwh ?? (min ? DEFAULT_SETUP.powerKw * uur(min) : null);
+  d.prijs = d.eur !== null && muurKwh ? d.eur / muurKwh : null;
 
   // Verbruik: wat er tussen de vorige afkoppeling en deze insteek uit de accu ging, over de
   // gereden kilometers. Slaat over bij een tussentijdse laadbeurt elders — dan klopt de aanname niet.
@@ -80,12 +90,23 @@ for (const c of regels) {
     }
   }
 
+  // Kosten per km, gemeten: wat er sinds de vorige beurt uit de accu ging kwam bij díe beurt uit de
+  // muur, tegen de gemiddelde prijs van díe beurt — gedeeld door de gereden kilometers.
+  let perKm = null;
+  if (verbruik !== null && vorige.prijs !== null) {
+    const gebruiktUitMuur = ((vorige.eind - d.start) * cap) / 100 / DEFAULT_SETUP.efficiency;
+    perKm = (gebruiktUitMuur * vorige.prijs) / (d.km - vorige.km);
+    perKms.push(perKm);
+  }
+
   console.log(
     `${datum}   ${(min ? `${Math.floor(min / 60)}u ${String(min % 60).padStart(2, "0")}m` : "—").padEnd(8)}` +
       `  ${kW(effectief).padStart(10)}` +
       `  ${kW(muur).padStart(11)}` +
       `  ${(rendement === null ? "—" : `${fmt(rendement * 100, 0)}%`).padStart(9)}` +
-      `  ${(verbruik === null ? "—" : `${fmt(verbruik, 1)} kWh/100 km`).padStart(20)}`,
+      `  ${(verbruik === null ? "—" : `${fmt(verbruik, 1)} kWh/100 km`).padStart(20)}` +
+      `  ${(d.eur === null ? "—" : `€ ${fmt(d.eur)}`).padStart(9)}` +
+      `  ${(perKm === null ? "—" : `${fmt(perKm * 100, 1)} ct`).padStart(7)}`,
   );
   vorige = d;
 }
@@ -110,3 +131,10 @@ console.log(
   "\nHet laadvermogen staat in de kolom 'uit de muur'; wijkt die structureel af van " +
     `${fmt(DEFAULT_SETUP.powerKw, 1)} kW, pas dan CHARGE_POWER_KW aan.`,
 );
+const kGem = gemiddelde(perKms);
+if (kGem !== null) {
+  console.log(
+    `Gemeten kosten: ${fmt(kGem * 100, 1)} ct/km over ${perKms.length} rit(ten) — het scherm rekent met ` +
+      `${fmt(DEFAULT_SETUP.consumptionKwhPer100Km, 1)} kWh/100 km en ${fmt(DEFAULT_SETUP.efficiency)} rendement.`,
+  );
+}

@@ -20,6 +20,8 @@ export interface Entry {
   toPercent: number;
   km: number | null;
   kwh: number | null;
+  /** Kosten van de beurt in euro's, uit de kwartierprijzen op het moment van bewaren. */
+  eur: number | null;
 }
 
 const getal = (v: unknown): number | null =>
@@ -35,7 +37,7 @@ function parseEntry(value: unknown): Entry | null {
   const toPercent = getal(o["toPercent"]);
   if (startMs === null || endMs === null || fromPercent === null || toPercent === null) return null;
   if (startMs <= 0 || endMs < startMs) return null;
-  return { startMs, endMs, fromPercent, toPercent, km: getal(o["km"]), kwh: getal(o["kwh"]) };
+  return { startMs, endMs, fromPercent, toPercent, km: getal(o["km"]), kwh: getal(o["kwh"]), eur: getal(o["eur"]) };
 }
 
 /** De hele lijst uit opslag, oudste eerst; kapotte regels vallen stil weg. */
@@ -62,7 +64,8 @@ export function parseEntries(raw: string | null): Entry[] {
  */
 export function withEntry(entries: Entry[], entry: Entry): Entry[] {
   const oud = entries.find((e) => e.startMs === entry.startMs);
-  const samen: Entry = oud === undefined ? entry : { ...entry, km: entry.km ?? oud.km, kwh: entry.kwh ?? oud.kwh };
+  const samen: Entry =
+    oud === undefined ? entry : { ...entry, km: entry.km ?? oud.km, kwh: entry.kwh ?? oud.kwh, eur: entry.eur ?? oud.eur };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
   return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
 }
@@ -100,6 +103,7 @@ export function toMarkdown(entries: Entry[]): string {
         toPercent: e.toPercent,
         km: e.km,
         kwh: e.kwh,
+        eur: e.eur,
       } satisfies LogEntry),
     )
     .join("\n");
