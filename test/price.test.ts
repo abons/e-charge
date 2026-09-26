@@ -52,6 +52,10 @@ test("parseEnergyZero: kwartieren uit base[], marktprijs (als tekst) naar all-in
   assert.deepEqual(parseEnergyZero({ base: "nee" }), []);
   assert.deepEqual(parseEnergyZero({ Prices: [{ price: 1, readingDate: "2026-09-25T20:00:00Z" }] }), []);
   assert.deepEqual(parseEnergyZero({ base: [{ start: "2026-09-25T20:00:00Z", end: "x", price: { value: "1" } }] }), []);
+  // `Number(null)` en `Number("")` zijn 0 — een blok zonder waarde is geen blok à nul cent.
+  for (const value of [null, "", "  ", [], undefined]) {
+    assert.deepEqual(parseEnergyZero({ base: [blok("2026-09-25T20:00:00Z", "2026-09-25T20:15:00Z", value as never)] }), [], String(value));
+  }
 });
 
 test("parseEnergyZero: een dubbele start telt één keer, een dagblok telt niet", () => {

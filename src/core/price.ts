@@ -57,7 +57,10 @@ export function parseEnergyZero(json: unknown): Quarter[] {
     if (typeof start !== "string" || typeof end !== "string" || typeof price !== "object" || price === null) continue;
     const startMs = Date.parse(start);
     const endMs = Date.parse(end);
-    const value = Number((price as Record<string, unknown>)["value"]);
+    // Alleen een echt getal of een niet-lege string: `Number(null)` en `Number("")` zijn 0, en een
+    // blok "à 0 cent" is erger dan een ontbrekend blok — dat wordt tenminste opnieuw opgehaald.
+    const raw = (price as Record<string, unknown>)["value"];
+    const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() !== "" ? Number(raw) : NaN;
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || !Number.isFinite(value)) continue;
     if (endMs <= startMs || endMs - startMs > HOUR_MS) continue;
     byStart.set(startMs, { startMs, endMs, eurPerKwh: allInEurPerKwh(value) });

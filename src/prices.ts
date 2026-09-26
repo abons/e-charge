@@ -21,7 +21,6 @@ import { covered, mergeQuarters, parseEnergyZero, parseQuarters, type Quarter } 
 
 const KEY = "e-charge.prices";
 const RETRY_MS = 15 * 60_000;
-const DAY_MS = 24 * 60 * 60_000;
 const SOURCE = "EnergyZero";
 /** Meer dagen dan dit vraagt geen laadbeurt aan een stopcontact; het houdt een lus ook klein. */
 const MAX_REQUESTS = 4;
@@ -74,9 +73,14 @@ export function status(): "ophalen" | "mislukt" | "stil" {
   return failed ? "mislukt" : "stil";
 }
 
-const startOfLocalDay = (ms: number): number => {
+/**
+ * Lokale middernacht, [days] kalenderdagen verderop. Via de datumconstructor en niet via `+ 24 uur`:
+ * op de dag dat de wintertijd ingaat is een dag 25 uur, en dan is middernacht plus 24 uur nog
+ * dezelfde dag — en vraagt `apiDate` de verkeerde dag.
+ */
+const localDay = (ms: number, days = 0): number => {
   const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime();
 };
 
 /** `dd-mm-jjjj` in lokale tijd — zo wil de API de dag, en de dag is hier een lokale dag. */
@@ -103,13 +107,14 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
   if (inflight || now - lastAttemptMs < RETRY_MS) return;
   lastAttemptMs = now;
   inflight = true;
-  // De API geeft per gevraagde dag ook de dag ervoor en (zodra gepubliceerd) de dag erna. Dus
-  // vragen we de dag ná de eerste dag die we nodig hebben, en daarna steeds drie dagen verder —
-  // in de praktijk is dat één aanroep: de laadbeurt van vannacht begint gisteren en eindigt morgen.
-  const firstDay = startOfLocalDay(Math.min(fromMs, now));
-  const lastDay = startOfLocalDay(Math.max(toMs, now));
+  // De API geeft per gevraagde dag ook de dag ervoor en (zodra gepubliceerd) de dag erna. We vragen
+  // de eerste dag die we nodig hebben — een dag die zeker bestaat; wat de API doet met een dag die
+  // nog niet gepubliceerd is, heeft niemand gezien — en daarna steeds drie dagen verder. In de
+  // praktijk is dat één aanroep: vandaag, met gisteren en morgen erbij.
+  const firstDay = localDay(Math.min(fromMs, now));
+  const lastDay = localDay(Math.max(toMs, now));
   const days: number[] = [];
-  for (let d = firstDay + DAY_MS; d - DAY_MS <= lastDay && days.length < MAX_REQUESTS; d += 3 * DAY_MS) days.push(d);
+  for (let d = firstDay; localDay(d, -1) <= lastDay && days.length < MAX_REQUESTS; d = localDay(d, 3)) days.push(d);
   void fetchQuarters(days)
     .then((quarters) => {
       inflight = false;
@@ -118,7 +123,7 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
         // Ouder dan drie dagen is voor deze app verleden tijd — behalve als de laadbeurt zelf zo
         // oud is: wat net voor haar is opgehaald, mag niet meteen weer weg, anders is ze nooit
         // gedekt en gaat elk kwartier hetzelfde venster opnieuw naar de bron.
-        const keepFromMs = Math.min(firstDay, startOfLocalDay(now) - 3 * DAY_MS);
+        const keepFromMs = Math.min(firstDay, localDay(now, -3));
         write({ source: SOURCE, quarters: mergeQuarters(stored.quarters, quarters, keepFromMs) });
       }
       onUpdate();
