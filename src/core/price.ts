@@ -141,10 +141,11 @@ export function chargingCost(startMs: number, endMs: number, powerKw: number, qu
  * Wat een kilometer kost bij deze gemiddelde prijs: het verbruik uit `charge.ts` (per 100 km, uit
  * de accu) gedeeld door het rendement (want je betaalt wat er uit de muur komt), maal de prijs.
  * Bij 20 ct/kWh, 17 kWh/100 km en 88% is dat 3,9 ct/km. Gerekend, niet gemeten — de gemeten
- * tegenhanger staat in `npm run calibrate`, uit twee opeenvolgende regels in `log.md`.
+ * tegenhanger staat in `npm run calibrate`, uit twee opeenvolgende regels in `log.md`. Zonder
+ * rendement valt er niets te rekenen: `null`, geen 0 — nul is een bedrag.
  */
-export function eurPerKm(avgEurPerKwh: number, consumptionKwhPer100Km: number, efficiency: number): number {
-  if (efficiency <= 0) return 0;
+export function eurPerKm(avgEurPerKwh: number, consumptionKwhPer100Km: number, efficiency: number): number | null {
+  if (!(efficiency > 0)) return null;
   return (avgEurPerKwh * consumptionKwhPer100Km) / 100 / efficiency;
 }
 

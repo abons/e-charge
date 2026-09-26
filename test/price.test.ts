@@ -134,9 +134,10 @@ test("chargingCost: buiten de bekende prijzen wordt geschat, en dat staat erbij"
 
 test("eurPerKm: prijs maal verbruik, gedeeld door het rendement", () => {
   // 20 ct/kWh, 17 kWh/100 km uit de accu, 88% rendement: 0,20 × 0,17 ÷ 0,88 = 3,86 ct/km.
-  assert.equal((eurPerKm(0.2, 17, 0.88) * 100).toFixed(2), "3.86");
+  assert.equal(((eurPerKm(0.2, 17, 0.88) ?? 0) * 100).toFixed(2), "3.86");
   assert.equal(eurPerKm(0.2, 17, 1), 0.034);
-  assert.equal(eurPerKm(0.2, 17, 0), 0);
+  // Zonder rendement is er geen bedrag — nul zou "gratis" zeggen.
+  assert.equal(eurPerKm(0.2, 17, 0), null);
 });
 
 test("covered: alleen waar als elk moment een prijs heeft", () => {

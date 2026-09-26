@@ -240,7 +240,7 @@ function showCost(cost: Cost | null, expected = false): void {
   // Per kilometer bij de gemiddelde prijs van deze beurt en het verbruik uit `charge.ts` — dezelfde
   // aanname als "Bereik", dus de twee regels kunnen elkaar niet tegenspreken.
   const perKm = eurPerKm(cost.avgEurPerKwh, DEFAULT_SETUP.consumptionKwhPer100Km, DEFAULT_SETUP.efficiency);
-  costKmOut.textContent = `${nl(perKm * 100)} ct`;
+  costKmOut.textContent = perKm === null ? "–" : `${nl(perKm * 100)} ct`;
 }
 
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
@@ -428,8 +428,11 @@ function optioneelGetal(input: HTMLInputElement): number | null {
  * De laadbeurt waar de logregel over gaat. Tijdens het laden is dat de stand van nu, na het
  * afkoppelen die van de afgelopen beurt — en dan is het percentage in het veld precies wat je van
  * het dashboard hebt gelezen.
+ *
+ * [metKosten] rekent het bedrag uit de kwartierprijzen erbij. Dat doet alleen 💾 en 📋: de knoppen
+ * vragen elke tik of er een beurt ís, en daarvoor hoeft niet elke tik over alle kwartieren gelopen.
  */
-function huidigeLaadbeurt(): Entry | null {
+function huidigeLaadbeurt(metKosten = false): Entry | null {
   const nu = Date.now();
   const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
   // Na een herstart staat het percentageveld leeg. Dan telt wat er al bewaard is over deze beurt —
@@ -456,9 +459,19 @@ function huidigeLaadbeurt(): Entry | null {
 
   const km = optioneelGetal(kmInput);
   // De kosten uit de kwartierprijzen, alleen als elk kwartier van de beurt er een heeft — een
-  // deels geschat bedrag hoort niet in een logboek dat `calibrate` als meting leest. Tijdens het
-  // laden is dit de stand tot nu; de bewaarde waarde na het afkoppelen overschrijft hem (`withEntry`).
-  const kosten = chargingCost(bron.startMs, bron.endMs, DEFAULT_SETUP.powerKw, prices.known());
+  // deels geschat bedrag hoort niet in een logboek dat `calibrate` als meting leest. En tot het
+  // moment dat de auto volgens de rekenkern op `eind%` stond, niet tot het afkoppelen: wie om
+  // 01:30 vol is en om 07:00 de stekker eruit trekt, heeft die zes uur niet betaald. Zo is het
+  // bedrag ook precies Δ% × capaciteit ÷ rendement tegen de kwartierprijzen — waar `calibrate` weer
+  // door deelt om de prijs terug te vinden. Tijdens het laden is dit de stand tot nu; de bewaarde
+  // waarde na het afkoppelen overschrijft hem (`withEntry`).
+  let eur: number | null = null;
+  if (metKosten) {
+    const laadMs = estimate(bron.from, bron.to).minutes * 60_000;
+    const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
+    const kosten = chargingCost(bron.startMs, totMs, DEFAULT_SETUP.powerKw, prices.known());
+    eur = kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null;
+  }
   return {
     startMs: bron.startMs,
     endMs: bron.endMs,
@@ -467,7 +480,7 @@ function huidigeLaadbeurt(): Entry | null {
     km: km === null ? null : Math.round(km),
     // De kWh-kolom vult de app niet meer; wat er ooit in bewaard is blijft staan (`withEntry`).
     kwh: null,
-    eur: kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null,
+    eur,
   };
 }
 
@@ -485,7 +498,7 @@ function naarKlembord(tekst: string, knop: HTMLButtonElement, label: string): vo
 }
 
 function copyLogRow(): void {
-  const beurt = huidigeLaadbeurt();
+  const beurt = huidigeLaadbeurt(true);
   if (beurt !== null) naarKlembord(toMarkdown([beurt]), copyButton, COPY_LABEL);
 }
 
@@ -495,7 +508,7 @@ function copyLogRow(): void {
  * overschrijft. Zo kun je ook eerst bewaren en later de meterstand erbij zetten.
  */
 function saveEntry(): void {
-  const beurt = huidigeLaadbeurt();
+  const beurt = huidigeLaadbeurt(true);
   if (beurt === null) return;
   writeLogbook(withEntry(logbook, beurt));
   saveButton.textContent = "💾 Bewaard";

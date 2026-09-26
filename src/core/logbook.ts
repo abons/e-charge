@@ -61,11 +61,23 @@ export function parseEntries(raw: string | null): Entry[] {
  * bewaren mét kilometerstand, 's ochtends de meterstand erbij zetten — en dan zijn de invoervelden
  * intussen leeg. Zonder deze samenvoeging gooide die tweede druk op de knop de km-stand weg. Een
  * fout getal corrigeer je door de regel te verwijderen (×) en opnieuw te bewaren.
+ *
+ * ⚠️ Het bedrag hoort bij het einde van de beurt: een `eur` van een tussentijdse bewaring (twee uur
+ * laden, € 1,20) mag niet blijven staan naast de `eind%` en `endMs` van de hele nacht, want
+ * `calibrate` maakt daar een prijs per kWh van die eruitziet als een meting. Alleen bij hetzelfde
+ * `endMs` vult een leeg bedrag het bewaarde aan — dan is het dezelfde beurt zonder prijzen bij de hand.
  */
 export function withEntry(entries: Entry[], entry: Entry): Entry[] {
   const oud = entries.find((e) => e.startMs === entry.startMs);
   const samen: Entry =
-    oud === undefined ? entry : { ...entry, km: entry.km ?? oud.km, kwh: entry.kwh ?? oud.kwh, eur: entry.eur ?? oud.eur };
+    oud === undefined
+      ? entry
+      : {
+          ...entry,
+          km: entry.km ?? oud.km,
+          kwh: entry.kwh ?? oud.kwh,
+          eur: entry.eur ?? (oud.endMs === entry.endMs ? oud.eur : null),
+        };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
   return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
 }

@@ -300,6 +300,10 @@ test("logbook: de kosten reizen mee, en een beurt zonder prijzen wist ze niet", 
   const later = withEntry(met, { ...beurt(12), km: 84300, eur: null });
   assert.equal(later[0]?.eur, 3.3);
   assert.equal(later[0]?.km, 84300);
+  // Maar een beurt die langer bleek (ander einde) zonder prijzen: het tussentijdse bedrag hoort er
+  // niet bij en verdwijnt — anders leest calibrate € 3,30 naast een nacht van tien uur.
+  const langer = withEntry(met, { ...beurt(12), endMs: beurt(12).endMs + 3_600_000, eur: null });
+  assert.equal(langer[0]?.eur, null);
   // Uit opslag: een oude regel zonder `eur` leest als null, geen 0.
   assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), eur: undefined }]))[0]?.eur, null);
   assert.ok(toMarkdown(met).includes("| 3,30 |"));

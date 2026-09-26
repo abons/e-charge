@@ -50,7 +50,10 @@ ophalen dan de prijs.
 
 De kosten van een beurt gaan mee het logboek in, als `€`-kolom tussen `kWh` en `opm`, en alleen als
 elk kwartier van de beurt een prijs had: een deels geschat bedrag in een tabel die `calibrate` als
-meting leest, is dezelfde fout als het dashboardpercentage in de kWh-kolom. Het scherm toont
+meting leest, is dezelfde fout als het dashboardpercentage in de kWh-kolom. Het bedrag loopt tot het
+moment dat de auto volgens de rekenkern op `eind%` stond, niet tot het afkoppelen — wie om 01:30 vol
+is en om 07:00 de stekker eruit trekt, heeft die zes uur niet betaald — en het hoort bij zijn
+`endMs`: een tussentijds bewaard bedrag blijft niet staan naast het einde van een langere beurt. Het scherm toont
 daarnaast "Kosten per km", gerekend: gemiddelde prijs × verbruik ÷ rendement, met hetzelfde verbruik
 als de regel "Bereik" — dus die twee kunnen elkaar niet tegenspreken. De gemeten tegenhanger staat
 in `calibrate`: wat er sinds de vorige beurt uit de accu ging kwam bij díe beurt uit de muur, tegen

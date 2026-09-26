@@ -79,10 +79,10 @@ zolang dat zo is blijven capaciteit en rendement één product.
 - **Rendement** = (Δ% × capaciteit / 100) ÷ kWh → vergelijk met `EFFICIENCY` (0,88).
 - **Verbruik** = (vorige `eind%` − deze `start%`) × capaciteit / 100 ÷ (deze `km` − vorige `km`)
   → vergelijk met `CONSUMPTION_KWH_PER_100KM` (17,0). Hier zit geen boordcomputer tussen.
-- **Kosten per km** = wat er sinds de vorige beurt uit de accu ging, gedeeld door het rendement
-  (je betaalt wat uit de muur kwam), maal de gemiddelde prijs van díe beurt (`€` ÷ kWh, of `€` ÷
-  laadvermogen × uren als de meterstand ontbreekt), gedeeld door de gereden kilometers → vergelijk
-  met de regel "Kosten per km" op het scherm, die met het verbruik van 17,0 rekent.
+- **Kosten per km** = het gemeten verbruik hierboven × de gemiddelde prijs van de vorige beurt ÷
+  rendement. Die prijs is `€` ÷ (Δ% × capaciteit ÷ rendement): de aanname waarmee de app het
+  bedrag maakte, dus niet de meterstand. Vergelijk met de regel "Kosten per km" op het scherm, die
+  dezelfde som met het verbruik van 17,0 doet.
 
 ⚠️ Die laatste klopt alleen als de auto tussen twee regels **nergens anders geladen** heeft en de
 kilometerstand van hetzelfde moment komt als het percentage. Is dat niet zo, zet dan

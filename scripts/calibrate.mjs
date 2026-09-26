@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
  * de vergelijking altijd tegen de waarden gaat waar de app mee rekent en niet tegen een kopie.
  */
 const { DEFAULT_SETUP } = await import("../out/src/core/charge.js");
+const { eurPerKm } = await import("../out/src/core/price.js");
 
 const nummer = (s) => {
   const tekst = String(s).trim().replace(",", ".");
@@ -30,15 +31,21 @@ function minuten(van, tot) {
   return b >= a ? b - a : b + 24 * 60 - a;
 }
 
-const regels = readFileSync("log.md", "utf8")
+const KOLOMMEN = 9; // datum, km, start%, eind%, van, tot, kWh, €, opm — het contract met logline.ts
+
+const alleRegels = readFileSync("log.md", "utf8")
   // Weggecommentarieerde voorbeeldregels beginnen ook met een `|`, en zijn geen sessies.
   .replace(/<!--[\s\S]*?-->/g, "")
   .split("\n")
   .filter((r) => r.trim().startsWith("|"))
   .map((r) => r.split("|").slice(1, -1).map((c) => c.trim()))
-  .filter((c) => c.length >= 7 && /^\d{4}-\d{2}-\d{2}$/.test(c[0]))
-  // Regels van vóór de €-kolom (2026-09-26) hebben acht cellen; daar staat `opm` op de plek van `€`.
-  .map((c) => (c.length === 8 ? [...c.slice(0, 7), "", c[7]] : c));
+  .filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c[0]));
+// ⚠️ Een regel met te weinig cellen wordt niet stil herschikt: een vergeten afsluitende `|` schuift
+// `opm` in de €-kolom, en dan valt `elders geladen` weg en telt die rit mee in het verbruik.
+for (const c of alleRegels.filter((c) => c.length !== KOLOMMEN)) {
+  console.log(`⚠️ ${c[0]}: ${c.length} kolommen, ${KOLOMMEN} verwacht — regel overgeslagen.`);
+}
+const regels = alleRegels.filter((c) => c.length === KOLOMMEN);
 
 if (regels.length === 0) {
   console.log("Nog geen sessies in log.md — noteer er één en draai dit opnieuw.");
@@ -73,10 +80,12 @@ for (const c of regels) {
   const rendement = inAccu !== null && d.kwh ? inAccu / d.kwh : null;
   if (rendement !== null) rendementen.push(rendement);
 
-  // De gemiddelde prijs van deze beurt: wat hij kostte gedeeld door wat er uit de muur kwam — de
-  // meterstand als die er is, anders het laadvermogen maal de tijd, net als de app rekent.
-  const muurKwh = d.kwh ?? (min ? DEFAULT_SETUP.powerKw * uur(min) : null);
-  d.prijs = d.eur !== null && muurKwh ? d.eur / muurKwh : null;
+  // De gemiddelde prijs van deze beurt: wat hij kostte gedeeld door wat er uit de muur kwam
+  // *volgens de aanname waarmee de app het bedrag maakte* — Δ% × capaciteit ÷ rendement. Niet door
+  // de meterstand: die meet iets anders dan waar het bedrag op gebouwd is, en dan schuift de fout
+  // in het laadvermogen de prijs in.
+  const aangenomenMuurKwh = inAccu !== null ? inAccu / DEFAULT_SETUP.efficiency : null;
+  d.prijs = d.eur !== null && aangenomenMuurKwh ? d.eur / aangenomenMuurKwh : null;
 
   // Verbruik: wat er tussen de vorige afkoppeling en deze insteek uit de accu ging, over de
   // gereden kilometers. Slaat over bij een tussentijdse laadbeurt elders — dan klopt de aanname niet.
@@ -90,13 +99,13 @@ for (const c of regels) {
     }
   }
 
-  // Kosten per km, gemeten: wat er sinds de vorige beurt uit de accu ging kwam bij díe beurt uit de
-  // muur, tegen de gemiddelde prijs van díe beurt — gedeeld door de gereden kilometers.
+  // Kosten per km, gemeten: het gemeten verbruik sinds de vorige beurt tegen de gemiddelde prijs
+  // van díe beurt — dezelfde som als de regel "Kosten per km" op het scherm (`eurPerKm`), alleen
+  // met het gemeten verbruik in plaats van de constante.
   let perKm = null;
   if (verbruik !== null && vorige.prijs !== null) {
-    const gebruiktUitMuur = ((vorige.eind - d.start) * cap) / 100 / DEFAULT_SETUP.efficiency;
-    perKm = (gebruiktUitMuur * vorige.prijs) / (d.km - vorige.km);
-    perKms.push(perKm);
+    perKm = eurPerKm(vorige.prijs, verbruik, DEFAULT_SETUP.efficiency);
+    if (perKm !== null) perKms.push(perKm);
   }
 
   console.log(
