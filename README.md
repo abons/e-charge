@@ -39,6 +39,7 @@ de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke p
 - `npm run build` — bundel + statische bestanden naar `build/`.
 - `npm run serve` — lokale dev-server over `build/` met rebuild-on-change.
 - `npm run calibrate` — leest `log.md` en rekent de constanten terug uit echte laadbeurten.
+- `npm run kosten` — vult de lege `€`-cellen in `log.md` met de kwartierprijzen van die dag (netwerk).
 
 Onderaan het scherm staat het logboek: optionele velden voor km-stand en het afgelezen percentage,
 een knop die de laadbeurt bewaart, en de lijst van wat je bewaard hebt. Eén knop zet het hele logboek op je
