@@ -13,7 +13,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   deze app offline werkt en niets te onderhouden heeft.
 - ⚠️ **Eén uitzondering, sinds 2026-09-25: de stroomprijs komt van het net.** De eigenaar wilde de
   laadkosten bij Zonneplan per kwartier zien, en die zijn niet te raden. `src/prices.ts` is de
-  **enige** plek die `fetch` aanraakt: de publieke prijzen-API van EnergyZero
+  **enige** plek in de app die `fetch` aanraakt (`scripts/kosten.mjs` doet het ook, maar op jouw
+  machine en alleen om oude logregels een bedrag te geven): de publieke prijzen-API van EnergyZero
   (`public.api.energyzero.nl/public/v1/prices`, EPEX per kwartier, zonder sleutel), resultaat in
   `localStorage`, hooguit één poging per kwartier en alleen als de laadbeurt buiten de bekende
   prijzen valt. Zonder bereik rekent alles door met wat er staat, en de kostenregel zegt "geen

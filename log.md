@@ -20,7 +20,10 @@ werkt hem bij — zo zet je de km-stand er later alsnog bij.
 De `kWh`-kolom vult de app niet: ze weet niet wat je meter doet en toont zelf nergens een kWh. Heb
 je die stand wel, schrijf hem dan met de hand in de tabel hieronder. De `€`-kolom vult de app wél
 (sinds 2026-09-26): de kosten van de beurt uit de kwartierprijzen van Zonneplan, alleen als elk
-kwartier een prijs had — een deels geschat bedrag hoort hier niet.
+kwartier een prijs had — een deels geschat bedrag hoort hier niet. Voor regels van daarvóór, of
+regels die om een andere reden geen bedrag kregen, doet `npm run kosten` hetzelfde achteraf: het
+haalt de prijzen van die dag op en schrijft het bedrag in de lege cel (`-- --dry-run` laat het
+alleen zien).
 
 **📋 Kopieer hele logboek** zet alle regels op je klembord; plak ze hieronder onder de kop. Dat is
 de stap die het duurzaam maakt:
@@ -62,13 +65,16 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 
 | datum | km | start% | eind% | van | tot | kWh | € | opm |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  |  |  |
-| 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  |  |  |
-| 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  |  |  |
+| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  | 2,54 |  |
+| 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  | 2,05 |  |
+| 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  | 1,95 |  |
+| 2026-09-25 | 97125 | 40 | 73 | 18:14 | 21:12 |  | 4,71 |  |
 
-Samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt: dit zijn de drie beurten
-waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`. De `kWh`-kolom is nog leeg, en
-zolang dat zo is blijven capaciteit en rendement één product.
+De eerste drie zijn de beurten waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`:
+samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt. De `kWh`-kolom is nog
+leeg, en zolang dat zo is blijven capaciteit en rendement één product. De `€`-kolom is achteraf
+gevuld met `npm run kosten` (2026-09-26): overdag laden kostte 13–17 ct/kWh, de avondbeurt van 25
+september 45 ct/kWh — het verschil tussen zon en piek in één tabel.
 
 ## Wat er dan uitkomt
 
