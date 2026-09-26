@@ -18,7 +18,9 @@ dat percentage wordt de `eind%` van de regel. Dezelfde beurt nog eens bewaren vo
 werkt hem bij — zo zet je de km-stand er later alsnog bij.
 
 De `kWh`-kolom vult de app niet: ze weet niet wat je meter doet en toont zelf nergens een kWh. Heb
-je die stand wel, schrijf hem dan met de hand in de tabel hieronder.
+je die stand wel, schrijf hem dan met de hand in de tabel hieronder. De `€`-kolom vult de app wél
+(sinds 2026-09-26): de kosten van de beurt uit de kwartierprijzen van Zonneplan, alleen als elk
+kwartier een prijs had — een deels geschat bedrag hoort hier niet.
 
 **📋 Kopieer hele logboek** zet alle regels op je klembord; plak ze hieronder onder de kop. Dat is
 de stap die het duurzaam maakt:
@@ -53,15 +55,16 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | `start%` / `eind%` | dashboardpercentage | wat erin ging |
 | `van` / `tot` | klok, `uu:mm` | de laadtijd |
 | `kWh` | wat je meter over die periode telde | scheidt rendement van capaciteit |
+| `€` | wat de beurt kostte bij Zonneplan, uit de kwartierprijzen | de app vult dit; samen met de volgende regel: kosten per km |
 | `opm` | bv. `vorst`, `elders geladen` | zie de waarschuwing onderaan |
 
 ## De sessies
 
-| datum | km | start% | eind% | van | tot | kWh | opm |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  |  |
-| 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  |  |
-| 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  |  |
+| datum | km | start% | eind% | van | tot | kWh | € | opm |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  |  |  |
+| 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  |  |  |
+| 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  |  |  |
 
 Samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt: dit zijn de drie beurten
 waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`. De `kWh`-kolom is nog leeg, en
@@ -76,6 +79,10 @@ zolang dat zo is blijven capaciteit en rendement één product.
 - **Rendement** = (Δ% × capaciteit / 100) ÷ kWh → vergelijk met `EFFICIENCY` (0,88).
 - **Verbruik** = (vorige `eind%` − deze `start%`) × capaciteit / 100 ÷ (deze `km` − vorige `km`)
   → vergelijk met `CONSUMPTION_KWH_PER_100KM` (17,0). Hier zit geen boordcomputer tussen.
+- **Kosten per km** = het gemeten verbruik hierboven × de gemiddelde prijs van de vorige beurt ÷
+  rendement. Die prijs is `€` ÷ (Δ% × capaciteit ÷ rendement): de aanname waarmee de app het
+  bedrag maakte, dus niet de meterstand. Vergelijk met de regel "Kosten per km" op het scherm, die
+  dezelfde som met het verbruik van 17,0 doet.
 
 ⚠️ Die laatste klopt alleen als de auto tussen twee regels **nergens anders geladen** heeft en de
 kilometerstand van hetzelfde moment komt als het percentage. Is dat niet zo, zet dan

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
  * de vergelijking altijd tegen de waarden gaat waar de app mee rekent en niet tegen een kopie.
  */
 const { DEFAULT_SETUP } = await import("../out/src/core/charge.js");
+const { eurPerKm } = await import("../out/src/core/price.js");
 
 const nummer = (s) => {
   const tekst = String(s).trim().replace(",", ".");
@@ -30,13 +31,21 @@ function minuten(van, tot) {
   return b >= a ? b - a : b + 24 * 60 - a;
 }
 
-const regels = readFileSync("log.md", "utf8")
+const KOLOMMEN = 9; // datum, km, start%, eind%, van, tot, kWh, €, opm — het contract met logline.ts
+
+const alleRegels = readFileSync("log.md", "utf8")
   // Weggecommentarieerde voorbeeldregels beginnen ook met een `|`, en zijn geen sessies.
   .replace(/<!--[\s\S]*?-->/g, "")
   .split("\n")
   .filter((r) => r.trim().startsWith("|"))
   .map((r) => r.split("|").slice(1, -1).map((c) => c.trim()))
-  .filter((c) => c.length >= 7 && /^\d{4}-\d{2}-\d{2}$/.test(c[0]));
+  .filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c[0]));
+// ⚠️ Een regel met te weinig cellen wordt niet stil herschikt: een vergeten afsluitende `|` schuift
+// `opm` in de €-kolom, en dan valt `elders geladen` weg en telt die rit mee in het verbruik.
+for (const c of alleRegels.filter((c) => c.length !== KOLOMMEN)) {
+  console.log(`⚠️ ${c[0]}: ${c.length} kolommen, ${KOLOMMEN} verwacht — regel overgeslagen.`);
+}
+const regels = alleRegels.filter((c) => c.length === KOLOMMEN);
 
 if (regels.length === 0) {
   console.log("Nog geen sessies in log.md — noteer er één en draai dit opnieuw.");
@@ -50,16 +59,19 @@ const kW = (v) => (v === null ? "—" : `${fmt(v)} kW`);
 const cap = DEFAULT_SETUP.capacityKwh;
 
 console.log(`Gerekend met ${fmt(cap, 1)} kWh bruikbaar (USABLE_CAPACITY_KWH).\n`);
-console.log("datum        laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige");
-console.log("-".repeat(86));
+console.log(
+  "datum        laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige     kosten   per km",
+);
+console.log("-".repeat(112));
 
 const rendementen = [];
 const verbruiken = [];
+const perKms = [];
 let vorige = null;
 
 for (const c of regels) {
-  const [datum, km, start, eind, van, tot, kwh, opm = ""] = c;
-  const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh) };
+  const [datum, km, start, eind, van, tot, kwh, eur, opm = ""] = c;
+  const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh), eur: nummer(eur) };
   const min = minuten(van, tot);
   const inAccu = d.start !== null && d.eind !== null ? ((d.eind - d.start) * cap) / 100 : null;
 
@@ -67,6 +79,13 @@ for (const c of regels) {
   const muur = d.kwh !== null && min ? d.kwh / uur(min) : null;
   const rendement = inAccu !== null && d.kwh ? inAccu / d.kwh : null;
   if (rendement !== null) rendementen.push(rendement);
+
+  // De gemiddelde prijs van deze beurt: wat hij kostte gedeeld door wat er uit de muur kwam
+  // *volgens de aanname waarmee de app het bedrag maakte* — Δ% × capaciteit ÷ rendement. Niet door
+  // de meterstand: die meet iets anders dan waar het bedrag op gebouwd is, en dan schuift de fout
+  // in het laadvermogen de prijs in.
+  const aangenomenMuurKwh = inAccu !== null ? inAccu / DEFAULT_SETUP.efficiency : null;
+  d.prijs = d.eur !== null && aangenomenMuurKwh ? d.eur / aangenomenMuurKwh : null;
 
   // Verbruik: wat er tussen de vorige afkoppeling en deze insteek uit de accu ging, over de
   // gereden kilometers. Slaat over bij een tussentijdse laadbeurt elders — dan klopt de aanname niet.
@@ -80,12 +99,23 @@ for (const c of regels) {
     }
   }
 
+  // Kosten per km, gemeten: het gemeten verbruik sinds de vorige beurt tegen de gemiddelde prijs
+  // van díe beurt — dezelfde som als de regel "Kosten per km" op het scherm (`eurPerKm`), alleen
+  // met het gemeten verbruik in plaats van de constante.
+  let perKm = null;
+  if (verbruik !== null && vorige.prijs !== null) {
+    perKm = eurPerKm(vorige.prijs, verbruik, DEFAULT_SETUP.efficiency);
+    if (perKm !== null) perKms.push(perKm);
+  }
+
   console.log(
     `${datum}   ${(min ? `${Math.floor(min / 60)}u ${String(min % 60).padStart(2, "0")}m` : "—").padEnd(8)}` +
       `  ${kW(effectief).padStart(10)}` +
       `  ${kW(muur).padStart(11)}` +
       `  ${(rendement === null ? "—" : `${fmt(rendement * 100, 0)}%`).padStart(9)}` +
-      `  ${(verbruik === null ? "—" : `${fmt(verbruik, 1)} kWh/100 km`).padStart(20)}`,
+      `  ${(verbruik === null ? "—" : `${fmt(verbruik, 1)} kWh/100 km`).padStart(20)}` +
+      `  ${(d.eur === null ? "—" : `€ ${fmt(d.eur)}`).padStart(9)}` +
+      `  ${(perKm === null ? "—" : `${fmt(perKm * 100, 1)} ct`).padStart(7)}`,
   );
   vorige = d;
 }
@@ -110,3 +140,10 @@ console.log(
   "\nHet laadvermogen staat in de kolom 'uit de muur'; wijkt die structureel af van " +
     `${fmt(DEFAULT_SETUP.powerKw, 1)} kW, pas dan CHARGE_POWER_KW aan.`,
 );
+const kGem = gemiddelde(perKms);
+if (kGem !== null) {
+  console.log(
+    `Gemeten kosten: ${fmt(kGem * 100, 1)} ct/km over ${perKms.length} rit(ten) — het scherm rekent met ` +
+      `${fmt(DEFAULT_SETUP.consumptionKwhPer100Km, 1)} kWh/100 km en ${fmt(DEFAULT_SETUP.efficiency)} rendement.`,
+  );
+}

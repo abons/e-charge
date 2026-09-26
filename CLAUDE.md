@@ -34,7 +34,10 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   ergens naartoe schrijven: geen server, geen token — een token in een publieke pagina is een gelekt
   token. Klembord is tekst, geen netwerk.
   ⚠️ De kolomvolgorde in `src/core/logline.ts` is een contract met `scripts/calibrate.mjs`, dat op
-  positie leest en niet op naam — een test pint het formaat vast.
+  positie leest en niet op naam — een test pint het formaat vast. Sinds 2026-09-26 staat er een
+  `€`-kolom tussen `kWh` en `opm` (de kosten uit de kwartierprijzen, die de app zelf vult);
+  `calibrate` slaat een regel zonder negen cellen over, met een waarschuwing — stil herschikken
+  zette `opm` in de €-kolom bij een vergeten afsluitende `|`.
   ⚠️ **De app vraagt niet meer om een meterstand** (2026-09-13): het scherm toont nergens een kWh,
   dus dat veld leverde het enige andere getal op dat je bij de hand hebt — het dashboardpercentage,
   waar `calibrate` een rendement van maakt dat eruitziet als een meting. Het logboekveld is nu de

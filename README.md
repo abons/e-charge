@@ -19,7 +19,9 @@ jij typt het percentage, de app rekent.
 Sinds 2026-09-25 staat er ook wat de laadbeurt **kost bij Zonneplan**: de EPEX-prijs per kwartier
 (publiek, via de prijzen-API van EnergyZero) plus de opslag van Zonneplan en de energiebelasting,
 met btw. Elk kwartier van de laadbeurt telt tegen zijn eigen prijs; de prijzen van morgen zijn er pas
-rond 13:00, en tot die tijd zegt de regel "deels geschat".
+rond 13:00, en tot die tijd zegt de regel "deels geschat". Daaronder staat wat een kilometer kost
+bij die prijs, en het logboek bewaart de kosten van elke beurt in een `€`-kolom — `npm run
+calibrate` rekent daar de gemeten kosten per km uit, over de kilometers tussen twee beurten.
 
 ## Installeren
 

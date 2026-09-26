@@ -8,6 +8,7 @@ import {
   allInEurPerKwh,
   chargingCost,
   covered,
+  eurPerKm,
   mergeQuarters,
   parseEnergyZero,
   parseQuarters,
@@ -129,6 +130,14 @@ test("chargingCost: buiten de bekende prijzen wordt geschat, en dat staat erbij"
   // Geen enkel bekend kwartier: niets te zeggen.
   assert.equal(chargingCost(T0 + 10 * Q, T0 + 12 * Q, 3.5, prijzen), null);
   assert.equal(chargingCost(T0, T0 + Q, 0, prijzen), null);
+});
+
+test("eurPerKm: prijs maal verbruik, gedeeld door het rendement", () => {
+  // 20 ct/kWh, 17 kWh/100 km uit de accu, 88% rendement: 0,20 × 0,17 ÷ 0,88 = 3,86 ct/km.
+  assert.equal(((eurPerKm(0.2, 17, 0.88) ?? 0) * 100).toFixed(2), "3.86");
+  assert.equal(eurPerKm(0.2, 17, 1), 0.034);
+  // Zonder rendement is er geen bedrag — nul zou "gratis" zeggen.
+  assert.equal(eurPerKm(0.2, 17, 0), null);
 });
 
 test("covered: alleen waar als elk moment een prijs heeft", () => {
