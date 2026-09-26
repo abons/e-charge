@@ -25,10 +25,14 @@ De eigenaar wilde dit ondanks de regel *de app weet niets van de auto* — en da
 tegenspraak: de app weet nog steeds niets van de auto, ze weet nu iets van de markt. De grenzen die
 blijven staan:
 
-- **Eén bestand raakt het net aan** (`src/prices.ts`), met twee bronnen zonder sleutel
-  (EnergyZero, dan Energy-Charts van Fraunhofer ISE). Twee, omdat vanaf een bureau niet te zien is
-  welke de browser vanaf `abons.github.io` toelaat (CORS) — het proxy-netwerk van de bouwsessie
-  blokkeerde beide. Eén mislukte bron mag de regel niet leeg laten.
+- **Eén bestand raakt het net aan** (`src/prices.ts`), met één bron zonder sleutel: de publieke
+  prijzen-API van EnergyZero. De eerste versie had er twee (het oude EnergyZero-endpoint, dan
+  Energy-Charts van Fraunhofer ISE) omdat CORS vanaf een bureau niet te zien was, en de telefoon
+  zei prompt "geen prijzen": het oude endpoint kent geen kwartieren en Energy-Charts laat alleen
+  zijn eigen origin toe. Een tijdelijke GitHub-workflow met `curl -H "Origin: …"` bracht dat boven
+  en vond het endpoint dat de client python-energyzero ook gebruikt — mét de juiste
+  `access-control-allow-origin`. Een bron die je niet vanuit een browser hebt zien antwoorden, is
+  geen bron.
 - **Zuinig en offline-bestendig.** Prijzen gaan naar `localStorage`; ophalen gebeurt alleen als de
   laadbeurt buiten de bekende kwartieren valt, en hooguit één keer per kwartier. Zonder bereik staat
   er wat er het laatst was, of "geen prijzen" — nooit een leeg scherm.

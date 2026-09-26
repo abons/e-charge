@@ -1,11 +1,4 @@
-import {
-  covered,
-  mergeQuarters,
-  parseEnergyCharts,
-  parseEnergyZero,
-  parseQuarters,
-  type Quarter,
-} from "./core/price.js";
+import { covered, mergeQuarters, parseEnergyZero, parseQuarters, type Quarter } from "./core/price.js";
 
 /**
  * De kwartierprijzen van het net halen en op deze telefoon bewaren. Dit is de enige plek in de app
@@ -13,10 +6,13 @@ import {
  * wat eenmaal opgehaald is blijft in `localStorage` staan, en zonder bereik rekent het scherm
  * gewoon door met wat het heeft — of zegt het dat er geen prijzen zijn.
  *
- * Twee bronnen, allebei zonder sleutel en allebei de EPEX day-ahead voor NL — dezelfde markt waar
- * Zonneplan zijn kwartierprijs van maakt. De eerste die antwoord geeft wint; de tweede is er omdat
- * niet vanaf een bureau te zien is welke van de twee de browser vanaf `abons.github.io` toelaat
- * (CORS), en één mislukte bron mag de kostenregel niet leeg laten.
+ * Eén bron: de publieke prijzen-API van EnergyZero, zonder sleutel, met de EPEX day-ahead per
+ * kwartier — dezelfde markt waar Zonneplan zijn kwartierprijs van maakt. Vanaf een GitHub-runner
+ * nagemeten (2026-09-25): de GET én de preflight geven `access-control-allow-origin` voor
+ * `abons.github.io`, dus de browser mag erbij. De alternatieven vielen af: het oude
+ * `api.energyzero.nl/v1/energyprices` kent geen kwartieren (lege lijst), hun GraphQL alleen uren,
+ * en Energy-Charts (Fraunhofer) staat alleen zijn eigen origin toe — precies waarom de eerste
+ * versie op de telefoon "geen prijzen" zei.
  *
  * ⚠️ Ophalen is zuinig: alleen als de laadbeurt buiten de bekende prijzen valt, en dan hooguit één
  * keer per kwartier. De prijzen van morgen verschijnen rond 13:00–15:00; een laadbeurt die vanavond
@@ -25,33 +21,9 @@ import {
 
 const KEY = "e-charge.prices";
 const RETRY_MS = 15 * 60_000;
-const DAY_MS = 24 * 60 * 60_000;
-
-interface Source {
-  name: string;
-  url(fromMs: number, toMs: number): string;
-  parse(json: unknown): Quarter[];
-}
-
-const iso = (ms: number): string => new Date(ms).toISOString();
-
-const SOURCES: Source[] = [
-  {
-    name: "EnergyZero",
-    // `inclBtw=false`: de marktprijs kaal, de opbouw van Zonneplan komt er in `price.ts` overheen.
-    url: (a, b) =>
-      "https://api.energyzero.nl/v1/energyprices" +
-      `?fromDate=${encodeURIComponent(iso(a))}&tillDate=${encodeURIComponent(iso(b - 1))}` +
-      "&interval=3&usageType=1&inclBtw=false",
-    parse: parseEnergyZero,
-  },
-  {
-    name: "Energy-Charts",
-    url: (a, b) =>
-      `https://api.energy-charts.info/price?bzn=NL&start=${encodeURIComponent(iso(a))}&end=${encodeURIComponent(iso(b))}`,
-    parse: parseEnergyCharts,
-  },
-];
+const SOURCE = "EnergyZero";
+/** Meer dagen dan dit vraagt geen laadbeurt aan een stopcontact; het houdt een lus ook klein. */
+const MAX_REQUESTS = 4;
 
 interface Stored {
   source: string;
@@ -101,10 +73,29 @@ export function status(): "ophalen" | "mislukt" | "stil" {
   return failed ? "mislukt" : "stil";
 }
 
-const startOfLocalDay = (ms: number): number => {
+/**
+ * Lokale middernacht, [days] kalenderdagen verderop. Via de datumconstructor en niet via `+ 24 uur`:
+ * op de dag dat de wintertijd ingaat is een dag 25 uur, en dan is middernacht plus 24 uur nog
+ * dezelfde dag — en vraagt `apiDate` de verkeerde dag.
+ */
+const localDay = (ms: number, days = 0): number => {
   const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime();
 };
+
+/** `dd-mm-jjjj` in lokale tijd — zo wil de API de dag, en de dag is hier een lokale dag. */
+function apiDate(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
+function url(dayMs: number): string {
+  return (
+    "https://public.api.energyzero.nl/public/v1/prices" +
+    `?energyType=ENERGY_TYPE_ELECTRICITY&date=${apiDate(dayMs)}&interval=INTERVAL_QUARTER`
+  );
+}
 
 /**
  * Zorg dat [fromMs, toMs) prijzen heeft; haalt ze zo nodig op en roept [onUpdate] zodra er iets
@@ -116,20 +107,24 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
   if (inflight || now - lastAttemptMs < RETRY_MS) return;
   lastAttemptMs = now;
   inflight = true;
-  // Van het begin van de dag waarop de laadbeurt begon tot en met morgen: de sessie kan gisteravond
-  // begonnen zijn, en morgen is het verst dat de markt vooruit prijst.
-  const windowFrom = startOfLocalDay(Math.min(fromMs, now));
-  const windowTo = startOfLocalDay(now) + 2 * DAY_MS;
-  void fetchQuarters(windowFrom, windowTo)
-    .then((result) => {
+  // De API geeft per gevraagde dag ook de dag ervoor en (zodra gepubliceerd) de dag erna. We vragen
+  // de eerste dag die we nodig hebben — een dag die zeker bestaat; wat de API doet met een dag die
+  // nog niet gepubliceerd is, heeft niemand gezien — en daarna steeds drie dagen verder. In de
+  // praktijk is dat één aanroep: vandaag, met gisteren en morgen erbij.
+  const firstDay = localDay(Math.min(fromMs, now));
+  const lastDay = localDay(Math.max(toMs, now));
+  const days: number[] = [];
+  for (let d = firstDay; localDay(d, -1) <= lastDay && days.length < MAX_REQUESTS; d = localDay(d, 3)) days.push(d);
+  void fetchQuarters(days)
+    .then((quarters) => {
       inflight = false;
-      failed = result === null;
-      if (result !== null) {
+      failed = quarters.length === 0;
+      if (!failed) {
         // Ouder dan drie dagen is voor deze app verleden tijd — behalve als de laadbeurt zelf zo
         // oud is: wat net voor haar is opgehaald, mag niet meteen weer weg, anders is ze nooit
-        // gedekt en gaat elk kwartier hetzelfde venster opnieuw naar de bronnen.
-        const keepFromMs = Math.min(windowFrom, startOfLocalDay(now) - 3 * DAY_MS);
-        write({ source: result.source, quarters: mergeQuarters(stored.quarters, result.quarters, keepFromMs) });
+        // gedekt en gaat elk kwartier hetzelfde venster opnieuw naar de bron.
+        const keepFromMs = Math.min(firstDay, localDay(now, -3));
+        write({ source: SOURCE, quarters: mergeQuarters(stored.quarters, quarters, keepFromMs) });
       }
       onUpdate();
     })
@@ -140,16 +135,16 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
     });
 }
 
-async function fetchQuarters(fromMs: number, toMs: number): Promise<{ source: string; quarters: Quarter[] } | null> {
-  for (const source of SOURCES) {
+async function fetchQuarters(days: number[]): Promise<Quarter[]> {
+  let all: Quarter[] = [];
+  for (const day of days) {
     try {
-      const resp = await fetch(source.url(fromMs, toMs), { mode: "cors", cache: "no-store" });
+      const resp = await fetch(url(day), { mode: "cors", cache: "no-store" });
       if (!resp.ok) continue;
-      const quarters = source.parse(await resp.json());
-      if (quarters.length > 0) return { source: source.name, quarters };
+      all = mergeQuarters(all, parseEnergyZero(await resp.json()), 0);
     } catch {
-      /* geen net, of de bron laat de browser niet toe (CORS) — dan de volgende */
+      /* geen net — dan blijft wat er is, en over een kwartier nog eens */
     }
   }
-  return null;
+  return all;
 }

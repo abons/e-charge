@@ -222,7 +222,7 @@ function show(durationText: string, readyText: string, day: string | null, power
 
 /**
  * De kostenregel. `null` is "niets te rekenen" én "geen prijzen"; alleen in dat tweede geval
- * ([expected]) zegt het woordje erachter waarom: tijdens het ophalen, of als beide bronnen weigerden.
+ * ([expected]) zegt het woordje erachter waarom: tijdens het ophalen, of als de bron weigerde.
  * Een schatting over kwartieren die nog niet geprijsd zijn (morgen, vóór 13:00) heet ook zo — de
  * rekening is dan nog niet bekend.
  */
@@ -276,8 +276,8 @@ setupOut.textContent =
   `${nl(DEFAULT_SETUP.consumptionKwhPer100Km)} kWh/100 km`;
 
 // En de tariefopbouw, uit dezelfde constanten als de kostensom (`price.ts`): de marktprijs per
-// kwartier plus wat Zonneplan en de fiscus erbovenop leggen. De bron komt erbij zodra er een is —
-// Energy-Charts (Fraunhofer ISE) vraagt naamsvermelding, en dat is toch al eerlijk.
+// kwartier plus wat Zonneplan en de fiscus erbovenop leggen. De bron komt erbij zodra er prijzen
+// zijn — wie een bedrag ziet, hoort te kunnen zien waar het vandaan komt.
 function renderTariff(): void {
   const bron = prices.sourceName();
   tariffOut.textContent =

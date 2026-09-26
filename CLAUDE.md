@@ -13,16 +13,20 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   deze app offline werkt en niets te onderhouden heeft.
 - ⚠️ **Eén uitzondering, sinds 2026-09-25: de stroomprijs komt van het net.** De eigenaar wilde de
   laadkosten bij Zonneplan per kwartier zien, en die zijn niet te raden. `src/prices.ts` is de
-  **enige** plek die `fetch` aanraakt: twee publieke EPEX-bronnen zonder sleutel (EnergyZero, dan
-  Energy-Charts), resultaat in `localStorage`, hooguit één poging per kwartier en alleen als de
-  laadbeurt buiten de bekende prijzen valt. Zonder bereik rekent alles door met wat er staat, en de
-  kostenregel zegt "geen prijzen" in plaats van het scherm mee te slepen. Zonneplan zelf heeft geen
-  open API; zijn prijs is EPEX + een vaste opbouw, en die drie getallen staan in `src/core/price.ts`
-  — de tarief-tegenhanger van de vier autoconstanten. Wat nog steeds niet mag: een token of sleutel
-  in de bundel (het is een publieke pagina), en iets ophalen dat niet de prijs is.
-  ⚠️ **CORS is niet vanaf een bureau te testen.** Welke van de twee bronnen de browser vanaf
-  `abons.github.io` toelaat, blijkt pas op de telefoon; daarom zijn het er twee, en zegt de regel
-  onderaan het scherm welke het werd.
+  **enige** plek die `fetch` aanraakt: de publieke prijzen-API van EnergyZero
+  (`public.api.energyzero.nl/public/v1/prices`, EPEX per kwartier, zonder sleutel), resultaat in
+  `localStorage`, hooguit één poging per kwartier en alleen als de laadbeurt buiten de bekende
+  prijzen valt. Zonder bereik rekent alles door met wat er staat, en de kostenregel zegt "geen
+  prijzen" in plaats van het scherm mee te slepen. Zonneplan zelf heeft geen open API; zijn prijs
+  is EPEX + een vaste opbouw, en die drie getallen staan in `src/core/price.ts` — de
+  tarief-tegenhanger van de vier autoconstanten. Wat nog steeds niet mag: een token of sleutel in
+  de bundel (het is een publieke pagina), en iets ophalen dat niet de prijs is.
+  ⚠️ **CORS test je niet vanaf een bureau, maar wél vanaf een GitHub-runner.** De eerste versie
+  zei op de telefoon "geen prijzen": het oude `api.energyzero.nl/v1/energyprices` kent geen
+  kwartieren (lege lijst bij `interval=3`), en Energy-Charts staat alleen zijn eigen origin toe.
+  Dat kwam boven met een tijdelijke workflow die `curl -H "Origin: https://abons.github.io"` deed
+  en de `access-control-allow-origin`-header afdrukte; de sessie-proxy van Claude blokkeert die
+  hosts, een runner niet. Doe dat opnieuw vóór je van bron wisselt — en `price.value` is een string.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
   klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon
