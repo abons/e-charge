@@ -28,8 +28,12 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   toont wat hij *nu* trekt, niet het gemiddelde over zeven uur.
   Drie sessies teruggerekend (2026-09-20) geven 10,1 %/uur, maar daar staat de capaciteit óók in;
   het scheidt dus niets, en de aflezing op het blok blijft het enige harde getal.
-  - **Kijk of het blok een standenknop heeft** (8/10/13/16 A). Staat hij op 16 A en toont hij 3,5,
-    dan zakt het vermogen misschien nog als de stekker warm wordt; een vaste stand is rustiger.
+  - Het blok hééft een standenknop (8 tot 16 A, 2026-09-27), en sinds die dag staat hij ook op het
+    scherm. **Controleer de tussenstanden**: `CHARGE_CURRENTS_A` zegt 8/10/13/16, en 10 en 13 zijn
+    aangenomen, niet afgelezen. Staat er iets anders op de knop, dan is het één regel in `charge.ts`.
+  - **Eén beurt op 8 of 10 A in `log.md`** (de app zet de stand in `opm`) laat zien of het rendement
+    op een lage stand echt lager is — de app rekent nu op elke stand met 0,88, en dat is voor 8 A
+    aan de optimistische kant.
 - **Zonder de kWh-kolom blijft het een product, geen paar.** Uit `(eind% − start%) × capaciteit ÷
   uren` komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart — en sinds
   2026-09-20 hangt de capaciteit er ook nog aan: gemeten is `powerKw × efficiency ÷ capacityKwh`,
@@ -45,8 +49,9 @@ de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), e
   de vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zes
   uur aan één stuk op 15 A. Met de aflezing van 3,5 kW is dit geen theoretisch punt meer: voel na
   een uur laden aan de stekker. Handwarm is normaal, te heet om vast te houden niet — dan hoort de
-  kabel een stand lager (10 A → 2,3 kW, of 13 A → 3,0 kW, en dan gaat `CHARGE_POWER_KW` mee terug),
-  of er hoort een echt laadpunt te komen.
+  kabel een stand lager — en die stand kies je sinds 2026-09-27 ook op het scherm, zodat de
+  laadtijd meegaat (10 A → 2,2 kW, 13 A → 2,8 kW naar rato van de aflezing) — of er hoort een
+  echt laadpunt te komen.
 - **Vul `log.md`, en de aannames verdwijnen één voor één.** Drie van de vier constanten zijn
   geschat; het logboek vervangt ze door metingen zodra er sessies in staan (`npm run calibrate`).
   Eén regel geeft het effectieve laadvermogen (het product hierboven); diezelfde regel mét een

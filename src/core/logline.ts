@@ -1,3 +1,4 @@
+import { clampCurrent } from "./charge.js";
 import { clock, number as nl } from "./time.js";
 
 /**
@@ -22,6 +23,27 @@ export interface LogEntry {
   /** Wat de beurt kostte bij Zonneplan, uit de kwartierprijzen — de app vult dit bij het bewaren. */
   eur?: number | null;
   note?: string;
+}
+
+/**
+ * De laadstand in de `opm`-kolom: `16 A`. Geen eigen kolom (de kolomvolgorde is een contract), dus
+ * dit paar ís het contract: de app schrijft met [noteForAmps], `calibrate` en `kosten` lezen met
+ * [ampsFromNote], en een test legt vast dat ze elkaars omgekeerde zijn. Verandert het formaat ooit,
+ * dan verandert het hier — en nergens anders.
+ */
+export function noteForAmps(amps: number): string {
+  return `${clampCurrent(amps)} A`;
+}
+
+/**
+ * De stand die in [note] geschreven staat, of `null` als er geen staat (een regel van vóór de
+ * standenkeuze, of `elders geladen` zonder meer). Wat er staat wordt níét geklemd: `12 A` is een
+ * stand die de knop niet heeft, en dat hoort de lezer te melden in plaats van stil 16 A te rekenen
+ * — `clampCurrent` zegt of het er een is. Een decimaal (`12.5 A`) leest als 12,5 en niet als 5.
+ */
+export function ampsFromNote(note: string): number | null {
+  const m = /(?:^|[^\d.,])(\d+(?:[.,]\d+)?)\s*A\b/.exec(note);
+  return m === null ? null : Number(m[1]!.replace(",", "."));
 }
 
 /** `yyyy-mm-dd` in lokale tijd, net als de klok — dit is geen contract tussen apparaten. */

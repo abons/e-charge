@@ -20,12 +20,25 @@ import { readFileSync, writeFileSync } from "node:fs";
  */
 process.env.TZ ??= "Europe/Amsterdam";
 
-const { DEFAULT_SETUP, estimate } = await import("../out/src/core/charge.js");
+const { RATED_CURRENT_A, clampCurrent, estimate, setupAt } = await import("../out/src/core/charge.js");
+const { ampsFromNote } = await import("../out/src/core/logline.js");
 const { chargingCost, mergeQuarters, parseEnergyZero } = await import("../out/src/core/price.js");
 
 const dryRun = process.argv.includes("--dry-run");
 const KOLOMMEN = 9;
 const EUR = 7; // de positie van `€` in het kolomcontract van logline.ts
+const OPM = 8;
+
+/**
+ * De laadstand uit `opm` (`10 A`, het formaat staat in `logline.ts`); zonder stand is het een regel
+ * van vóór de standenkeuze: de hoogste. Een stand die de knop niet heeft geeft `null` — zo'n regel
+ * krijgt geen bedrag op een geraden vermogen.
+ */
+const stand = (opm) => {
+  const geschreven = ampsFromNote(opm);
+  if (geschreven === null) return RATED_CURRENT_A;
+  return clampCurrent(geschreven) === geschreven ? geschreven : null;
+};
 
 const nummer = (s) => {
   const t = String(s).trim().replace(",", ".");
@@ -86,12 +99,20 @@ for (let i = 0; i < regels.length; i++) {
   }
   if (endMs < startMs) endMs = moment(datum, tot, 1); // over middernacht
 
-  // Tot de auto volgens de rekenkern op `eind%` stond, net als de app; en de prijzen van de dag van
-  // insteken plus, als de beurt daarbuiten valt, die van de dag van afkoppelen.
-  const totMs = Math.min(endMs, startMs + estimate(from, to).minutes * 60_000);
+  // Tot de auto volgens de rekenkern op `eind%` stond, net als de app, en op de stand van die regel;
+  // en de prijzen van de dag van insteken plus, als de beurt daarbuiten valt, die van de dag van
+  // afkoppelen.
+  const amps = stand(c[OPM] ?? "");
+  if (amps === null) {
+    console.log(`${datum}: "${c[OPM]}" is geen stand van de kabel (CHARGE_CURRENTS_A) — overgeslagen.`);
+    overgeslagen++;
+    continue;
+  }
+  const opzet = setupAt(amps);
+  const totMs = Math.min(endMs, startMs + estimate(from, to, opzet).minutes * 60_000);
   let kwartieren = await prijzenVoor(startMs);
   if (apiDate(totMs) !== apiDate(startMs)) kwartieren = mergeQuarters(kwartieren, await prijzenVoor(totMs), 0);
-  const kosten = chargingCost(startMs, totMs, DEFAULT_SETUP.powerKw, kwartieren);
+  const kosten = chargingCost(startMs, totMs, opzet.powerKw, kwartieren);
 
   if (kosten === null || !kosten.complete) {
     console.log(`${datum}: geen (volledige) prijzen voor ${van}–${tot} — cel blijft leeg.`);

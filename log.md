@@ -32,6 +32,10 @@ de stap die het duurzaam maakt:
 overleeft hij, maar het wissen van websitegegevens, een nieuwe telefoon of een andere browser niet.
 Dit bestand in de repo is de kopie die blijft — plak dus af en toe.
 
+Sinds 2026-09-27 zet de app ook de **laadstand** van de kabel in `opm` (`16 A`): `calibrate` en
+`kosten` lezen hem daar uit, en een regel zonder stand — alles van daarvóór — telt als de hoogste.
+Een beurt op 8 of 10 A hoort dus niet zonder die opmerking in de tabel.
+
 De regel loopt vanaf het **insteken**, ook als je tussendoor het echte percentage hebt ingevuld en
 de schatting opnieuw is verankerd. Kopieer of bewaar je na het afkoppelen, dan is het percentage in
 het veld wat je van het dashboard las, en dát komt in de kolom `eind%`.
@@ -59,7 +63,7 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | `van` / `tot` | klok, `uu:mm` | de laadtijd |
 | `kWh` | wat je meter over die periode telde | scheidt rendement van capaciteit |
 | `€` | wat de beurt kostte bij Zonneplan, uit de kwartierprijzen | de app vult dit; samen met de volgende regel: kosten per km |
-| `opm` | bv. `vorst`, `elders geladen` | zie de waarschuwing onderaan |
+| `opm` | bv. `vorst`, `elders geladen`, en de laadstand `10 A` (de app vult die) | zie de waarschuwing onderaan; de stand houdt beurten op 8 A en 16 A uit elkaar |
 
 ## De sessies
 
