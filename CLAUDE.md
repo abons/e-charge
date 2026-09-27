@@ -66,9 +66,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   opnieuw vanaf het gerekende percentage van nu — net als een aflezing. Een `Setup` zonder stand
   (`DEFAULT_SETUP`) is alleen nog goed voor wat níét van de stand afhangt: het bereik, de kosten
   per km, en `maxMeterKwh` (een bovengrens hoort op de hoogste stand). In het logboek gaat de stand
-  als `16 A` de `opm`-kolom in — géén eigen kolom, want de kolomvolgorde is een contract — en
-  `calibrate` en `kosten` lezen hem daar met een regex weer uit; een regel zonder stand is van vóór
-  de standenkeuze en telt als de hoogste.
+  als `16 A` de `opm`-kolom in — géén eigen kolom, want de kolomvolgorde is een contract — via het
+  paar `noteForAmps`/`ampsFromNote` in `logline.ts` (één test pint de round-trip vast), en
+  `calibrate` en `kosten` lezen hem daar weer uit; een regel zonder stand is van vóór de
+  standenkeuze en telt als de hoogste, een regel met een stand die de knop niet heeft (`12 A`)
+  wordt met een waarschuwing overgeslagen. `calibrate` houdt het rendement per stand apart en stelt
+  `EFFICIENCY` alleen uit de beurten op de hoogste stand voor.
 - ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
   tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
   meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —

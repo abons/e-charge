@@ -108,8 +108,13 @@ Dus een keuzelijst onder Doel, en vier keuzes daaromheen:
   tijdlijn in de sessie bijhouden. Na een herlaad staat de lijst op de stand van de sessie, niet op
   de voorkeur.
 - **Geen eigen kolom in `log.md`.** De kolomvolgorde is een contract met `calibrate`, en `opm` was
-  al vrije tekst die met een regex gelezen wordt (`elders geladen`). Een regel zonder stand is van
-  vóór deze keuze en telt als de hoogste — dat staat in `RATED_CURRENT_A`, niet in de scripts.
+  al vrije tekst die met een regex gelezen wordt (`elders geladen`). Het formaat `16 A` is daarmee
+  zelf een contract, dus het staat als één paar in `logline.ts` (`noteForAmps`/`ampsFromNote`) met
+  een round-trip-test. Een regel zonder stand is van vóór deze keuze en telt als de hoogste — dat
+  staat in `RATED_CURRENT_A`, niet in de scripts; een stand die de knop niet heeft slaan de scripts
+  met een waarschuwing over, waar de app zelf naar de hoogste klemt. En `calibrate` middelt het
+  rendement per stand: het voorstel voor `EFFICIENCY` komt alleen uit de hoogste, een lagere stand
+  krijgt zijn eigen regel.
 
 Bewust níét: de kosten per km en het bereik aan de stand hangen (die gaan over de accu, niet over
 de kabel), en `maxMeterKwh` laten zakken op een lage stand (een bovengrens hoort op de hoogste).

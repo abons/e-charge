@@ -1,5 +1,5 @@
-import { maxMeterKwh } from "./charge.js";
-import { logRow, type LogEntry } from "./logline.js";
+import { clampCurrent, maxMeterKwh } from "./charge.js";
+import { logRow, noteForAmps, type LogEntry } from "./logline.js";
 
 /**
  * Het logboek zoals de app het bewaart: een lijst afgesloten laadbeurten, op deze telefoon.
@@ -51,7 +51,10 @@ function parseEntry(value: unknown): Entry | null {
     km: getal(o["km"]),
     kwh: getal(o["kwh"]),
     eur: getal(o["eur"]),
-    amps: getal(o["amps"]),
+    // `null` blijft `null` (van vóór de standenkeuze, en dat mag niet stil 16 worden); al het andere
+    // wordt een stand die de knop heeft, net als in `readSession` — `12.5` uit een bewerkte opslag
+    // zou anders als `12.5 A` in de regel komen en in de scripts als een onbekende stand.
+    amps: o["amps"] === null || o["amps"] === undefined ? null : clampCurrent(o["amps"]),
   };
 }
 
@@ -133,7 +136,7 @@ export function toMarkdown(entries: Entry[]): string {
         kwh: e.kwh,
         eur: e.eur,
         // De stand als opmerking, zodat `calibrate` een beurt op 8 A niet naast een op 16 A middelt.
-        note: e.amps === null ? undefined : `${e.amps} A`,
+        note: e.amps === null ? undefined : noteForAmps(e.amps),
       } satisfies LogEntry),
     )
     .join("\n");

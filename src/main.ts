@@ -129,12 +129,17 @@ function currentAmps(): number {
 }
 
 /**
- * De auto aan de kabel op de gekozen stand. Tijdens het laden is dat de stand van de sessie — de
+ * De stand waar nu mee gerekend wordt. Tijdens het laden is dat de stand van de sessie — de
  * keuzelijst staat daar dan ook op; een andere keuze verankert de sessie opnieuw (zie de
  * change-listener), zodat de twee nooit uiteenlopen.
  */
+function activeAmps(): number {
+  return session ? session.amps : currentAmps();
+}
+
+/** De auto aan de kabel op die stand — wat alles wat rekent meekrijgt. */
 function setup() {
-  return setupAt(session ? session.amps : currentAmps());
+  return setupAt(activeAmps());
 }
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
@@ -241,7 +246,7 @@ function render(): void {
     readyMs,
     from: session ? session.logFrom : from,
     to,
-    amps: session ? session.amps : currentAmps(),
+    amps: activeAmps(),
     label: label ?? "",
     cost,
   };
@@ -321,9 +326,8 @@ function addToCalendar(): void {
 // Het vermogen is dat van de gekozen stand, dus de regel gaat mee zodra de keuzelijst verandert.
 function renderSetup(): void {
   const opzet = setup();
-  const amps = session ? session.amps : currentAmps();
   setupOut.textContent =
-    `${nl(opzet.capacityKwh)} kWh bruikbaar · ${nl(opzet.powerKw)} kW uit de muur op ${amps} A · ` +
+    `${nl(opzet.capacityKwh)} kWh bruikbaar · ${nl(opzet.powerKw)} kW uit de muur op ${activeAmps()} A · ` +
     `${Math.round(opzet.efficiency * 100)}% rendement · ` +
     `${nl(opzet.consumptionKwhPer100Km)} kWh/100 km`;
 }

@@ -15,7 +15,7 @@ import {
   setupAt,
 } from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
-import { logRow } from "../src/core/logline.js";
+import { ampsFromNote, logRow, noteForAmps } from "../src/core/logline.js";
 import {
   parseEntries,
   toMarkdown,
@@ -350,8 +350,26 @@ test("logbook: de kosten reizen mee, en een beurt zonder prijzen wist ze niet", 
   assert.ok(toMarkdown(met).includes("| 3,30 |"));
 });
 
+// Het formaat van de stand in de opm-kolom is een contract tussen de app (schrijver) en de twee
+// scripts (lezers), net als de kolomvolgorde — dus rond, in één paar, met een test.
+test("logline: noteForAmps en ampsFromNote zijn elkaars omgekeerde", () => {
+  for (const amps of CHARGE_CURRENTS_A) assert.equal(ampsFromNote(noteForAmps(amps)), amps);
+  assert.equal(noteForAmps(10), "10 A");
+  assert.equal(noteForAmps(9), `${RATED_CURRENT_A} A`); // de schrijver klemt, net als de app
+  // De lezer klemt níét: een stand die de knop niet heeft moet de scripts opvallen, niet stil 16 worden.
+  assert.equal(ampsFromNote("12 A"), 12);
+  assert.equal(ampsFromNote("12.5 A"), 12.5); // en niet 5
+  assert.equal(ampsFromNote("12,5 A"), 12.5);
+  // Zonder stand is het `null` — een regel van vóór de standenkeuze, of alleen een opmerking.
+  assert.equal(ampsFromNote(""), null);
+  assert.equal(ampsFromNote("elders geladen"), null);
+  assert.equal(ampsFromNote("vorst, 10 A"), 10);
+  assert.equal(ampsFromNote("10A"), 10);
+  assert.equal(ampsFromNote("10 Ah"), null); // een hele-woord-grens: `Ah` is geen stand
+});
+
 // De stand gaat als `16 A` de opm-kolom in: geen eigen kolom, want de kolomvolgorde is een contract
-// met calibrate — en die leest hem daar met een regex weer uit.
+// met calibrate — en die leest hem daar via `ampsFromNote` weer uit.
 test("logbook: de laadstand reist mee en komt als opmerking in de regel", () => {
   const op10 = withEntry([], { ...beurt(12), amps: 10 });
   assert.equal(op10[0]?.amps, 10);
@@ -360,6 +378,10 @@ test("logbook: de laadstand reist mee en komt als opmerking in de regel", () => 
   assert.equal(toMarkdown([beurt(12)]).endsWith("|  |  |  |"), true);
   assert.equal(parseEntries(JSON.stringify([beurt(12)]))[0]?.amps, null);
   assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), amps: 8 }]))[0]?.amps, 8);
+  // Uit opslag wordt geklemd, net als de sessie: een bewerkte 12.5 wordt de hoogste stand, `null` blijft `null`.
+  assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), amps: 12.5 }]))[0]?.amps, RATED_CURRENT_A);
+  assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), amps: "10" }]))[0]?.amps, RATED_CURRENT_A);
+  assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), amps: null }]))[0]?.amps, null);
   // Aanvullen zonder stand (een oude versie van de app) wist de bewaarde stand niet.
   assert.equal(withEntry(op10, { ...beurt(12), km: 84300 })[0]?.amps, 10);
 });

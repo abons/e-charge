@@ -39,10 +39,14 @@
                  -webkit-appearance: none; margin: 0; }
   .entry input:focus { outline: none; border-color: #7fd4a0; }
   /* De laadstand: een gewone <select>, in dezelfde jas als de invoervelden. De opties komen uit
-     `charge.ts` (main.ts vult ze), zodat hier nergens een ampère of kW staat. */
-  .entry select { background: #121213; color: #eee; border: 1px solid #3a3a3c; border-radius: 10px;
-                  padding: 12px 14px; font: 700 18px system-ui, sans-serif; -webkit-appearance: none;
-                  appearance: none; min-width: 156px; text-align: right; }
+     `charge.ts` (main.ts vult ze), zodat hier nergens een ampère of kW staat. `appearance: none`
+     haalt het pijltje van de browser weg (dat past niet in deze jas), dus er staat een eigen pijltje
+     rechts — zonder dat is het veld niet te onderscheiden van de invoervelden erboven, behalve dat
+     je er niet in kunt typen. */
+  .entry select { background: #121213 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a9a9a' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 14px center;
+                  color: #eee; border: 1px solid #3a3a3c; border-radius: 10px;
+                  padding: 12px 34px 12px 14px; font: 700 18px system-ui, sans-serif;
+                  -webkit-appearance: none; appearance: none; min-width: 176px; text-align: right; }
   .entry select:focus { outline: none; border-color: #7fd4a0; }
   .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
 

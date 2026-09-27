@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs";
  * achteruit met metingen. Het importeert die constanten ook echt (uit `out/`, dus na `tsc`), zodat
  * de vergelijking altijd tegen de waarden gaat waar de app mee rekent en niet tegen een kopie.
  */
-const { DEFAULT_SETUP, RATED_CURRENT_A, powerKwAt } = await import("../out/src/core/charge.js");
+const { DEFAULT_SETUP, RATED_CURRENT_A, clampCurrent, powerKwAt } = await import("../out/src/core/charge.js");
+const { ampsFromNote } = await import("../out/src/core/logline.js");
 const { eurPerKm } = await import("../out/src/core/price.js");
 
 const nummer = (s) => {
@@ -34,13 +35,16 @@ function minuten(van, tot) {
 const KOLOMMEN = 9; // datum, km, start%, eind%, van, tot, kWh, €, opm — het contract met logline.ts
 
 /**
- * De laadstand uit `opm` (`10 A`, zoals de app hem sinds 2026-09-27 schrijft). Een regel zonder
- * stand is van daarvóór en ging op de hoogste — dat is de enige aanname hier, en hij staat in
- * `charge.ts` (RATED_CURRENT_A), niet in dit script.
+ * De laadstand uit `opm` (`10 A`, zoals de app hem sinds 2026-09-27 schrijft; het formaat staat in
+ * `logline.ts`). Een regel zonder stand is van daarvóór en ging op de hoogste — dat is de enige
+ * aanname hier, en hij staat in `charge.ts` (RATED_CURRENT_A), niet in dit script. Een stand die de
+ * knop niet heeft (`12 A`) wordt niet stil naar 16 geklemd zoals de app doet: de regel wordt
+ * overgeslagen, met een waarschuwing, net als een regel met te weinig cellen.
  */
 const stand = (opm) => {
-  const m = /(\d+)\s*A\b/.exec(opm);
-  return m ? Number(m[1]) : RATED_CURRENT_A;
+  const geschreven = ampsFromNote(opm);
+  if (geschreven === null) return RATED_CURRENT_A;
+  return clampCurrent(geschreven) === geschreven ? geschreven : null;
 };
 
 const alleRegels = readFileSync("log.md", "utf8")
@@ -55,7 +59,10 @@ const alleRegels = readFileSync("log.md", "utf8")
 for (const c of alleRegels.filter((c) => c.length !== KOLOMMEN)) {
   console.log(`⚠️ ${c[0]}: ${c.length} kolommen, ${KOLOMMEN} verwacht — regel overgeslagen.`);
 }
-const regels = alleRegels.filter((c) => c.length === KOLOMMEN);
+for (const c of alleRegels.filter((c) => c.length === KOLOMMEN && stand(c[8] ?? "") === null)) {
+  console.log(`⚠️ ${c[0]}: "${c[8]}" is geen stand van de kabel (CHARGE_CURRENTS_A) — regel overgeslagen.`);
+}
+const regels = alleRegels.filter((c) => c.length === KOLOMMEN && stand(c[8] ?? "") !== null);
 
 if (regels.length === 0) {
   console.log("Nog geen sessies in log.md — noteer er één en draai dit opnieuw.");
@@ -74,7 +81,9 @@ console.log(
 );
 console.log("-".repeat(119));
 
-const rendementen = [];
+/** Rendement per stand: een 8 A-beurt hoort niet in het gemiddelde van de 16 A-beurten. */
+const rendementen = new Map();
+const standen = new Set();
 const verbruiken = [];
 const perKms = [];
 let vorige = null;
@@ -83,13 +92,14 @@ for (const c of regels) {
   const [datum, km, start, eind, van, tot, kwh, eur, opm = ""] = c;
   const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh), eur: nummer(eur) };
   const amps = stand(opm);
+  standen.add(amps);
   const min = minuten(van, tot);
   const inAccu = d.start !== null && d.eind !== null ? ((d.eind - d.start) * cap) / 100 : null;
 
   const effectief = inAccu !== null && min ? inAccu / uur(min) : null;
   const muur = d.kwh !== null && min ? d.kwh / uur(min) : null;
   const rendement = inAccu !== null && d.kwh ? inAccu / d.kwh : null;
-  if (rendement !== null) rendementen.push(rendement);
+  if (rendement !== null) rendementen.set(amps, [...(rendementen.get(amps) ?? []), rendement]);
 
   // De gemiddelde prijs van deze beurt: wat hij kostte gedeeld door wat er uit de muur kwam
   // *volgens de aanname waarmee de app het bedrag maakte* — Δ% × capaciteit ÷ rendement. Niet door
@@ -133,24 +143,32 @@ for (const c of regels) {
 }
 
 const gemiddelde = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const rGem = gemiddelde(rendementen);
+// Het voorstel voor EFFICIENCY komt alleen uit de beurten op de hoogste stand: daar is het vermogen
+// afgelezen en daar rekent de app het rendement bij. Een lagere stand krijgt zijn eigen regel — dat
+// getal is het antwoord op "hoeveel slechter is 8 A", en hoort niet in het gemiddelde.
+const opHoogste = rendementen.get(RATED_CURRENT_A) ?? [];
+const rGem = gemiddelde(opHoogste);
 const vGem = gemiddelde(verbruiken);
 
 console.log("\nVoorstel voor src/core/charge.ts:");
-const regel = (naam, nu, gemeten, eenheid, n = 2) =>
+const regel = (naam, nu, gemeten, eenheid, aantal, n = 2) =>
   console.log(
     `  ${naam.padEnd(27)} nu ${fmt(nu, n).padStart(6)}${eenheid}` +
       (gemeten === null
         ? "   (nog te weinig gegevens)"
-        : `   gemeten ${fmt(gemeten, n).padStart(6)}${eenheid}  uit ${
-            naam === "EFFICIENCY" ? rendementen.length : verbruiken.length
-          } sessie(s)`),
+        : `   gemeten ${fmt(gemeten, n).padStart(6)}${eenheid}  uit ${aantal} sessie(s)`),
   );
-regel("EFFICIENCY", DEFAULT_SETUP.efficiency, rGem, "", 2);
-regel("CONSUMPTION_KWH_PER_100KM", DEFAULT_SETUP.consumptionKwhPer100Km, vGem, " kWh/100km", 1);
+regel("EFFICIENCY", DEFAULT_SETUP.efficiency, rGem, "", opHoogste.length, 2);
+for (const [amps, lijst] of [...rendementen].filter(([a]) => a !== RATED_CURRENT_A).sort((a, b) => a[0] - b[0])) {
+  console.log(
+    `  ${`  op ${amps} A`.padEnd(27)} nu ${fmt(DEFAULT_SETUP.efficiency).padStart(6)}` +
+      `   gemeten ${fmt(gemiddelde(lijst)).padStart(6)}  uit ${lijst.length} sessie(s) — geen constante, de app rekent op elke stand met EFFICIENCY`,
+  );
+}
+regel("CONSUMPTION_KWH_PER_100KM", DEFAULT_SETUP.consumptionKwhPer100Km, vGem, " kWh/100km", verbruiken.length, 1);
 console.log(
   "\nHet laadvermogen staat in de kolom 'uit de muur'; vergelijk het met de stand van die regel " +
-    `(${[...new Set(regels.map((c) => stand(c[8] ?? "")))].sort((a, b) => a - b).map((a) => `${a} A → ${fmt(powerKwAt(a), 2)} kW`).join(", ")}). ` +
+    `(${[...standen].sort((a, b) => a - b).map((a) => `${a} A → ${fmt(powerKwAt(a), 2)} kW`).join(", ")}). ` +
     `Wijkt de hoogste stand structureel af van ${fmt(DEFAULT_SETUP.powerKw, 1)} kW, pas dan CHARGE_POWER_KW aan; ` +
     "een lagere stand die achterblijft is een slechter rendement op die stand, geen ander vermogen.",
 );

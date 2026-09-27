@@ -20,7 +20,8 @@ import { readFileSync, writeFileSync } from "node:fs";
  */
 process.env.TZ ??= "Europe/Amsterdam";
 
-const { RATED_CURRENT_A, estimate, setupAt } = await import("../out/src/core/charge.js");
+const { RATED_CURRENT_A, clampCurrent, estimate, setupAt } = await import("../out/src/core/charge.js");
+const { ampsFromNote } = await import("../out/src/core/logline.js");
 const { chargingCost, mergeQuarters, parseEnergyZero } = await import("../out/src/core/price.js");
 
 const dryRun = process.argv.includes("--dry-run");
@@ -28,10 +29,15 @@ const KOLOMMEN = 9;
 const EUR = 7; // de positie van `€` in het kolomcontract van logline.ts
 const OPM = 8;
 
-/** De laadstand uit `opm` (`10 A`); zonder stand is het een regel van vóór de standenkeuze: de hoogste. */
+/**
+ * De laadstand uit `opm` (`10 A`, het formaat staat in `logline.ts`); zonder stand is het een regel
+ * van vóór de standenkeuze: de hoogste. Een stand die de knop niet heeft geeft `null` — zo'n regel
+ * krijgt geen bedrag op een geraden vermogen.
+ */
 const stand = (opm) => {
-  const m = /(\d+)\s*A\b/.exec(opm);
-  return m ? Number(m[1]) : RATED_CURRENT_A;
+  const geschreven = ampsFromNote(opm);
+  if (geschreven === null) return RATED_CURRENT_A;
+  return clampCurrent(geschreven) === geschreven ? geschreven : null;
 };
 
 const nummer = (s) => {
@@ -96,7 +102,13 @@ for (let i = 0; i < regels.length; i++) {
   // Tot de auto volgens de rekenkern op `eind%` stond, net als de app, en op de stand van die regel;
   // en de prijzen van de dag van insteken plus, als de beurt daarbuiten valt, die van de dag van
   // afkoppelen.
-  const opzet = setupAt(stand(c[OPM] ?? ""));
+  const amps = stand(c[OPM] ?? "");
+  if (amps === null) {
+    console.log(`${datum}: "${c[OPM]}" is geen stand van de kabel (CHARGE_CURRENTS_A) — overgeslagen.`);
+    overgeslagen++;
+    continue;
+  }
+  const opzet = setupAt(amps);
   const totMs = Math.min(endMs, startMs + estimate(from, to, opzet).minutes * 60_000);
   let kwartieren = await prijzenVoor(startMs);
   if (apiDate(totMs) !== apiDate(startMs)) kwartieren = mergeQuarters(kwartieren, await prijzenVoor(totMs), 0);
