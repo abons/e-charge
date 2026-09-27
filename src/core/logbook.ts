@@ -22,6 +22,12 @@ export interface Entry {
   kwh: number | null;
   /** Kosten van de beurt in euro's, uit de kwartierprijzen op het moment van bewaren. */
   eur: number | null;
+  /**
+   * De laadstand van de kabel in ampère; `null` voor beurten van vóór de standenkeuze (2026-09-27),
+   * die allemaal op de hoogste stand gingen. Gaat als `16 A` de `opm`-kolom in — geen eigen kolom,
+   * want de kolomvolgorde is een contract met `calibrate`, en `opm` was al vrije tekst.
+   */
+  amps: number | null;
 }
 
 const getal = (v: unknown): number | null =>
@@ -37,7 +43,16 @@ function parseEntry(value: unknown): Entry | null {
   const toPercent = getal(o["toPercent"]);
   if (startMs === null || endMs === null || fromPercent === null || toPercent === null) return null;
   if (startMs <= 0 || endMs < startMs) return null;
-  return { startMs, endMs, fromPercent, toPercent, km: getal(o["km"]), kwh: getal(o["kwh"]), eur: getal(o["eur"]) };
+  return {
+    startMs,
+    endMs,
+    fromPercent,
+    toPercent,
+    km: getal(o["km"]),
+    kwh: getal(o["kwh"]),
+    eur: getal(o["eur"]),
+    amps: getal(o["amps"]),
+  };
 }
 
 /** De hele lijst uit opslag, oudste eerst; kapotte regels vallen stil weg. */
@@ -77,6 +92,7 @@ export function withEntry(entries: Entry[], entry: Entry): Entry[] {
           km: entry.km ?? oud.km,
           kwh: entry.kwh ?? oud.kwh,
           eur: entry.eur ?? (oud.endMs === entry.endMs ? oud.eur : null),
+          amps: entry.amps ?? oud.amps,
         };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
   return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
@@ -116,6 +132,8 @@ export function toMarkdown(entries: Entry[]): string {
         km: e.km,
         kwh: e.kwh,
         eur: e.eur,
+        // De stand als opmerking, zodat `calibrate` een beurt op 8 A niet naast een op 16 A middelt.
+        note: e.amps === null ? undefined : `${e.amps} A`,
       } satisfies LogEntry),
     )
     .join("\n");

@@ -54,9 +54,21 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
   aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk
   was.
-- ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis.**
+- ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis** —
+  plus, sinds 2026-09-27, de laadstanden van de kabel (`CHARGE_CURRENTS_A`, `RATED_CURRENT_A`).
   Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
   agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.
+  De `<select id="amps">` in de HTML is dus **leeg**; `main.ts` vult hem uit die lijst.
+- ⚠️ **De laadstand zit in de sessie, en `setup()` in `main.ts` is de enige weg naar een `Setup`.**
+  `CHARGE_POWER_KW` is het vermogen op de hoogste stand; alles wat rekent (`estimate`,
+  `percentAfter`, `chargingCost`, de agenda-tekst, de logregel) krijgt `setupAt(amps)` mee. Tijdens
+  het laden is dat de stand van de sessie, en een andere keuze in de lijst verankert de sessie
+  opnieuw vanaf het gerekende percentage van nu — net als een aflezing. Een `Setup` zonder stand
+  (`DEFAULT_SETUP`) is alleen nog goed voor wat níét van de stand afhangt: het bereik, de kosten
+  per km, en `maxMeterKwh` (een bovengrens hoort op de hoogste stand). In het logboek gaat de stand
+  als `16 A` de `opm`-kolom in — géén eigen kolom, want de kolomvolgorde is een contract — en
+  `calibrate` en `kosten` lezen hem daar met een regex weer uit; een regel zonder stand is van vóór
+  de standenkeuze en telt als de hoogste.
 - ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
   tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
   meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —

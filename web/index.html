@@ -38,6 +38,12 @@
   .entry input::-webkit-outer-spin-button, .entry input::-webkit-inner-spin-button {
                  -webkit-appearance: none; margin: 0; }
   .entry input:focus { outline: none; border-color: #7fd4a0; }
+  /* De laadstand: een gewone <select>, in dezelfde jas als de invoervelden. De opties komen uit
+     `charge.ts` (main.ts vult ze), zodat hier nergens een ampère of kW staat. */
+  .entry select { background: #121213; color: #eee; border: 1px solid #3a3a3c; border-radius: 10px;
+                  padding: 12px 14px; font: 700 18px system-ui, sans-serif; -webkit-appearance: none;
+                  appearance: none; min-width: 156px; text-align: right; }
+  .entry select:focus { outline: none; border-color: #7fd4a0; }
   .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
 
   .out { margin-top: 6px; }
@@ -114,6 +120,17 @@
         <input id="target" type="number" min="0" max="100" step="1" inputmode="numeric"
                enterkeyhint="done" value="90">
         <span class="unit">%</span>
+      </span>
+    </div>
+    <!--
+      De standenknop op de laadkabel: 8 tot 16 A. Leeg in de HTML — `main.ts` vult de opties uit
+      `CHARGE_CURRENTS_A` in `charge.ts`, de enige plek met laderkennis. Een vaste hoogte, dus de
+      knoppen eronder verschuiven niet als de keuze verandert.
+    -->
+    <div class="field">
+      <label for="amps">Laadstand</label>
+      <span class="entry">
+        <select id="amps"></select>
       </span>
     </div>
 

@@ -1,9 +1,10 @@
 /**
  * De rekenkern: hoeveel energie er in moet, hoe hard die er in gaat, en hoe lang dat duurt.
  *
- * ⚠️ **Alles wat aan de auto of de lader hangt staat in deze vier constanten** — dat is met opzet
- * de enige plek om te kalibreren. Wie een andere Leaf of een ander stopcontact heeft, verandert
- * hier één getal en klaar; de UI leest ze en rekent nergens anders met vaste waarden.
+ * ⚠️ **Alles wat aan de auto of de lader hangt staat in deze vier constanten** (plus de laadstanden
+ * van de kabel, direct eronder) — dat is met opzet de enige plek om te kalibreren. Wie een andere
+ * Leaf of een ander stopcontact heeft, verandert hier één getal en klaar; de UI leest ze en rekent
+ * nergens anders met vaste waarden.
  */
 
 /**
@@ -42,6 +43,26 @@ export const USABLE_CAPACITY_KWH = 30.5;
  * telt. (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
  */
 export const CHARGE_POWER_KW = 3.5;
+
+/**
+ * De laadstanden van de kabel, in ampère — de Voldt-lader heeft een knop met 8 A als laagste en
+ * 16 A als hoogste stand. [CHARGE_POWER_KW] is afgelezen op de hoogste stand ([RATED_CURRENT_A]);
+ * de andere standen schalen daar lineair van af (`powerKwAt`), dus 8 A is de helft: 1,75 kW. Dat is
+ * bewust níét 230 V × A: de 3,5 op het display is wat er werkelijk stroomt bij "16 A", en die
+ * verhouding (0,22 kW per ampère) geldt ook voor de standen eronder.
+ *
+ * ⚠️ De tussenstanden (10 en 13 A) zijn de gebruikelijke van dit soort kabels en niet van het blok
+ * afgelezen; klopt de knop niet met deze lijst, dan verander je hier één regel. De laatste stand
+ * moet [RATED_CURRENT_A] zijn, en de test pint dat vast.
+ *
+ * ⚠️ Het rendement blijft [EFFICIENCY] op elke stand, en dat is aan de optimistische kant voor 8 A:
+ * de vaste kosten van boordlader en BMS lopen door terwijl er minder doorheen gaat. Meetbaar met
+ * één beurt op die stand in `log.md` — de app zet de stand in de `opm`-kolom, zodat `calibrate`
+ * de beurten uit elkaar kan houden.
+ */
+export const CHARGE_CURRENTS_A: readonly number[] = [8, 10, 13, 16];
+/** De stand waarop [CHARGE_POWER_KW] is afgelezen: de hoogste. */
+export const RATED_CURRENT_A = 16;
 
 /**
  * Rendement muur → batterij. Aan een stopcontact is dit merkbaar slechter dan aan een laadpunt: de
@@ -86,6 +107,24 @@ export const DEFAULT_SETUP: Setup = {
   efficiency: EFFICIENCY,
   consumptionKwhPer100Km: CONSUMPTION_KWH_PER_100KM,
 };
+
+/**
+ * Een geldige laadstand, of de hoogste als [amps] er geen is — een waarde uit opslag of een oude
+ * sessie mag het scherm niet op een stand zetten die de knop niet heeft.
+ */
+export function clampCurrent(amps: unknown): number {
+  return typeof amps === "number" && CHARGE_CURRENTS_A.includes(amps) ? amps : RATED_CURRENT_A;
+}
+
+/** Wat er uit de muur komt op stand [amps]: [CHARGE_POWER_KW] naar rato van [RATED_CURRENT_A]. */
+export function powerKwAt(amps: number, setup: Setup = DEFAULT_SETUP): number {
+  return (setup.powerKw * clampCurrent(amps)) / RATED_CURRENT_A;
+}
+
+/** Dezelfde auto aan dezelfde kabel, maar op stand [amps] — wat `estimate` en `percentAfter` krijgen. */
+export function setupAt(amps: number, setup: Setup = DEFAULT_SETUP): Setup {
+  return { ...setup, powerKw: powerKwAt(amps, setup) };
+}
 
 export interface Estimate {
   /** `false` zodra het huidige percentage het doel al haalt — dan zijn de andere velden 0. */
@@ -147,7 +186,8 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
 export function maxMeterKwh(ms: number, setup: Setup = DEFAULT_SETUP): number {
   // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Zelfs
   // met die marge zou 97 kWh aan dit stopcontact ruim achttien uur aan de muur vragen — en dán is
-  // het ook geen vergissing meer, maar een lange laadbeurt.
+  // het ook geen vergissing meer, maar een lange laadbeurt. Altijd met de hoogste stand: een grens
+  // hoort niet te zakken omdat de knop toevallig op 8 A stond.
   return (setup.powerKw * Math.max(0, ms) * 1.5) / 3_600_000;
 }
 

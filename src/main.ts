@@ -1,4 +1,15 @@
-import { DEFAULT_SETUP, clampPercent, estimate, percentAfter, rangeKm } from "./core/charge.js";
+import {
+  CHARGE_CURRENTS_A,
+  DEFAULT_SETUP,
+  RATED_CURRENT_A,
+  clampCurrent,
+  clampPercent,
+  estimate,
+  percentAfter,
+  powerKwAt,
+  rangeKm,
+  setupAt,
+} from "./core/charge.js";
 import { calendar } from "./core/ics.js";
 import {
   parseEntries,
@@ -26,11 +37,17 @@ import * as prices from "./prices.js";
  *   je auto al aan het laden is — dan klopt het antwoord alleen op het moment dat je het aanzet.
  *
  * De invoervelden blijven de waarheid over de percentages; de enige opgeslagen state is het
- * doelpercentage (een voorkeur) en de lopende laadsessie (zodat die een herstart van de telefoon
- * overleeft — anders is hij nutteloos).
+ * doelpercentage (een voorkeur), de laadstand van de kabel (ook een voorkeur: de knop op het blok
+ * staat waar hij staat) en de lopende laadsessie (zodat die een herstart van de telefoon overleeft
+ * — anders is hij nutteloos).
+ *
+ * De laadstand is de enige knop van de lader die de app kent: 8 tot 16 A, en het vermogen schaalt
+ * mee (`setupAt` in `charge.ts`). Alles wat rekent krijgt `setup()` mee, zodat het scherm, de
+ * kosten, de agenda-tekst en de logregel op dezelfde stand staan.
  */
 
 const TARGET_KEY = "e-charge.target";
+const AMPS_KEY = "e-charge.amps";
 const SESSION_KEY = "e-charge.session";
 const FINISHED_KEY = "e-charge.finished";
 const DEFAULT_TARGET = 90;
@@ -45,6 +62,7 @@ const el = <T extends HTMLElement>(id: string): T => document.getElementById(id)
 
 const currentInput = el<HTMLInputElement>("current");
 const targetInput = el<HTMLInputElement>("target");
+const ampsSelect = el<HTMLSelectElement>("amps");
 const startLabel = el("startlabel");
 const startOut = el("start");
 const nowLine = el("nowline");
@@ -84,18 +102,40 @@ const installButton = el<HTMLButtonElement>("install");
  * je de stekker erin stak, en die overleven het opnieuw verankeren. Zonder dat onderscheid zou een
  * tussentijdse aflezing de logregel korter maken dan de laadbeurt werkelijk duurde.
  */
-interface Session { startMs: number; from: number; logStartMs: number; logFrom: number }
+interface Session { startMs: number; from: number; logStartMs: number; logFrom: number; amps: number }
 let session: Session | null = null;
 
 /** De laatst afgesloten sessie, zodat je de logregel ná het afkoppelen nog kunt kopiëren. */
-interface Finished { startMs: number; endMs: number; from: number }
+interface Finished { startMs: number; endMs: number; from: number; amps: number }
 let finished: Finished | null = null;
 
 /** Het logboek op deze telefoon — een kladblok; `log.md` in de repo is de duurzame kopie. */
 let logbook: Entry[] = [];
 
 /** Wat de laatste render uitrekende — wat de agendaknop in het `.ics` zet. */
-let ready: { startMs: number; readyMs: number; from: number; to: number; label: string; cost: Cost | null } | null = null;
+let ready: {
+  startMs: number;
+  readyMs: number;
+  from: number;
+  to: number;
+  amps: number;
+  label: string;
+  cost: Cost | null;
+} | null = null;
+
+/** De laadstand die op het scherm gekozen is; de `<select>` kent alleen standen uit `charge.ts`. */
+function currentAmps(): number {
+  return clampCurrent(Number(ampsSelect.value));
+}
+
+/**
+ * De auto aan de kabel op de gekozen stand. Tijdens het laden is dat de stand van de sessie — de
+ * keuzelijst staat daar dan ook op; een andere keuze verankert de sessie opnieuw (zie de
+ * change-listener), zodat de twee nooit uiteenlopen.
+ */
+function setup() {
+  return setupAt(session ? session.amps : currentAmps());
+}
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
 function percentOf(input: HTMLInputElement): number | null {
@@ -146,7 +186,8 @@ function render(): void {
   rangeLabel.textContent = `Bereik bij ${rangePercent}%`;
   rangeOut.textContent = `± ${rangeKm(rangePercent)} km`;
 
-  const result = estimate(from, to);
+  const opzet = setup();
+  const result = estimate(from, to, opzet);
   // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` geeft dan het startpunt
   // terug. Liever de regel weg dan een bevroren getal laten staan.
   nowLine.hidden = session === null || !result.needed;
@@ -167,7 +208,7 @@ function render(): void {
   // De kosten gaan over de hele laadbeurt — vanaf het insteken, niet vanaf de laatste aflezing — met
   // het vermogen uit de muur, want dát staat op de rekening. Ontbreken er kwartieren, dan haalt
   // `ensure` ze op en rendert opnieuw zodra ze er zijn; dit scherm wacht daar niet op.
-  const cost = chargingCost(shownStartMs, readyMs, DEFAULT_SETUP.powerKw, prices.known());
+  const cost = chargingCost(shownStartMs, readyMs, opzet.powerKw, prices.known());
   // Eerst `ensure`, dán tonen: anders leest `showCost` de status van vóór het ophalen en staat er
   // op de eerste render een kaal streepje zonder "prijzen ophalen…".
   prices.ensure(shownStartMs, readyMs, () => {
@@ -177,7 +218,7 @@ function render(): void {
   showCost(cost, true);
 
   if (session) {
-    const soc = Math.floor(percentAfter(session.from, to, now - session.startMs));
+    const soc = Math.floor(percentAfter(session.from, to, now - session.startMs, opzet));
     nowPctOut.textContent = `${soc}%`;
     nowKmOut.textContent = `± ${rangeKm(soc)} km`;
     show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
@@ -200,6 +241,7 @@ function render(): void {
     readyMs,
     from: session ? session.logFrom : from,
     to,
+    amps: session ? session.amps : currentAmps(),
     label: label ?? "",
     cost,
   };
@@ -252,13 +294,13 @@ function note(text: string | null, kind: "ok" | "info" = "ok"): void {
 /** De agenda-afspraak: de eindtijd, met de aanname erbij zodat je later ziet waar die uit kwam. */
 function addToCalendar(): void {
   if (!ready) return;
-  const result = estimate(ready.from, ready.to);
+  const result = estimate(ready.from, ready.to, setupAt(ready.amps));
   const text = calendar({
     readyMs: ready.readyMs,
     title: `Nissan Leaf ${ready.to}% — klaar met laden`,
     description:
       `Gestart om ${clock(ready.startMs)} op ${ready.from}%, doel ${ready.to}%.\n` +
-      `${nl(result.energyKwh)} kWh nodig, ± ${nl(result.effectivePowerKw)} kW, ` +
+      `${nl(result.energyKwh)} kWh nodig, ± ${nl(result.effectivePowerKw)} kW op ${ready.amps} A, ` +
       `${duration(result.minutes)} laden.` +
       (ready.cost === null
         ? ""
@@ -276,10 +318,15 @@ function addToCalendar(): void {
 
 // Eén regel onderaan met de aannames, gelezen uit dezelfde constanten waarmee gerekend wordt —
 // zodat een uitkomst die vreemd voelt, meteen te herleiden is naar wat er in `charge.ts` staat.
-setupOut.textContent =
-  `${nl(DEFAULT_SETUP.capacityKwh)} kWh bruikbaar · ${nl(DEFAULT_SETUP.powerKw)} kW uit de muur · ` +
-  `${Math.round(DEFAULT_SETUP.efficiency * 100)}% rendement · ` +
-  `${nl(DEFAULT_SETUP.consumptionKwhPer100Km)} kWh/100 km`;
+// Het vermogen is dat van de gekozen stand, dus de regel gaat mee zodra de keuzelijst verandert.
+function renderSetup(): void {
+  const opzet = setup();
+  const amps = session ? session.amps : currentAmps();
+  setupOut.textContent =
+    `${nl(opzet.capacityKwh)} kWh bruikbaar · ${nl(opzet.powerKw)} kW uit de muur op ${amps} A · ` +
+    `${Math.round(opzet.efficiency * 100)}% rendement · ` +
+    `${nl(opzet.consumptionKwhPer100Km)} kWh/100 km`;
+}
 
 // En de tariefopbouw, uit dezelfde constanten als de kostensom (`price.ts`): de marktprijs per
 // kwartier plus wat Zonneplan en de fiscus erbovenop leggen. De bron komt erbij zodra er prijzen
@@ -314,6 +361,23 @@ function writeTarget(value: string): void {
   }
 }
 
+/** De laadstand is net zo'n voorkeur als het doel: onthouden als het kan, anders de hoogste stand. */
+function readAmps(): number {
+  try {
+    return clampCurrent(Number(localStorage.getItem(AMPS_KEY)));
+  } catch {
+    return RATED_CURRENT_A;
+  }
+}
+
+function writeAmps(value: number): void {
+  try {
+    localStorage.setItem(AMPS_KEY, String(value));
+  } catch {
+    /* geen opslag; de keuze geldt deze sessie, de volgende start staat weer op de hoogste stand */
+  }
+}
+
 /**
  * De lopende sessie overleeft een herstart van de browser — een aftelling die verdwijnt zodra je
  * je telefoon wegbergt, is geen aftelling. Kapotte of ontbrekende opslag kost hier alleen de
@@ -325,7 +389,7 @@ function readSession(): Session | null {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { startMs, from, logStartMs, logFrom } = parsed as Record<string, unknown>;
+    const { startMs, from, logStartMs, logFrom, amps } = parsed as Record<string, unknown>;
     if (typeof startMs !== "number" || typeof from !== "number") return null;
     if (!Number.isFinite(startMs) || startMs <= 0) return null;
     return {
@@ -334,6 +398,8 @@ function readSession(): Session | null {
       // Een sessie uit een oudere versie kent deze twee niet; dan is de laadbeurt zelf het beste dat we hebben.
       logStartMs: typeof logStartMs === "number" && logStartMs > 0 ? logStartMs : startMs,
       logFrom: typeof logFrom === "number" ? clampPercent(logFrom) : clampPercent(from),
+      // En de stand ook niet: vóór 2026-09-27 rekende alles op de hoogste, dus dat is hij dan.
+      amps: clampCurrent(amps),
     };
   } catch {
     return null;
@@ -373,10 +439,10 @@ function readFinished(): Finished | null {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { startMs, endMs, from } = parsed as Record<string, unknown>;
+    const { startMs, endMs, from, amps } = parsed as Record<string, unknown>;
     if (typeof startMs !== "number" || typeof endMs !== "number" || typeof from !== "number") return null;
     if (!Number.isFinite(startMs) || startMs <= 0 || endMs < startMs) return null;
-    return { startMs, endMs, from: clampPercent(from) };
+    return { startMs, endMs, from: clampPercent(from), amps: clampCurrent(amps) };
   } catch {
     return null;
   }
@@ -401,10 +467,10 @@ function toggleCharging(): void {
     // `eind%` gelijk aan `start%` melden — een laadbeurt van nul procentpunten, die `calibrate`
     // als 0,00 kW meerekent. Wat je hierna van het dashboard leest, typ je eroverheen.
     const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
-    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs)));
+    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs, setup())));
     // Bij het afkoppelen de hele laadbeurt bewaren — vanaf het insteken, niet vanaf de laatste
     // tussentijdse aflezing — zodat de logregel klopt met wat er werkelijk aan de muur hing.
-    writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom });
+    writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom, amps: session.amps });
     writeSession(null);
     render();
     return;
@@ -412,7 +478,7 @@ function toggleCharging(): void {
   const from = percentOf(currentInput);
   if (from === null) return;
   const now = Date.now();
-  writeSession({ startMs: now, from, logStartMs: now, logFrom: from });
+  writeSession({ startMs: now, from, logStartMs: now, logFrom: from, amps: currentAmps() });
   render();
 }
 
@@ -450,10 +516,11 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
         startMs: session.logStartMs,
         endMs: nu,
         from: session.logFrom,
-        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs),
+        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setup()),
+        amps: session.amps,
       }
     : afgelopen !== null && eind !== null
-      ? { startMs: afgelopen.startMs, endMs: afgelopen.endMs, from: afgelopen.from, to: eind }
+      ? { startMs: afgelopen.startMs, endMs: afgelopen.endMs, from: afgelopen.from, to: eind, amps: afgelopen.amps }
       : null;
   if (bron === null) return null;
 
@@ -467,9 +534,11 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // waarde na het afkoppelen overschrijft hem (`withEntry`).
   let eur: number | null = null;
   if (metKosten) {
-    const laadMs = estimate(bron.from, bron.to).minutes * 60_000;
+    // Op de stand van díe beurt, niet op wat de keuzelijst nu toevallig zegt.
+    const opzet = setupAt(bron.amps);
+    const laadMs = estimate(bron.from, bron.to, opzet).minutes * 60_000;
     const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
-    const kosten = chargingCost(bron.startMs, totMs, DEFAULT_SETUP.powerKw, prices.known());
+    const kosten = chargingCost(bron.startMs, totMs, opzet.powerKw, prices.known());
     eur = kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null;
   }
   return {
@@ -481,6 +550,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
     // De kWh-kolom vult de app niet meer; wat er ooit in bewaard is blijft staan (`withEntry`).
     kwh: null,
     eur,
+    amps: bron.amps,
   };
 }
 
@@ -538,6 +608,7 @@ function renderLogbook(): void {
     if (e.km !== null) delen.push(`${e.km} km`);
     if (e.kwh !== null) delen.push(`${nl(e.kwh)} kWh`);
     if (e.eur !== null) delen.push(`€ ${nl(e.eur, 2)}`);
+    if (e.amps !== null) delen.push(`${e.amps} A`);
     rest.textContent = delen.join(" · ");
     const wis = document.createElement("button");
     wis.type = "button";
@@ -566,10 +637,24 @@ function copyLogbook(): void {
 const storedTarget = readTarget();
 if (storedTarget !== null && storedTarget.trim() !== "") targetInput.value = storedTarget;
 
+// De keuzelijst met laadstanden komt uit `charge.ts` en niet uit de HTML — de regel dat er nergens
+// anders een getal van de lader staat. Eenmalig opbouwen is geen `render()`: daarna schrijft JS er
+// alleen nog een waarde in.
+for (const amps of CHARGE_CURRENTS_A) {
+  const option = document.createElement("option");
+  option.value = String(amps);
+  option.textContent = `${amps} A · ${nl(powerKwAt(amps))} kW`;
+  ampsSelect.append(option);
+}
+ampsSelect.value = String(readAmps());
+
 // Een sessie die nog loopt hoort het scherm meteen in de bezig-stand te zetten, en het veld op het
-// percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling.
+// percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling. En de
+// keuzelijst op de stand van de sessie: dat is de stand waar de aftelling op gerekend is.
 session = readSession();
 finished = readFinished();
+if (session !== null) ampsSelect.value = String(session.amps);
+renderSetup();
 
 // Eenmalig: een bewaarde "meterstand" die de lader er in die uren niet doorheen kán hebben geduwd,
 // was een aflezing van het dashboard — dit veld vroeg tot 2026-09-13 om kWh van de meter, en de app
@@ -613,6 +698,24 @@ for (const input of [currentInput, targetInput]) {
     render();
   });
 }
+
+// Een andere stand tijdens het laden (de stekker werd warm, de knop ging naar 10 A) is net zo'n
+// nieuw vertrekpunt als een aflezing: het geschatte percentage van nú wordt het anker, en vanaf hier
+// telt het nieuwe vermogen. `logStartMs`/`logFrom` blijven staan; de logregel krijgt de laatste stand.
+ampsSelect.addEventListener("change", () => {
+  const amps = currentAmps();
+  writeAmps(amps);
+  if (session !== null && amps !== session.amps) {
+    const nu = Date.now();
+    const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
+    // Naar beneden, zoals het scherm het toont en zoals `readSession` het na een herlaad leest —
+    // en de veilige kant: iets te weinig aannemen maakt de schatting hooguit een paar minuten te lang.
+    const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps)));
+    writeSession({ ...session, startMs: nu, from: soc, amps });
+  }
+  renderSetup();
+  render();
+});
 
 chargeButton.addEventListener("click", toggleCharging);
 copyButton.addEventListener("click", copyLogRow);

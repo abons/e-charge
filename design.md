@@ -78,6 +78,42 @@ ze (ook voor de regel onderaan het scherm en de agenda-tekst) en rekent nergens 
 getal. Daarom past een andere Leaf, een andere auto of een laadpunt in één regel, en kan het scherm
 niet iets anders beweren dan de rekenkern.
 
+## Een laadstandkeuze op het scherm — 2026-09-27
+
+De Voldt-kabel heeft een standenknop, 8 A tot 16 A, en de vraag was of een lagere stand kwaad kan
+(nee: minder stroom is voor de accu en voor een schuko-stopcontact juist rustiger) en of hij loont
+met zon op het dak (bij een dynamisch contract zonder salderen wel: een stand die onder de
+zonneproductie blijft, laadt uit eigen panelen in plaats van uit het net). Het antwoord op allebei
+is "zet hem lager als het uitkomt", en dan moet de app weten dat de knop lager staat — anders
+voorspelt hij bij 8 A een laadtijd die de helft te kort is.
+
+Dus een keuzelijst onder Doel, en vier keuzes daaromheen:
+
+- **Het vermogen schaalt lineair vanaf de aflezing**, niet vanaf 230 V × A: 3,5 kW op "16 A" is
+  wat er werkelijk stroomt (0,22 kW per ampère), en 8 A is daar de helft van. `CHARGE_POWER_KW`
+  blijft dus het ene afgelezen getal en `powerKwAt()` doet de rest; de gemeten beurten in de test
+  blijven op de hoogste stand kloppen. De tussenstanden 10 en 13 A zijn de gebruikelijke van dit
+  soort kabels en staan als één lijst in `charge.ts` — klopt de knop niet, dan is dat één regel.
+- **Het rendement blijft één getal, op elke stand.** Bij 8 A lopen boordlader en BMS even lang door
+  voor de helft van de energie, dus in werkelijkheid is het daar een paar procent slechter. Dat is
+  meetbaar met één beurt op die stand, en niet te raden — dus geen tweede constante tot `log.md`
+  hem geeft. Daarom schrijft de app de stand in de `opm`-kolom (`8 A`): `calibrate` houdt de beurten
+  zo uit elkaar en zegt erbij dat een lagere stand die achterblijft een rendement is en geen ander
+  vermogen.
+- **De stand zit in de sessie.** Wisselen tijdens het laden (de stekker werd warm) is een nieuw
+  vertrekpunt, precies als een aflezing: het gerekende percentage van nu wordt het anker en vanaf
+  daar telt het nieuwe vermogen. `logStartMs`/`logFrom` blijven staan; de logregel en de kosten
+  rekenen met de laatste stand over de hele beurt — een beurt die halverwege van stand wisselt
+  krijgt dus een bedrag dat iets naast de werkelijkheid ligt, en dat is goedkoper dan een tweede
+  tijdlijn in de sessie bijhouden. Na een herlaad staat de lijst op de stand van de sessie, niet op
+  de voorkeur.
+- **Geen eigen kolom in `log.md`.** De kolomvolgorde is een contract met `calibrate`, en `opm` was
+  al vrije tekst die met een regex gelezen wordt (`elders geladen`). Een regel zonder stand is van
+  vóór deze keuze en telt als de hoogste — dat staat in `RATED_CURRENT_A`, niet in de scripts.
+
+Bewust níét: de kosten per km en het bereik aan de stand hangen (die gaan over de accu, niet over
+de kabel), en `maxMeterKwh` laten zakken op een lage stand (een bovengrens hoort op de hoogste).
+
 ## Minuten naar boven — 2026-09-11
 
 `estimate()` rondt naar boven af. Bij een schatting met een rendementsfactor erin is te vroeg komen

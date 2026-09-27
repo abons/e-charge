@@ -16,6 +16,11 @@ komt is de stroomprijs per kwartier, en zonder bereik rekent de app door met de 
 Geen backend, geen login, geen cloud, geen Nissan- of OBD-koppeling. De app weet niets van de auto:
 jij typt het percentage, de app rekent.
 
+Sinds 2026-09-27 kent het scherm ook de **laadstand** van de kabel (8, 10, 13 of 16 A, de knop op
+het Voldt-blok): kies de stand waar de knop op staat en laadtijd, eindtijd, kosten en logregel
+rekenen met dat vermogen. De stand wordt onthouden als voorkeur, gaat mee in een lopende sessie, en
+komt als `16 A` in de `opm`-kolom van het logboek.
+
 Sinds 2026-09-25 staat er ook wat de laadbeurt **kost bij Zonneplan**: de EPEX-prijs per kwartier
 (publiek, via de prijzen-API van EnergyZero) plus de opslag van Zonneplan en de energiebelasting,
 met btw. Elk kwartier van de laadbeurt telt tegen zijn eigen prijs; de prijzen van morgen zijn er pas
@@ -57,6 +62,12 @@ Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
 | `CHARGE_POWER_KW`      | 3,5    | ~15 A × 230 V, afgelezen op de laadkabel                 |
 | `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
 | `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
+
+Plus de standen van de kabel, in hetzelfde bestand: `CHARGE_CURRENTS_A = [8, 10, 13, 16]` en
+`RATED_CURRENT_A = 16`, de stand waarop de 3,5 kW is afgelezen. De andere standen schalen daar
+lineair van af (`powerKwAt`: 8 A is 1,75 kW), niet met 230 V × A — de aflezing telt, niet het
+etiket. Het rendement blijft op elke stand hetzelfde, en dat is voor 8 A aan de optimistische kant;
+een beurt op die stand in `log.md` (met `8 A` in `opm`) laat zien hoeveel.
 
 De capaciteit stond tot 2026-09-20 op 39,0, de waarde van een nieuw pakket, en de app was daardoor
 ruim 30% te pessimistisch: drie gemeten laadbeurten laten 10,1 procentpunt per uur zien waar de app

@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { DEFAULT_SETUP, clampPercent, estimate, maxMeterKwh, percentAfter, rangeKm } from "../src/core/charge.js";
+import {
+  CHARGE_CURRENTS_A,
+  DEFAULT_SETUP,
+  RATED_CURRENT_A,
+  clampCurrent,
+  clampPercent,
+  estimate,
+  maxMeterKwh,
+  percentAfter,
+  powerKwAt,
+  rangeKm,
+  setupAt,
+} from "../src/core/charge.js";
 import { calendar } from "../src/core/ics.js";
 import { logRow } from "../src/core/logline.js";
 import {
@@ -50,6 +62,34 @@ test("estimate: alles wat aan de auto hangt is te verzetten", () => {
   assert.equal(other.energyKwh, 62);
   assert.equal(other.effectivePowerKw.toFixed(2), "10.12");
   assert.equal(duration(other.minutes), "6u 08m");
+});
+
+// De standenknop op de kabel. Het afgelezen vermogen hoort bij de hoogste stand; de rest schaalt
+// daar lineair van af — en de tests hierboven (de gemeten beurten!) rekenen dus op die hoogste stand.
+test("laadstanden: de hoogste stand is het afgelezen vermogen, de rest schaalt mee", () => {
+  assert.equal(CHARGE_CURRENTS_A.at(-1), RATED_CURRENT_A);
+  assert.ok(CHARGE_CURRENTS_A.every((a, i) => i === 0 || a > (CHARGE_CURRENTS_A[i - 1] ?? 0)), "oplopend");
+  assert.equal(powerKwAt(RATED_CURRENT_A), DEFAULT_SETUP.powerKw);
+  assert.equal(setupAt(RATED_CURRENT_A).powerKw, DEFAULT_SETUP.powerKw);
+  // 8 A is de helft van 16 A: 1,75 kW uit de muur, en dan duurt dezelfde beurt twee keer zo lang.
+  assert.equal(powerKwAt(8).toFixed(3), "1.750");
+  assert.equal(powerKwAt(10).toFixed(3), "2.188");
+  // Op een minuut na: estimate rondt naar boven, en twee keer afronden is niet één keer afronden.
+  assert.ok(Math.abs(estimate(43, 90, setupAt(8)).minutes - 2 * estimate(43, 90).minutes) <= 1);
+  assert.equal(estimate(43, 90, setupAt(8)).energyKwh, estimate(43, 90).energyKwh); // de accu wil hetzelfde
+  // De andere drie constanten gaan ongemoeid mee — het rendement ook, en dat is een keuze (charge.ts).
+  assert.equal(setupAt(8).efficiency, DEFAULT_SETUP.efficiency);
+  assert.equal(setupAt(8).capacityKwh, DEFAULT_SETUP.capacityKwh);
+  // Een stand die de knop niet heeft, is de hoogste — wat er in opslag staat is niet te vertrouwen.
+  assert.equal(clampCurrent(9), RATED_CURRENT_A);
+  assert.equal(clampCurrent("10"), RATED_CURRENT_A);
+  assert.equal(clampCurrent(Number.NaN), RATED_CURRENT_A);
+  assert.equal(clampCurrent(10), 10);
+  assert.equal(powerKwAt(999), DEFAULT_SETUP.powerKw);
+  // En percentAfter gaat op 8 A half zo hard, dus estimate en percentAfter blijven elkaars omgekeerde.
+  assert.equal(percentAfter(43, 90, 3_600_000, setupAt(8)).toFixed(2), "48.05");
+  const ms = estimate(43, 90, setupAt(8)).minutes * 60_000;
+  assert.equal(Math.floor(percentAfter(43, 90, ms, setupAt(8))), 90);
 });
 
 test("estimate: doel al gehaald betekent niet laden", () => {
@@ -237,6 +277,7 @@ const beurt = (dag: number, van = 43, tot = 90) => ({
   km: 84210 + dag,
   kwh: null,
   eur: null,
+  amps: null,
 });
 
 test("logbook: wat uit opslag komt wordt niet vertrouwd", () => {
@@ -307,6 +348,20 @@ test("logbook: de kosten reizen mee, en een beurt zonder prijzen wist ze niet", 
   // Uit opslag: een oude regel zonder `eur` leest als null, geen 0.
   assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), eur: undefined }]))[0]?.eur, null);
   assert.ok(toMarkdown(met).includes("| 3,30 |"));
+});
+
+// De stand gaat als `16 A` de opm-kolom in: geen eigen kolom, want de kolomvolgorde is een contract
+// met calibrate — en die leest hem daar met een regex weer uit.
+test("logbook: de laadstand reist mee en komt als opmerking in de regel", () => {
+  const op10 = withEntry([], { ...beurt(12), amps: 10 });
+  assert.equal(op10[0]?.amps, 10);
+  assert.ok(toMarkdown(op10).endsWith("|  |  | 10 A |"), toMarkdown(op10));
+  // Een oude regel zonder stand blijft leeg in opm — die ging op de hoogste stand, maar dat raden we niet.
+  assert.equal(toMarkdown([beurt(12)]).endsWith("|  |  |  |"), true);
+  assert.equal(parseEntries(JSON.stringify([beurt(12)]))[0]?.amps, null);
+  assert.equal(parseEntries(JSON.stringify([{ ...beurt(12), amps: 8 }]))[0]?.amps, 8);
+  // Aanvullen zonder stand (een oude versie van de app) wist de bewaarde stand niet.
+  assert.equal(withEntry(op10, { ...beurt(12), km: 84300 })[0]?.amps, 10);
 });
 
 test("logbook: bewaren sorteert op tijd, verwijderen gaat op starttijd", () => {

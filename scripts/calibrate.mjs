@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
  * achteruit met metingen. Het importeert die constanten ook echt (uit `out/`, dus na `tsc`), zodat
  * de vergelijking altijd tegen de waarden gaat waar de app mee rekent en niet tegen een kopie.
  */
-const { DEFAULT_SETUP } = await import("../out/src/core/charge.js");
+const { DEFAULT_SETUP, RATED_CURRENT_A, powerKwAt } = await import("../out/src/core/charge.js");
 const { eurPerKm } = await import("../out/src/core/price.js");
 
 const nummer = (s) => {
@@ -32,6 +32,16 @@ function minuten(van, tot) {
 }
 
 const KOLOMMEN = 9; // datum, km, start%, eind%, van, tot, kWh, €, opm — het contract met logline.ts
+
+/**
+ * De laadstand uit `opm` (`10 A`, zoals de app hem sinds 2026-09-27 schrijft). Een regel zonder
+ * stand is van daarvóór en ging op de hoogste — dat is de enige aanname hier, en hij staat in
+ * `charge.ts` (RATED_CURRENT_A), niet in dit script.
+ */
+const stand = (opm) => {
+  const m = /(\d+)\s*A\b/.exec(opm);
+  return m ? Number(m[1]) : RATED_CURRENT_A;
+};
 
 const alleRegels = readFileSync("log.md", "utf8")
   // Weggecommentarieerde voorbeeldregels beginnen ook met een `|`, en zijn geen sessies.
@@ -60,9 +70,9 @@ const cap = DEFAULT_SETUP.capacityKwh;
 
 console.log(`Gerekend met ${fmt(cap, 1)} kWh bruikbaar (USABLE_CAPACITY_KWH).\n`);
 console.log(
-  "datum        laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige     kosten   per km",
+  "datum       stand  laadtijd  effectief   uit de muur  rendement   verbruik sinds vorige     kosten   per km",
 );
-console.log("-".repeat(112));
+console.log("-".repeat(119));
 
 const rendementen = [];
 const verbruiken = [];
@@ -72,6 +82,7 @@ let vorige = null;
 for (const c of regels) {
   const [datum, km, start, eind, van, tot, kwh, eur, opm = ""] = c;
   const d = { km: nummer(km), start: nummer(start), eind: nummer(eind), kwh: nummer(kwh), eur: nummer(eur) };
+  const amps = stand(opm);
   const min = minuten(van, tot);
   const inAccu = d.start !== null && d.eind !== null ? ((d.eind - d.start) * cap) / 100 : null;
 
@@ -109,7 +120,8 @@ for (const c of regels) {
   }
 
   console.log(
-    `${datum}   ${(min ? `${Math.floor(min / 60)}u ${String(min % 60).padStart(2, "0")}m` : "—").padEnd(8)}` +
+    `${datum}  ${`${amps} A`.padStart(5)}` +
+      `  ${(min ? `${Math.floor(min / 60)}u ${String(min % 60).padStart(2, "0")}m` : "—").padEnd(8)}` +
       `  ${kW(effectief).padStart(10)}` +
       `  ${kW(muur).padStart(11)}` +
       `  ${(rendement === null ? "—" : `${fmt(rendement * 100, 0)}%`).padStart(9)}` +
@@ -137,8 +149,10 @@ const regel = (naam, nu, gemeten, eenheid, n = 2) =>
 regel("EFFICIENCY", DEFAULT_SETUP.efficiency, rGem, "", 2);
 regel("CONSUMPTION_KWH_PER_100KM", DEFAULT_SETUP.consumptionKwhPer100Km, vGem, " kWh/100km", 1);
 console.log(
-  "\nHet laadvermogen staat in de kolom 'uit de muur'; wijkt die structureel af van " +
-    `${fmt(DEFAULT_SETUP.powerKw, 1)} kW, pas dan CHARGE_POWER_KW aan.`,
+  "\nHet laadvermogen staat in de kolom 'uit de muur'; vergelijk het met de stand van die regel " +
+    `(${[...new Set(regels.map((c) => stand(c[8] ?? "")))].sort((a, b) => a - b).map((a) => `${a} A → ${fmt(powerKwAt(a), 2)} kW`).join(", ")}). ` +
+    `Wijkt de hoogste stand structureel af van ${fmt(DEFAULT_SETUP.powerKw, 1)} kW, pas dan CHARGE_POWER_KW aan; ` +
+    "een lagere stand die achterblijft is een slechter rendement op die stand, geen ander vermogen.",
 );
 const kGem = gemiddelde(perKms);
 if (kGem !== null) {
