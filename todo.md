@@ -2,17 +2,30 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11 (27/27 tests groen, bundel
-~11 kB; beide gemeten op 2026-09-12). Pages staat aan en de deploy loopt: de laatste workflow-run is
-groen en zette `bcfa190` neer, precies wat er nu op `main` staat — met de hand aangezet op
-2026-09-11, te zien aan de gefaalde runs van 10:02 en 10:06 tegen de geslaagde van 10:13. In
-Chromium op telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100,
-doel dat een reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na een reload,
-de aftelling na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), en het logboek
-(bewaren, aanvullen, kopiëren, verwijderen). **Nog niet op een echte telefoon gezien.**
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11; 41/41 tests groen, bundel
+~17 kB (2026-09-27). Pages staat aan en de deploy loopt: workflow-run 13 is groen en zette
+`2ca50ed` neer (PR #9, de laadstandkeuze), precies wat er nu op `main` staat. In Chromium op
+telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100, doel dat een
+reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na een reload, de aftelling
+na ⚡ Start laden (inclusief herstart en tussentijdse aflezing), het logboek (bewaren, aanvullen,
+kopiëren, verwijderen), en de laadstand (wisselen vóór en tijdens het laden, herlaad, de stand in de
+logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
+- **De laadstand op de telefoon bekijken** (2026-09-27). De keuzelijst is een gewone `<select>`
+  met een eigen pijltje; Android opent daar zijn eigen kiezer voor, en of die vier regels
+  (`10 A · 2,2 kW`) leesbaar zijn en de knop niet verspringt, is in Chromium niet te zien. Zet hem
+  bij de volgende beurt op de stand waar de knop op het blok staat — de app rekent anders met
+  3,5 kW terwijl er 1,75 stroomt.
+- **De kostenregel weet niet dat de stroom van het dak komt.** Ze rekent elk kwartier tegen de
+  afnameprijs; wie overdag op eigen zon laadt, betaalt in werkelijkheid de gemiste
+  terugleverprijs van dat kwartier (bij Zonneplan de kale EPEX, midden op een zonnige dag vaak
+  bijna nul). De regel overschat zo'n beurt dus. Het aandeel eigen opwek is zonder
+  omvormerkoppeling niet te weten, en die past niet bij *de app weet niets van buiten* — dus dit
+  blijft zo, tenzij een lagere stand op zonnige dagen (zie de laadstandkeuze in `design.md`)
+  vaak genoeg voorkomt om er een "op eigen zon"-vinkje voor te willen. Dan is de som: dezelfde
+  kwartieren tegen `allInEurPerKwh` zónder opslag en belasting.
 - **De kostenregel op de telefoon nakijken** (2026-09-25, tweede poging). De eerste versie zei
   "geen prijzen"; de bron is nu `public.api.energyzero.nl`, waarvan een GitHub-runner de CORS-header
   voor `abons.github.io` heeft gezien en die 288 kwartieren per aanroep gaf. Open de app: er hoort
