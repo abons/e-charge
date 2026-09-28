@@ -13,6 +13,11 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
+- **Draai `npm run kosten` zodra er een machine met netwerk aan de repo hangt.** De bouwsessies van
+  Claude mogen `public.api.energyzero.nl` niet bereiken, dus elke regel die uit de app in `log.md`
+  wordt geplakt zonder bedrag (een beurt bewaard zonder bereik, of vóór 2026-09-26) blijft leeg tot
+  iemand het script lokaal draait. Eerst `-- --dry-run` om te kijken, dan zonder; daarna de diff
+  nakijken en committen. `npm run calibrate` laat meteen de kosten per km zien.
 - **De laadstand op de telefoon bekijken** (2026-09-27). De keuzelijst is een gewone `<select>`
   met een eigen pijltje; Android opent daar zijn eigen kiezer voor, en of die vier regels
   (`10 A · 2,2 kW`) leesbaar zijn en de knop niet verspringt, is in Chromium niet te zien. Zet hem
