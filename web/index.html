@@ -132,11 +132,16 @@
   .manual .field { margin: 8px 0; }
   .manual .entry input { width: 132px; font-size: 18px; padding: 10px 12px; }
   .fieldhint { color: #8a8a8a; font-size: 12px; line-height: 1.4; margin: -2px 0 8px; }
-  .about { margin: 0 0 12px; }
+  .about { margin: 0 0 12px; padding: 8px 14px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
-  @media (display-mode: standalone) { .about { display: none; } }
-  .about h2 { font-size: 15px; margin: 0 0 8px; }
+  @media (display-mode: standalone), (display-mode: minimal-ui), (display-mode: fullscreen) { .about { display: none; } }
+  /* Standaard dicht: één regel. Een snelkoppeling die Chrome als tab opent (zonder PNG-icoon is het
+     geen echte installatie) herkent de media-query hierboven niet, en dan stond de hele uitleg boven
+     het scherm. `main.ts` klapt hem open zodra de browser zegt dat installeren kan. */
+  .about summary { color: #c9c9c9; font-size: 15px; font-weight: 600; cursor: pointer;
+                   padding: 4px 0; min-height: 28px; }
+  .about[open] summary { margin-bottom: 6px; }
   .about p { margin: 6px 0; color: #c9c9c9; font-size: 14px; line-height: 1.5; }
   .about a { color: #7fd4a0; }
   .about button { margin-top: 8px; }
@@ -147,8 +152,8 @@
 <main>
   <h1 class="title">Nissan Leaf</h1>
 
-  <div class="card about">
-    <h2>Installeren</h2>
+  <details class="card about" id="about">
+    <summary>📲 Installeren</summary>
     <p>Deze pagina <em>is</em> de app. Open
       <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
       <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
@@ -157,7 +162,7 @@
     <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
       <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
     <button id="install" type="button" hidden>📲 Installeer als app</button>
-  </div>
+  </details>
 
   <div class="card">
     <!--

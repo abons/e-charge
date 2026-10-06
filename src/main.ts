@@ -897,6 +897,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   installPrompt = e as InstallPromptEvent;
   installButton.hidden = false;
+  el<HTMLDetailsElement>("about").open = true;
 });
 installButton.addEventListener("click", () => {
   void installPrompt?.prompt();
