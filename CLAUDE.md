@@ -103,8 +103,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   null-check, een weggehaald element is een crash bij laden. Bereik, laadvermogen en kosten per km
   staan sindsdien samen in één grijze `.sub`-regel (`nowrap`, dus geen hoogtesprong).
 - ⚠️ **De indeling staat omgekeerd, voor de rechterduim (2026-10-06):** resultaten bovenaan, daaronder
-  een flexibele ruimte (`margin-top: auto` op `.out`, dus de resultaten zakken naar de invoer en de
-  lege ruimte komt bovenin, niet als gat ertussen), dan Doel | Huidig (CSS `order`; in de HTML staat
+  de resultaten als `flex: 1`-kolom (`.out`): de regels groeien mee met de vrije ruimte tot een
+  maximum (64 px, de hero 88 px met een cijfer van 28–36 px) en een eventuele rest staat bovenin, dus
+  geen lege strook en geen gat tussen uitkomst en invoer. Zet daar nooit `min-height: 0` op: dan
+  verspringen de knoppen. ⚠️ Een logboek dat opent (tik op ⏹, of een melding) schuift de knoppen wél
+  omhoog zolang de kaart gestrekt is — de claim "open/dicht verschuift nooit iets" geldt alleen bij een
+  vol scherm. Dan Doel | Huidig (CSS `order`; in de HTML staat
   Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van 100% (`html`/`body`) en de
   viewport-meta heeft `interactive-widget=resizes-content`: zonder dat schuift Chrome de hele pagina
   ~217 px omhoog zodra het toetsenbord opent (gemeten op de telefoon: titel en uitkomst uit beeld,

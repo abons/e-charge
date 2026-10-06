@@ -66,9 +66,15 @@
   .pair .entry { display: flex; align-items: center; }
   .pair .entry input { flex: 1; width: 100%; min-width: 0; }
 
-  /* `margin-top: auto`: de resultaten zakken naar de invoer toe, en de vrije ruimte komt bovenin te staan
-     in plaats van als gat tussen uitkomst en invoer. */
-  .out { margin: auto 0 12px; }
+  /* De resultaten nemen de vrije ruimte van het scherm: de regels groeien mee (tot een maximum) in
+     plaats van dat er een lege strook ontstaat; blijft er na de maxima nog ruimte over, dan staat die
+     bovenin. Bij een kort scherm of een open toetsenbord is er niets te verdelen en blijven de regels
+     op hun eigen hoogte. Zet hier geen `min-height: 0`: dat laat de knoppen verspringen. */
+  .out { margin: 0 0 6px; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+  .out .line:not(#nowline) { flex: 1 1 auto; max-height: 64px; align-items: center; }
+  .out .line.hero { flex-grow: 2; max-height: 88px; }
+  .out .line.hero .v { font-size: clamp(28px, 4.2vh, 36px); }
+  .out .sub { flex: none; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 6px 0; border-top: 1px solid #2c2c2e; }
   /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
@@ -79,6 +85,7 @@
      die verschijnt of verdwijnt laat anders het veld onder je vinger wegspringen. Een id-selector
      verslaat de regel hierboven. Controleer dus `visibility`, niet `display`. */
   #nowline[hidden] { display: flex !important; visibility: hidden; }
+  .out #nowline { flex: none; padding: 3px 0; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 28px; color: #7fd4a0; }
@@ -102,7 +109,7 @@
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px; min-height: 44px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
-  /* Het logboek is een klapblok onder de knoppen, standaard dicht: open/dicht verschuift dus nooit
+  /* Het logboek is een klapblok onder de knoppen, standaard dicht: open/dicht verschuift (op een vol scherm) nooit
      iets boven een knop. main.ts opent het zelf (bij laden, afkoppelen, melding) — nooit in render(). */
   .logblock { margin-top: 12px; border-top: 1px solid #2c2c2e; }
   .logblock > summary { color: #c9c9c9; font-size: 15px; font-weight: 600; cursor: pointer;
