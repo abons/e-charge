@@ -66,7 +66,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   procentpunt** (gepoold over opeenvolgende regels, met een rit die >1,35× van de mediaan afwijkt
   weggelaten). Met te weinig beurten (3 op 16 A, 2 op een lagere stand, 3 geldige paren) gelden de
   **startwaarden** `START_RATE_PP_PER_H` en `START_KM_PER_PP` — hard schakelen, geen gewogen mix — en
-  een test legt vast dat ze overeenkomen met wat dezelfde functies uit `log.md` halen. Het scherm
+  een test legt vast dat ze overeenkomen met de momentopname `test/fixtures/log-2026-10-06.md` (niet
+  het levende `log.md`: een datacommit mag de build niet breken; `npm run calibrate` waarschuwt bij >5%). Het scherm
   zegt waar het getal vandaan komt ("startwaarde", "geschat uit 16 A", of de voetregel). Alles in
   `charge.ts` dat nog een getal is, is een **aflezing van de kabel**: `CHARGE_POWER_KW` (3,5 kW op
   16 A, voor kWh en kosten) en de laadstanden. Reken nooit met een vast getal in `main.ts` of in de
@@ -75,7 +76,9 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   aflezing bewaren de regel nog wel (km en tijden zijn echt), maar met `estimated` en `geschat` in
   `opm` (`16 A; geschat`): zo'n regel telt niet voor snelheid en bereik, anders bevestigt een mediaan
   alleen zijn eigen schatting. `huidigIsSchatting` in `main.ts` weet of Huidig de schatting is die ⏹
-  erin zette of iets dat jij intikte; een echte aflezing wint altijd van een schatting, ook van wat
+  erin zette of iets dat jij intikte (het leeft alleen in het geheugen, dus `#current` heeft
+  `autocomplete="off"`: de app herlaadt zichzelf na een update en Chrome zette de schatting anders
+  terug als aflezing); een echte aflezing wint altijd van een schatting, ook van wat
   al bewaard was. Beurten die op 99–100% eindigen tellen niet voor de snelheid (de duur is
   afgekapt). `isUnreliableNote` (`geschat`, `elders geladen`) doet hetzelfde voor `log.md`.
 - ⚠️ **De laadstand zit in de sessie, en `setup()` in `main.ts` is de enige weg naar een `Setup`.**

@@ -94,7 +94,12 @@ const regel = (naam, nu, gemeten, n) =>
   );
 regel("START_RATE_PP_PER_H", START_RATE_PP_PER_H, median(hoogste), `${hoogste.length} beurt(en) op ${RATED_CURRENT_A} A`);
 regel("START_KM_PER_PP", START_KM_PER_PP, km.source === "eigen" ? km.value : NaN, `${paren.length} paar/paren`);
-console.log(
-  "\nWijken die meer dan een paar procent af, pas dan de startwaarde aan — de test in test/charge.test.ts " +
-    "laat de build falen als ze uit elkaar lopen.",
-);
+const afwijking = (nu, gemeten) => (Number.isFinite(gemeten) ? Math.abs(gemeten - nu) / gemeten : 0);
+if (afwijking(START_RATE_PP_PER_H, median(hoogste)) > 0.05 || afwijking(START_KM_PER_PP, km.value) > 0.05) {
+  console.log(
+    "\n⚠️ log.md wijkt meer dan 5% af van de startwaarden: pas ze aan in src/core/derive.ts en ververs " +
+      "daarna de momentopname test/fixtures/log-2026-10-06.md (de test leest die, niet het levende log.md).",
+  );
+} else {
+  console.log("\nDe startwaarden liggen binnen 5% van log.md — niets aan te passen.");
+}

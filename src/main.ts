@@ -286,9 +286,12 @@ function updateCopyButton(): void {
 function sourceTag(): string {
   const amps = activeAmps();
   const rate = ratePerHour(logbook, amps);
-  if (rate.source === "schaling") return ` · geschat uit ${RATED_CURRENT_A} A`;
-  if (rate.source === "start" || kmPerPp(logbook).source === "start") return " · startwaarde";
-  return "";
+  // Een lagere stand schaalt uit 16 A, en die snelheid kan zelf nog een startwaarde zijn.
+  const bovenste = rate.source === "schaling" ? ratePerHour(logbook, RATED_CURRENT_A) : rate;
+  const tags: string[] = [];
+  if (rate.source === "schaling") tags.push(`geschat uit ${RATED_CURRENT_A} A`);
+  if (bovenste.source === "start" || kmPerPp(logbook).source === "start") tags.push("startwaarde");
+  return tags.length === 0 ? "" : ` · ${tags.join(", ")}`;
 }
 
 function show(durationText: string, readyText: string, day: string | null, powerText: string): void {
@@ -776,11 +779,14 @@ function saveEntry(): void {
     renderSaveTarget();
   }, 4000);
   renderLogbook();
+  // Een bewaarde beurt verandert de snelheid en het bereik, dus ook de uitkomsten bovenaan.
+  render();
 }
 
 function removeEntry(startMs: number): void {
   writeLogbook(withoutEntry(logbook, startMs));
   renderLogbook();
+  render();
 }
 
 /** De lijst met bewaarde laadbeurten, nieuwste bovenaan. */

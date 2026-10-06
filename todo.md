@@ -23,18 +23,21 @@ logregel). **Nog niet op een echte telefoon gezien.**
   2026-10-06 zelf over (`geschat` in `opm`), dus er is geen vals getal meer; met echte waarden telt
   27 sep weer mee voor snelheid en bereik, en krijgt het km-paar van 26 → 27 sep en 27 sep → 2 okt
   zijn waarde terug.
-- **De nieuwe rekenkern op de telefoon bekijken** (2026-10-06, geen aannames meer). Gebouwd en
-  getest (54 tests, de afleiding tegen `log.md`), op de telefoon alleen gezien met de startwaarden
-  (de telefoon had toen 7 regels en dus eigen waarden: 10,2 procentpunt/uur, 2,0 km/%). Kijk of de
-  bijregel "Bereik bij 90% ± 18x km · x ct/km" en de voetregel ("Laadsnelheid: … uit je logboek")
-  kloppen met `npm run calibrate`, of ⏹ zonder aflezing een regel met `geschat` bewaart (en of die
-  de snelheid niet verschuift), en of een 8 A-beurt "geschat uit 16 A" zegt.
+- **De rekenkern op de telefoon: de twee paden die niet gezien zijn** (2026-10-06, geen aannames
+  meer). Gezien op de telefoon (7 regels): voetregel "mediaan van 6 laadbeurten", "2,0 km per
+  procentpunt uit 4 ritten", bijregel zonder "startwaarde", 43→80% geeft 3u 38m. **Niet gezien**,
+  omdat het het echte logboek vervuilt: ⏹ zonder aflezing moet een regel met `geschat` bewaren die
+  de snelheid niet verschuift (unit-getest; `huidigIsSchatting` in `main.ts`), en een beurt op 8 A
+  moet "geschat uit 16 A" zeggen.
 
 - **Draai `npm run kosten` zodra er een machine met netwerk aan de repo hangt.** De bouwsessies van
   Claude mogen `public.api.energyzero.nl` niet bereiken, dus elke regel die uit de app in `log.md`
   wordt geplakt zonder bedrag (een beurt bewaard zonder bereik, of vóór 2026-09-26) blijft leeg tot
   iemand het script lokaal draait. Eerst `-- --dry-run` om te kijken, dan zonder; daarna de diff
   nakijken en committen. `npm run calibrate` laat meteen de kosten per km zien.
+
+## Openstaand
+
 - **De laadstand op de telefoon bekijken** (2026-09-27). De keuzelijst is een gewone `<select>`
   met een eigen pijltje; Android opent daar zijn eigen kiezer voor, en of die vier regels
   (`10 A · 2,2 kW`) leesbaar zijn en de knop niet verspringt, is in Chromium niet te zien. Zet hem
@@ -84,8 +87,6 @@ logregel). **Nog niet op een echte telefoon gezien.**
 - **De agenda-download op een echte telefoon.** In Chromium komt het `.ics` goed binnen, maar of
   Android hem aan de agenda-app aanbiedt (en of de melding meekomt) is niet te zien in een headless
   browser.
-
-## Openstaand
 
 - **Het icoon**: sinds 2026-10-06 zijn er PNG's van 192 en 512 en een maskable (in het manifest),
   zodat Chrome er een echte app van maakt; de maskable is niet op een toestel bekeken.

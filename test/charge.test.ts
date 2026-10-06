@@ -274,8 +274,8 @@ test("setupAt: snelheid, kabelvermogen en kilometers per procentpunt op één st
   assert.ok(Math.abs(s.powerKw / s.ratePpPerHour - setupAt(16, []).powerKw / setupAt(16, []).ratePpPerHour) < 1e-9);
 });
 
-test("startwaarden: staan op wat dezelfde afleiding uit log.md haalt", () => {
-  const { entries, skipped } = parseLogMd(readFileSync("log.md", "utf8"));
+test("startwaarden: staan op wat dezelfde afleiding uit de momentopname van log.md haalt", () => {
+  const { entries, skipped } = parseLogMd(readFileSync("test/fixtures/log-2026-10-06.md", "utf8"));
   assert.deepEqual(skipped, []);
   assert.ok(entries.length >= 7, "log.md hoort zijn beurten te hebben");
   const snelheid = median(rateSamples(entries, RATED_CURRENT_A));
