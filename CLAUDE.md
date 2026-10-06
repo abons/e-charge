@@ -67,7 +67,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   weggelaten). Met te weinig beurten (3 op 16 A, 2 op een lagere stand, 3 geldige paren) gelden de
   **startwaarden** `START_RATE_PP_PER_H` en `START_KM_PER_PP` — hard schakelen, geen gewogen mix — en
   een test legt vast dat ze overeenkomen met wat dezelfde functies uit `log.md` halen. Het scherm
-  zegt waar het getal vandaan komt ("startwaarde", "geschat uit 16 A", of de voetregels onderin het logboekblok: `#setup` en `#tariff`, standaard dicht). Alles in
+  zegt waar het getal vandaan komt ("startwaarde", "geschat uit 16 A", of de voetregel). Alles in
   `charge.ts` dat nog een getal is, is een **aflezing van de kabel**: `CHARGE_POWER_KW` (3,5 kW op
   16 A, voor kWh en kosten) en de laadstanden. Reken nooit met een vast getal in `main.ts` of in de
   HTML. De `<select id="amps">` in de HTML is **leeg**; `main.ts` vult hem uit `CHARGE_CURRENTS_A`.
