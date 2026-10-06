@@ -37,14 +37,14 @@
 
   /* Invoer: label links, groot invulveld rechts — met de duim te raken, niet met de nagel. */
   .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0; }
-  .field label { font-size: 15px; color: #c9c9c9; }
+  .field label { font-size: 14px; color: #b5b5b5; }
   .entry { display: flex; align-items: baseline; gap: 6px; }
   .entry input { width: 104px; background: #121213; color: #eee; border: 1px solid #3a3a3c;
                  border-radius: 10px; padding: 10px 14px; min-height: 44px; font: 700 22px system-ui, sans-serif;
                  text-align: right; -moz-appearance: textfield; }
   .entry input::-webkit-outer-spin-button, .entry input::-webkit-inner-spin-button {
                  -webkit-appearance: none; margin: 0; }
-  .entry input:focus { outline: none; border-color: #7fd4a0; }
+  .entry input:focus { outline: none; border-color: #7fd4a0; box-shadow: 0 0 0 2px #7fd4a0; }
   /* De laadstand: een gewone <select>, in dezelfde jas als de invoervelden. De opties komen uit
      `charge.ts` (main.ts vult ze), zodat hier nergens een ampère of kW staat. `appearance: none`
      haalt het pijltje van de browser weg (dat past niet in deze jas), dus er staat een eigen pijltje
@@ -54,7 +54,7 @@
                   color: #eee; border: 1px solid #3a3a3c; border-radius: 10px;
                   padding: 11px 34px 11px 14px; min-height: 44px; font: 700 18px system-ui, sans-serif;
                   -webkit-appearance: none; appearance: none; min-width: 176px; text-align: right; }
-  .entry select:focus { outline: none; border-color: #7fd4a0; }
+  .entry select:focus { outline: none; border-color: #7fd4a0; box-shadow: 0 0 0 2px #7fd4a0; }
   .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
   /* Huidig en Doel naast elkaar: label boven het veld, twee gelijke kolommen. Vaste hoogte. */
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 6px; }
@@ -62,7 +62,7 @@
   /* Huidig staat in de HTML eerst (leesvolgorde) maar komt rechts te staan: het verandert elke beurt,
      Doel zelden, en de rechterduim bereikt de rechterkant het makkelijkst. */
   .pair .half:first-child { order: 2; }
-  .pair label { display: block; font-size: 14px; color: #c9c9c9; margin-bottom: 4px; }
+  .pair label { display: block; font-size: 14px; color: #b5b5b5; margin-bottom: 6px; }
   .pair .entry { display: flex; align-items: center; }
   .pair .entry input { flex: 1; width: 100%; min-width: 0; }
 
@@ -70,11 +70,18 @@
      plaats van dat er een lege strook ontstaat; blijft er na de maxima nog ruimte over, dan staat die
      bovenin. Bij een kort scherm of een open toetsenbord is er niets te verdelen en blijven de regels
      op hun eigen hoogte. Zet hier geen `min-height: 0`: dat laat de knoppen verspringen. */
-  .out { margin: 0 0 6px; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+  .out { margin: 0 0 12px; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
   .out .line:not(#nowline) { flex: 1 1 auto; max-height: 64px; align-items: center; }
   .out .line.hero { flex-grow: 2; max-height: 88px; }
   .out .line.hero .v { font-size: clamp(28px, 4.2vh, 36px); }
   .out .sub { flex: none; }
+  .line .k { white-space: nowrap; flex: none; }
+  /* Een lege notitie neemt geen ruimte: anders staat het hero-cijfer 14 px te ver van de rechterrand. */
+  .line .day:empty { display: none; }
+  /* Live voortgang staat bovenaan; het verborgen gat valt zo samen met de vrije ruimte bovenin. */
+  .out #nowline .v { font-size: 22px; }
+  .out > :first-child { border-top: 0; }
+  #nowline[hidden] + .line { border-top: 0; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 6px 0; border-top: 1px solid #2c2c2e; }
   /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
@@ -85,7 +92,7 @@
      die verschijnt of verdwijnt laat anders het veld onder je vinger wegspringen. Een id-selector
      verslaat de regel hierboven. Controleer dus `visibility`, niet `display`. */
   #nowline[hidden] { display: flex !important; visibility: hidden; }
-  .out #nowline { flex: none; padding: 3px 0; }
+  .out #nowline { flex: none; padding: 6px 0; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 28px; color: #7fd4a0; }
@@ -96,7 +103,7 @@
   .line > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Bereik, vermogen en kosten per km: bijzaak, één grijze regel. Mag niet omslaan (zie hierboven). */
-  .sub { color: #9a9a9a; font-size: 13px; padding: 7px 0 2px; border-top: 1px solid #2c2c2e;
+  .sub { color: #a8a8a8; font-size: 13px; padding: 8px 0 4px; border-top: 1px solid #2c2c2e;
          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .note { margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; background: #14361f;
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }
@@ -105,10 +112,14 @@
   /* Het slot onder de knoppen: ook zonder melding even hoog, want de invoer en de knoppen zijn onderaan
      verankerd en een melding die erbij komt zou ze anders omhoog duwen, onder je duim vandaan. */
   .noteslot { min-height: 58px; margin-top: 10px; }
-  .noteslot .note { margin: 0; }
+  .noteslot .note { margin: 0; max-height: 58px; overflow: hidden; }
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px; min-height: 44px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .45; cursor: default; }
+  button { white-space: nowrap; }
+  /* De hoofdactie (Start/Stop, Bewaar) is de enige groene knop, in beide standen even breed. */
+  #start-charging, #savelog { background: #7fd4a0; color: #121213; font-size: 15px; min-height: 48px; }
+  #start-charging { min-width: 150px; flex-grow: 1; }
+  button:disabled, #start-charging:disabled, #savelog:disabled { background: #3a3a3c; color: #9a9a9a; cursor: default; }
   /* Het logboek is een klapblok onder de knoppen, standaard dicht: open/dicht verschuift (op een vol scherm) nooit
      iets boven een knop. main.ts opent het zelf (bij laden, afkoppelen, melding) — nooit in render(). */
   .logblock { margin-top: 12px; border-top: 1px solid #2c2c2e; }
@@ -136,7 +147,7 @@
   /* Open = andere modus: de knoppen eronder bewaren dan een nieuwe beurt. Een groene rand zodat je
      hem niet open laat staan zonder het te zien. */
   .manual[open] { border-left: 3px solid #7fd4a0; padding-left: 10px; }
-  .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer;
+  .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px;
                     padding: 12px 8px; margin: 0 -8px; border-radius: 10px; }
   .manual summary:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
   #savetarget { color: #9a9a9a; font-size: 13px; min-height: 3em; }
@@ -182,6 +193,8 @@
       erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
     -->
     <div class="out">
+      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
+        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
       <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
       <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
       <div class="line hero"><span class="k">Klaar rond</span>
@@ -195,8 +208,6 @@
         <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
       <div class="sub"><span id="rangelabel">Bereik</span> <span id="range">–</span> ·
         <span id="power">–</span> · <span id="costkm">–</span></div>
-      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
-        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
     </div>
 
     <div class="pair">
@@ -240,7 +251,7 @@
       <button id="calendar" type="button">📅 Zet in agenda</button>
     </div>
 
-    <div class="noteslot"><p class="note" id="note" hidden></p></div>
+    <div class="noteslot"><p class="note" id="note" role="status" hidden></p></div>
 
     <!--
       Het logboek-blokje. Staat bewust onderaan en buiten de rekenregels: de km-stand doet niets

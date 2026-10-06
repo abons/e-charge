@@ -213,7 +213,7 @@ function render(): void {
   if (!result.needed) {
     show("—", "—", null, "—");
     showCost(null);
-    note(`Laden is niet nodig — je zit met ${from}% al op of boven je doel van ${to}%.`, "ok");
+    note(`Laden niet nodig: je zit met ${from}% al op of boven je doel van ${to}%.`, "ok");
     calendarButton.disabled = true;
     chargeButton.disabled = session === null;
     return;
@@ -244,7 +244,7 @@ function render(): void {
     // noemt deze regel `soc` en niet `to`: die laatste bevroor op 90% terwijl er 98% in zat.
     note(
       remainingMs <= 0
-        ? `Volgens de schatting staat hij op ${soc}%. Klopt dat niet? Vul het echte percentage in.`
+        ? `Volgens de schatting op ${soc}%. Klopt dat niet? Vul het echte % in.`
         : null,
     );
   } else {
