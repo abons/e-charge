@@ -13,6 +13,13 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
+- **"Beurt achteraf invoeren" en de regel onder 💾 op de telefoon bekijken** (2026-10-06). Gebouwd
+  nadat een aflezing van 3 okt de afgesloten beurt van 27 sep overschreef (`finished` blijft staan
+  tot de volgende start). Alleen in tests gezien, niet in een browser: openklappen, invullen,
+  toevoegen, en kijken of het bedrag achteraf verschijnt voor een beurt van dagen terug.
+  De regels van 27 sep (eind% 85, km leeg) en 2 okt (start% 60) in `log.md` zijn geschat — zet de
+  echte waarden in de app en in `log.md` zodra je ze weet.
+
 - **Draai `npm run kosten` zodra er een machine met netwerk aan de repo hangt.** De bouwsessies van
   Claude mogen `public.api.energyzero.nl` niet bereiken, dus elke regel die uit de app in `log.md`
   wordt geplakt zonder bedrag (een beurt bewaard zonder bereik, of vóór 2026-09-26) blijft leeg tot

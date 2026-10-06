@@ -123,6 +123,53 @@ export function withoutEntry(entries: Entry[], startMs: number): Entry[] {
   return entries.filter((e) => e.startMs !== startMs);
 }
 
+/** Wat het formulier "beurt achteraf invoeren" aanlevert: `date` is jjjj-mm-dd, `from`/`to` zijn uu:mm. */
+export interface ManualInput {
+  date: string;
+  from: string;
+  to: string;
+  fromPercent: number;
+  toPercent: number;
+  km: number | null;
+  amps: number;
+}
+
+/**
+ * Een laadbeurt die je vergeten bent te starten: datum en klok uit het formulier, lokale tijd (zie
+ * time.ts). Een `to` vóór of gelijk aan `from` telt als na middernacht — wie om 22:00 insteekt en
+ * om 02:00 afkoppelt, typt geen tweede datum.
+ *
+ * ⚠️ Altijd een eigen regel, nooit een aanvulling van de laatste beurt: de starttijd is de sleutel
+ * van `withEntry`, en een aflezing die op de sleutel van een oude beurt terechtkwam was precies
+ * hoe de beurt van 27 sep door die van 2 okt werd overschreven. Geeft een foutmelding of de regel.
+ */
+export function manualEntry(input: ManualInput): Entry | string {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.date);
+  const van = /^(\d{2}):(\d{2})$/.exec(input.from);
+  const tot = /^(\d{2}):(\d{2})$/.exec(input.to);
+  if (d === null) return "Vul de datum in.";
+  if (van === null || tot === null) return "Vul beide tijden in.";
+  const at = (t: RegExpExecArray, extraDays = 0) =>
+    new Date(Number(d[1]), Number(d[2]) - 1, Number(d[3]) + extraDays, Number(t[1]), Number(t[2])).getTime();
+  const startMs = at(van);
+  let endMs = at(tot);
+  if (endMs <= startMs) endMs = at(tot, 1);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return "Die datum of tijd bestaat niet.";
+  const geldig = (p: number) => Number.isFinite(p) && p >= 0 && p <= 100;
+  if (!geldig(input.fromPercent) || !geldig(input.toPercent)) return "Vul start% en eind% in (0–100).";
+  if (input.toPercent <= input.fromPercent) return "Eind% moet hoger zijn dan start%.";
+  return {
+    startMs,
+    endMs,
+    fromPercent: Math.round(input.fromPercent),
+    toPercent: Math.round(input.toPercent),
+    km: input.km === null ? null : Math.round(input.km),
+    kwh: null,
+    eur: null,
+    amps: clampCurrent(input.amps),
+  };
+}
+
 /** De tabelregels voor `log.md`, oudste eerst — precies wat je daar onder de kop plakt. */
 export function toMarkdown(entries: Entry[]): string {
   return entries

@@ -93,6 +93,10 @@
   .loghint { color: #6f6f6f; font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
   /* Uitleg onder een invoerveld. Staat er altijd en verandert nooit van hoogte — een
      hint die verschijnt terwijl je een knop indrukt, verschuift die knop onder je duim. */
+  .manual { margin-top: 14px; }
+  .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 0; }
+  .manual .field { margin: 8px 0; }
+  .manual .entry input { width: 132px; font-size: 18px; padding: 9px 12px; }
   .fieldhint { color: #6f6f6f; font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
   .about { margin-top: 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
@@ -218,7 +222,39 @@
         verschijnen op het moment dat je 💾 indrukt, en dan mag er niets boven verschuiven.
       -->
       <p class="note info" id="lognote" hidden></p>
+      <!--
+        Zegt welke beurt 💾 bijwerkt. Zonder deze regel overschreef een aflezing van 3 okt de laatste
+        afgesloten beurt (27 sep) zonder dat iets het liet zien. Onder de knoppen, dus geen sprong.
+      -->
+      <p class="loghint" id="savetarget"></p>
       <code class="logline" id="logline" hidden></code>
+
+      <!--
+        Een beurt waarvan je vergeten bent hem te starten. Altijd een eigen regel: dit raakt de
+        laatste afgesloten beurt nooit aan (zie `manualEntry` in `logbook.ts`).
+      -->
+      <details class="manual" id="manual">
+        <summary>Beurt achteraf invoeren</summary>
+        <div class="field"><label for="m-date">Datum</label>
+          <span class="entry"><input id="m-date" type="date"></span></div>
+        <div class="field"><label for="m-from">Van</label>
+          <span class="entry"><input id="m-from" type="time"></span></div>
+        <div class="field"><label for="m-to">Tot</label>
+          <span class="entry"><input id="m-to" type="time"></span></div>
+        <div class="field"><label for="m-pct-from">Start</label>
+          <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
+            inputmode="numeric" placeholder="43"><span class="unit">%</span></span></div>
+        <div class="field"><label for="m-pct-to">Eind</label>
+          <span class="entry"><input id="m-pct-to" type="number" min="0" max="100" step="1"
+            inputmode="numeric" placeholder="97"><span class="unit">%</span></span></div>
+        <div class="field"><label for="m-km">Km-stand <span class="opt">optioneel</span></label>
+          <span class="entry"><input id="m-km" type="number" min="0" step="1" inputmode="numeric"
+            placeholder="84210"><span class="unit">km</span></span></div>
+        <p class="fieldhint">De laadstand is die van de keuzelijst bovenaan. Is <strong>Tot</strong>
+          vroeger dan <strong>Van</strong>, dan telt het als na middernacht.</p>
+        <div class="actions"><button id="m-add" type="button">➕ Voeg toe aan logboek</button></div>
+        <p class="note info" id="m-note" hidden></p>
+      </details>
 
       <ul class="loglist" id="loglist"></ul>
       <div class="actions" id="logactions" hidden>

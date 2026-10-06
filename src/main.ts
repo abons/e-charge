@@ -12,6 +12,7 @@ import {
 } from "./core/charge.js";
 import { calendar } from "./core/ics.js";
 import {
+  manualEntry,
   parseEntries,
   toMarkdown,
   withEntry,
@@ -87,6 +88,15 @@ const saveButton = el<HTMLButtonElement>("savelog");
 const copyButton = el<HTMLButtonElement>("copylog");
 const copyAllButton = el<HTMLButtonElement>("copyall");
 const logNote = el("lognote");
+const saveTarget = el("savetarget");
+const manualDate = el<HTMLInputElement>("m-date");
+const manualFrom = el<HTMLInputElement>("m-from");
+const manualTo = el<HTMLInputElement>("m-to");
+const manualPctFrom = el<HTMLInputElement>("m-pct-from");
+const manualPctTo = el<HTMLInputElement>("m-pct-to");
+const manualKm = el<HTMLInputElement>("m-km");
+const manualAdd = el<HTMLButtonElement>("m-add");
+const manualNote = el("m-note");
 const logLineOut = el("logline");
 const logList = el("loglist");
 const logActions = el("logactions");
@@ -151,6 +161,7 @@ function percentOf(input: HTMLInputElement): number | null {
 }
 
 function render(): void {
+  renderSaveTarget();
   const now = Date.now();
   const to = percentOf(targetInput) ?? DEFAULT_TARGET;
   // In de bezig-stand telt het percentage waarop de sessie begon, niet wat er nu in het veld staat:
@@ -536,15 +547,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // bedrag ook precies Δ% × capaciteit ÷ rendement tegen de kwartierprijzen — waar `calibrate` weer
   // door deelt om de prijs terug te vinden. Tijdens het laden is dit de stand tot nu; de bewaarde
   // waarde na het afkoppelen overschrijft hem (`withEntry`).
-  let eur: number | null = null;
-  if (metKosten) {
-    // Op de stand van díe beurt, niet op wat de keuzelijst nu toevallig zegt.
-    const opzet = setupAt(bron.amps);
-    const laadMs = estimate(bron.from, bron.to, opzet).minutes * 60_000;
-    const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
-    const kosten = chargingCost(bron.startMs, totMs, opzet.powerKw, prices.known());
-    eur = kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null;
-  }
+  const eur = metKosten ? beurtKosten(bron) : null;
   return {
     startMs: bron.startMs,
     endMs: bron.endMs,
@@ -556,6 +559,34 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
     eur,
     amps: bron.amps,
   };
+}
+
+/** Het bedrag van een beurt uit de kwartierprijzen die er nu bekend zijn, of `null` als er gaten zitten. */
+function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: number; amps: number }): number | null {
+  // Op de stand van díe beurt, niet op wat de keuzelijst nu toevallig zegt.
+  const opzet = setupAt(bron.amps);
+  const laadMs = estimate(bron.from, bron.to, opzet).minutes * 60_000;
+  const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
+  const kosten = chargingCost(bron.startMs, totMs, opzet.powerKw, prices.known());
+  return kosten !== null && kosten.complete ? Math.round(kosten.eur * 100) / 100 : null;
+}
+
+/**
+ * Welke beurt 💾 bijwerkt, in woorden. Na het afkoppelen is dat de afgesloten beurt — en die blijft
+ * eeuwig staan, ook als je een volgende vergeet te starten. Dan landt je aflezing ongemerkt op de
+ * oude beurt; deze regel maakt dat zichtbaar en wijst naar het formulier eronder.
+ */
+function renderSaveTarget(): void {
+  if (session !== null) {
+    saveTarget.textContent = "💾 bewaart de lopende laadbeurt.";
+  } else if (finished !== null) {
+    const dag = new Date(finished.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+    saveTarget.textContent =
+      `💾 werkt de afgesloten beurt van ${dag} (${clock(finished.startMs)}) bij. ` +
+      "Een andere beurt vergeten te starten? Voer die hieronder achteraf in.";
+  } else {
+    saveTarget.textContent = "Geen beurt om te bewaren — start er een, of voer er een achteraf in.";
+  }
 }
 
 /** Tekst naar het klembord, met de knop als terugkoppeling — en de regel in beeld als het niet lukt. */
@@ -597,6 +628,7 @@ function removeEntry(startMs: number): void {
 
 /** De lijst met bewaarde laadbeurten, nieuwste bovenaan. */
 function renderLogbook(): void {
+  renderSaveTarget();
   logList.textContent = "";
   for (const e of [...logbook].reverse()) {
     const li = document.createElement("li");
@@ -630,6 +662,45 @@ function renderLogbook(): void {
       ? ""
       : `${logbook.length} laadbeurt${logbook.length === 1 ? "" : "en"} op deze telefoon. ` +
         "Plak ze af en toe in log.md — het wissen van websitegegevens neemt deze lijst mee.";
+}
+
+/** Een vergeten beurt in het logboek zetten, als eigen regel; het bedrag komt zodra de prijzen er zijn. */
+function addManualEntry(): void {
+  const getal = (input: HTMLInputElement): number => (input.value.trim() === "" ? NaN : Number(input.value));
+  const beurt = manualEntry({
+    date: manualDate.value,
+    from: manualFrom.value,
+    to: manualTo.value,
+    fromPercent: getal(manualPctFrom),
+    toPercent: getal(manualPctTo),
+    km: optioneelGetal(manualKm),
+    amps: currentAmps(),
+  });
+  if (typeof beurt === "string") {
+    manualNote.textContent = beurt;
+    manualNote.hidden = false;
+    return;
+  }
+  const bron = {
+    startMs: beurt.startMs,
+    endMs: beurt.endMs,
+    from: beurt.fromPercent,
+    to: beurt.toPercent,
+    amps: beurt.amps ?? RATED_CURRENT_A,
+  };
+  writeLogbook(withEntry(logbook, { ...beurt, eur: beurtKosten(bron) }));
+  // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag aan.
+  prices.ensure(bron.startMs, bron.endMs, () => {
+    const eur = beurtKosten(bron);
+    if (eur !== null) {
+      writeLogbook(withEntry(logbook, { ...beurt, eur }));
+      renderLogbook();
+    }
+  });
+  manualNote.textContent = "Toegevoegd aan het logboek.";
+  manualNote.hidden = false;
+  for (const input of [manualDate, manualFrom, manualTo, manualPctFrom, manualPctTo, manualKm]) input.value = "";
+  renderLogbook();
 }
 
 function copyLogbook(): void {
@@ -725,6 +796,7 @@ chargeButton.addEventListener("click", toggleCharging);
 copyButton.addEventListener("click", copyLogRow);
 saveButton.addEventListener("click", saveEntry);
 copyAllButton.addEventListener("click", copyLogbook);
+manualAdd.addEventListener("click", addManualEntry);
 calendarButton.addEventListener("click", addToCalendar);
 
 render();

@@ -17,6 +17,7 @@ import {
 import { calendar } from "../src/core/ics.js";
 import { ampsFromNote, logRow, noteForAmps } from "../src/core/logline.js";
 import {
+  manualEntry,
   parseEntries,
   toMarkdown,
   withEntry,
@@ -400,4 +401,24 @@ test("logbook: markdown is precies wat je onder de kop in log.md plakt", () => {
       "| 2026-09-19 | 84229 | 38 | 90 | 22:10 | 05:05 |  |  |  |",
   );
   assert.equal(toMarkdown([]), "");
+});
+
+test("logbook: een vergeten beurt achteraf krijgt een eigen regel en overschrijft niets", () => {
+  const vorige = beurt(12);
+  const nieuw = manualEntry({ date: "2026-10-02", from: "11:00", to: "15:00", fromPercent: 60, toPercent: 100, km: 97280, amps: 16 });
+  assert.ok(typeof nieuw !== "string");
+  const samen = withEntry([vorige], nieuw);
+  assert.equal(samen.length, 2);
+  assert.deepEqual(samen.find((e) => e.startMs === vorige.startMs), vorige);
+  assert.equal((nieuw.endMs - nieuw.startMs) / 3_600_000, 4);
+  assert.equal(new Date(nieuw.startMs).getHours(), 11); // lokale tijd, geen UTC
+});
+
+test("logbook: achteraf invoeren over middernacht en met onzin", () => {
+  const nacht = manualEntry({ date: "2026-10-02", from: "22:00", to: "02:00", fromPercent: 40, toPercent: 90, km: null, amps: 16 });
+  assert.ok(typeof nacht !== "string");
+  assert.equal((nacht.endMs - nacht.startMs) / 3_600_000, 4);
+  assert.equal(typeof manualEntry({ date: "", from: "11:00", to: "15:00", fromPercent: 60, toPercent: 100, km: null, amps: 16 }), "string");
+  assert.equal(typeof manualEntry({ date: "2026-10-02", from: "11:00", to: "15:00", fromPercent: 80, toPercent: 70, km: null, amps: 16 }), "string");
+  assert.equal(typeof manualEntry({ date: "2026-10-02", from: "11:00", to: "15:00", fromPercent: NaN, toPercent: 70, km: null, amps: 16 }), "string");
 });
