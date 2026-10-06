@@ -52,6 +52,8 @@
   dialog .carlist li.on button:first-child { outline: 2px solid #7fd4a0; }
   dialog .carnote { color: #b5b5b5; font-size: 13px; min-height: 36px; margin: 4px 0 8px; }
   dialog label { font-size: 13px; color: #b5b5b5; display: block; }
+  #carlinkrow { margin: 2px 0 10px; font-size: 14px; }
+  #carlinkrow input { width: 22px; height: 22px; vertical-align: middle; margin: 0 8px 0 0; accent-color: #7fd4a0; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
   main > .card:not(.about) { flex: 1; display: flex; flex-direction: column; }
 
@@ -362,6 +364,7 @@
   <h2>Auto toevoegen</h2>
   <label for="plate">Kenteken</label>
   <input type="text" id="plate" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" enterkeyhint="go" placeholder="AB-123-C">
+  <label id="carlinkrow" hidden><input type="checkbox" id="carlink" checked> Dit kenteken hoort bij de huidige auto (logboek blijft)</label>
   <label for="carname">Eigen naam (als RDW niets vindt)</label>
   <input type="text" id="carname" autocomplete="off" maxlength="30">
   <details>

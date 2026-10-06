@@ -136,6 +136,8 @@ const carNameInput = el<HTMLInputElement>("carname");
 const carRateInput = el<HTMLInputElement>("car-rate");
 const carKmInput = el<HTMLInputElement>("car-km");
 const carNote = el("carnote");
+const carLink = el<HTMLInputElement>("carlink");
+const carLinkRow = el("carlinkrow");
 const carSaveButton = el<HTMLButtonElement>("carsave");
 const carCloseButton = el<HTMLButtonElement>("carclose");
 
@@ -752,10 +754,13 @@ async function saveCar(): Promise<void> {
       return;
     }
     const oud = cars.find((c) => c.id === plate);
-    nieuw = {
-      ...carFromPlate(plate, gevonden.kind === "gevonden" ? gevonden.rdw : (oud?.rdw ?? null), naam),
-      start: start ?? oud?.start ?? null,
-    };
+    const rdw = gevonden.kind === "gevonden" ? gevonden.rdw : (oud?.rdw ?? null);
+    // Koppelen: de huidige auto zonder kenteken (de Leaf van vóór de autokeuze) krijgt het kenteken en
+    // houdt zijn id, dus zijn logboek en sessie. Anders wordt het kenteken een nieuwe, lege auto.
+    nieuw =
+      !carLinkRow.hidden && carLink.checked && car.plate === null && oud === undefined
+        ? { ...car, plate, rdw, label: naam === "" ? car.label : naam, start: start ?? car.start }
+        : { ...carFromPlate(plate, rdw, naam), start: start ?? oud?.start ?? null };
   }
   writeCars(withCar(cars, nieuw));
   if (switchCar(nieuw.id)) {
@@ -775,6 +780,8 @@ function openCarDialog(): void {
   carRateInput.value = "";
   carKmInput.value = "";
   carNote.textContent = "";
+  carLinkRow.hidden = car.plate !== null;
+  carLink.checked = true;
   carDialog.showModal();
 }
 
