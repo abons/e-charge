@@ -1212,6 +1212,12 @@ manualBlock.addEventListener("toggle", () => {
 calendarButton.addEventListener("click", addToCalendar);
 carButton.addEventListener("click", openCarDialog);
 carSaveButton.addEventListener("click", () => void saveCar());
+// Enter op het toetsenbord bewaart ook: op de telefoon is dat de knop die er al onder je duim zit.
+for (const input of [plateInput, carNameInput]) {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") void saveCar();
+  });
+}
 carCloseButton.addEventListener("click", () => carDialog.close());
 
 render();

@@ -45,6 +45,12 @@ test("parseRdw: merk, model, bouwjaar; hoofdletters worden netjes", () => {
   assert.deepEqual(r, { merk: "Nissan", model: "Leaf", uitvoering: "ZE1", jaar: 2019, voertuigsoort: "Personenauto" });
 });
 
+test("parseRdw: een merk dat ook in de handelsbenaming staat komt er maar één keer in", () => {
+  const r = parseRdw([{ merk: "NISSAN", handelsbenaming: "NISSAN LEAF 40KWH" }]);
+  assert.equal(r?.model, "Leaf 40KWH");
+  assert.equal(carTitle(carFromPlate("XL312T", r, "")), "Nissan Leaf 40KWH · XL-312-T");
+});
+
 test("parseRdw: lege lijst, rommel en ontbrekende velden", () => {
   assert.equal(parseRdw([]), null);
   assert.equal(parseRdw(null), null);

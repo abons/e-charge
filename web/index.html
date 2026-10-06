@@ -36,8 +36,10 @@
      staat in een <dialog> (bovenlaag), dus openen schuift niets. */
   .carbtn { width: 100%; height: 44px; background: #1c1c1d; border: 1px solid #2c2c2e; color: #eee;
             font: 700 18px system-ui, sans-serif; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; }
+  /* Bovenaan en scrollbaar: met het toetsenbord open krimpt het viewport (resizes-content) en een
+     gecentreerde dialoog schuift het veld waar je in typt eronder. */
   dialog { background: #1c1c1d; color: #eee; border: 1px solid #3a3a3c; border-radius: 14px; padding: 16px;
-           width: min(380px, calc(100vw - 32px)); }
+           width: min(380px, calc(100vw - 32px)); margin: 8px auto auto; max-height: calc(100dvh - 16px); overflow-y: auto; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   dialog h2 { font-size: 16px; margin: 0 0 10px; }
   dialog input[type=text] { width: 100%; min-height: 44px; background: #121213; color: #eee;
@@ -357,10 +359,9 @@
 </main>
 
 <dialog id="cardlg">
-  <h2>Auto</h2>
-  <ul class="carlist" id="carlist"></ul>
+  <h2>Auto toevoegen</h2>
   <label for="plate">Kenteken</label>
-  <input type="text" id="plate" inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" placeholder="AB-123-C">
+  <input type="text" id="plate" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" enterkeyhint="go" placeholder="AB-123-C">
   <label for="carname">Eigen naam (als RDW niets vindt)</label>
   <input type="text" id="carname" autocomplete="off" maxlength="30">
   <details>
@@ -376,6 +377,8 @@
     <button type="button" id="carclose">Sluiten</button>
   </div>
   <p class="carnote">Het kenteken blijft op deze telefoon; alleen bij "Zoek" gaat het naar RDW (open data).</p>
+  <h2>Opgeslagen auto's</h2>
+  <ul class="carlist" id="carlist"></ul>
 </dialog>
 <script src="app.js"></script>
 </body>

@@ -89,9 +89,12 @@ export function parseRdw(json: unknown): Rdw | null {
   if (merk === "") return null;
   const datum = tekst(r["datum_eerste_toelating"]);
   const jaar = /^\d{8}$/.test(datum) ? Number(datum.slice(0, 4)) : null;
+  // RDW zet het merk vaak ook in de handelsbenaming ("NISSAN LEAF 40KWH"); één keer is genoeg.
+  const benaming = tekst(r["handelsbenaming"]);
+  const zonderMerk = benaming.toUpperCase().startsWith(merk.toUpperCase() + " ") ? benaming.slice(merk.length + 1).trim() : benaming;
   return {
     merk: nette(merk),
-    model: nette(tekst(r["handelsbenaming"])),
+    model: nette(zonderMerk),
     uitvoering: tekst(r["uitvoering"]),
     jaar,
     voertuigsoort: tekst(r["voertuigsoort"]),
