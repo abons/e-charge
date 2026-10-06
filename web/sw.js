@@ -9,7 +9,9 @@ const SHELL = ["./", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)));
+  // `cache: "reload"`: Pages geeft de bestanden 10 minuten max-age, en een gewone `addAll` pakte daardoor
+  // een oud `app.js` uit de HTTP-cache naast nieuwe HTML (gezien op 2026-10-06: tikken deden niets).
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((url) => new Request(url, { cache: "reload" })))));
 });
 
 self.addEventListener("activate", (e) => {
