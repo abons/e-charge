@@ -23,10 +23,15 @@
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: #121213; color: #eee; font: 16px system-ui, sans-serif;
-         display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-  main { width: 100%; max-width: 420px; padding: 12px 16px 20px; }
+         display: flex; flex-direction: column; align-items: center; min-height: 100vh; min-height: 100svh; }
+  /* main vult het scherm en de kaart neemt de rest: de invoer en de knoppen zakken zo naar de
+     onderkant (duimzone), de resultaten staan bovenaan. svh en niet dvh: de adresbalk van een
+     browsertab mag de indeling niet laten verspringen. */
+  main { width: 100%; max-width: 420px; padding: 12px 16px 20px; flex: 1;
+         display: flex; flex-direction: column; }
   .title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 10px; text-align: center; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
+  main > .card:first-of-type { flex: 1; display: flex; flex-direction: column; }
 
   /* Invoer: label links, groot invulveld rechts — met de duim te raken, niet met de nagel. */
   .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0; }
@@ -50,7 +55,7 @@
   .entry select:focus { outline: none; border-color: #7fd4a0; }
   .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
   /* Huidig en Doel naast elkaar: label boven het veld, twee gelijke kolommen. Vaste hoogte. */
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: auto 0 6px; }
   .pair .half { min-width: 0; }
   /* Huidig staat in de HTML eerst (leesvolgorde) maar komt rechts te staan: het verandert elke beurt,
      Doel zelden, en de rechterduim bereikt de rechterkant het makkelijkst. */
@@ -59,13 +64,17 @@
   .pair .entry { display: flex; align-items: center; }
   .pair .entry input { flex: 1; width: 100%; min-width: 0; }
 
-  .out { margin-top: 6px; }
+  .out { margin: 6px 0 12px; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 6px 0; border-top: 1px solid #2c2c2e; }
   /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
      die het `hidden`-attribuut van de browser meekrijgt, en dan verbergt `el.hidden = true` niets
      meer. Kostte hier een zichtbare "Nu ongeveer"-regel met een oud percentage erin. */
   [hidden] { display: none !important; }
+  /* ⚠️ "Nu ongeveer" houdt zijn plek ook als hij verborgen is: hij staat boven de invoer, en een regel
+     die verschijnt of verdwijnt laat anders het veld onder je vinger wegspringen. Een id-selector
+     verslaat de regel hierboven. Controleer dus `visibility`, niet `display`. */
+  #nowline[hidden] { display: flex !important; visibility: hidden; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 28px; color: #7fd4a0; }
@@ -82,7 +91,10 @@
           color: #7fd4a0; font-size: 14px; line-height: 1.4; }
   .note.info { background: #262628; color: #c9c9c9; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .actions + .note { margin-top: 10px; }
+  /* Het slot onder de knoppen: ook zonder melding even hoog, want de invoer en de knoppen zijn onderaan
+     verankerd en een melding die erbij komt zou ze anders omhoog duwen, onder je duim vandaan. */
+  .noteslot { min-height: 58px; margin-top: 10px; }
+  .noteslot .note { margin: 0; }
   button { background: #818384; color: #fff; border: none; border-radius: 10px; padding: 12px 14px; min-height: 44px;
            font-size: 14px; font-weight: 600; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
@@ -120,7 +132,7 @@
   .manual .field { margin: 8px 0; }
   .manual .entry input { width: 132px; font-size: 18px; padding: 10px 12px; }
   .fieldhint { color: #8a8a8a; font-size: 12px; line-height: 1.4; margin: -2px 0 8px; }
-  .about { margin-top: 12px; }
+  .about { margin: 0 0 12px; }
   /* In de geïnstalleerde app is deze kaart onzin: hij zegt "open deze URL en voeg hem toe aan je
      startscherm" tegen iemand die dat al gedaan heeft. De #install-knop verbergt zichzelf al. */
   @media (display-mode: standalone) { .about { display: none; } }
@@ -135,7 +147,42 @@
 <main>
   <h1 class="title">Nissan Leaf</h1>
 
+  <div class="card about">
+    <h2>Installeren</h2>
+    <p>Deze pagina <em>is</em> de app. Open
+      <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
+      <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
+      zonder bereik. Alleen de stroomprijzen komen van het net; zonder bereik rekent hij door met
+      de laatst opgehaalde.</p>
+    <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
+      <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
+    <button id="install" type="button" hidden>📲 Installeer als app</button>
+  </div>
+
   <div class="card">
+    <!--
+      Twee standen in dezelfde regels: vóór het starten is "Start" de klok van nu en staat er een
+      geschatte laadtijd; na het starten staat "Gestart om" vast en komt de regel "Nu ongeveer"
+      erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
+    -->
+    <div class="out">
+      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
+        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
+      <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
+      <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
+      <div class="line hero"><span class="k">Klaar rond</span>
+        <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
+      <!--
+        De kosten van de hele laadbeurt bij Zonneplan: elk kwartier tegen zijn eigen prijs (zie
+        `src/core/price.ts`). De regel staat er altijd, ook als er (nog) geen prijzen zijn — dan
+        staat er een streepje en zegt het woordje erachter waarom. Zo verandert er niets van hoogte.
+      -->
+      <div class="line"><span class="k">Kosten</span>
+        <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
+      <div class="sub"><span id="rangelabel">Bereik</span> <span id="range">–</span> ·
+        <span id="power">–</span> · <span id="costkm">–</span></div>
+    </div>
+
     <div class="pair">
       <div class="half">
         <label for="current">Huidig</label>
@@ -167,29 +214,6 @@
     </div>
 
     <!--
-      Twee standen in dezelfde regels: vóór het starten is "Start" de klok van nu en staat er een
-      geschatte laadtijd; na het starten staat "Gestart om" vast en komt de regel "Nu ongeveer"
-      erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
-    -->
-    <div class="out">
-      <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
-      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
-        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
-      <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
-      <div class="line hero"><span class="k">Klaar rond</span>
-        <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
-      <!--
-        De kosten van de hele laadbeurt bij Zonneplan: elk kwartier tegen zijn eigen prijs (zie
-        `src/core/price.ts`). De regel staat er altijd, ook als er (nog) geen prijzen zijn — dan
-        staat er een streepje en zegt het woordje erachter waarom. Zo verandert er niets van hoogte.
-      -->
-      <div class="line"><span class="k">Kosten</span>
-        <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
-      <div class="sub"><span id="rangelabel">Bereik</span> <span id="range">–</span> ·
-        <span id="power">–</span> · <span id="costkm">–</span></div>
-    </div>
-
-    <!--
       ⚠️ De melding staat ónder de knoppen, en dat is geen smaak. Boven de knoppen verandert hij van
       hoogte terwijl je een knop indrukt: het percentageveld verliest focus, `change` vuurt, de
       melding verschijnt of verdwijnt, en alles eronder verschuift — je tik landt dan naast de knop
@@ -200,7 +224,7 @@
       <button id="calendar" type="button">📅 Zet in agenda</button>
     </div>
 
-    <p class="note" id="note" hidden></p>
+    <div class="noteslot"><p class="note" id="note" hidden></p></div>
 
     <!--
       Het logboek-blokje. Staat bewust onderaan en buiten de rekenregels: de km-stand doet niets
@@ -280,22 +304,11 @@
       </div>
       <p class="loghint" id="loghint" hidden></p>
     </details>
+
+    <footer id="setup"></footer>
+    <footer id="tariff"></footer>
   </div>
 
-  <div class="card about">
-    <h2>Installeren</h2>
-    <p>Deze pagina <em>is</em> de app. Open
-      <a href="https://abons.github.io/e-charge/">abons.github.io/e-charge</a> op je telefoon en kies
-      <strong>Toevoegen aan startscherm</strong> — daarna start hij als eigen icoon en werkt hij
-      zonder bereik. Alleen de stroomprijzen komen van het net; zonder bereik rekent hij door met
-      de laatst opgehaalde.</p>
-    <p>Geen APK: deze app doet niets waarvoor je Android zelf nodig hebt.
-      <a href="https://github.com/abons/e-charge">Broncode en rekenwijze</a>.</p>
-    <button id="install" type="button" hidden>📲 Installeer als app</button>
-  </div>
-
-  <footer id="setup"></footer>
-  <footer id="tariff"></footer>
 </main>
 <script src="app.js"></script>
 </body>

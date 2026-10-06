@@ -102,6 +102,16 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   nieuwe melding in dat blok moet het ook openen. Alle ids blijven bestaan: `main.ts` pakt ze zonder
   null-check, een weggehaald element is een crash bij laden. Bereik, laadvermogen en kosten per km
   staan sindsdien samen in één grijze `.sub`-regel (`nowrap`, dus geen hoogtesprong).
+- ⚠️ **De indeling staat omgekeerd, voor de rechterduim (2026-10-06):** resultaten bovenaan, daaronder
+  een flexibele ruimte (`margin: auto` op `.pair`), dan Doel | Huidig (CSS `order`; in de HTML staat
+  Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van `100svh` (niet
+  `dvh`: de adresbalk van een tab mag niets laten verspringen) en geen `interactive-widget` in de
+  viewport-meta. Omdat de invoer nu ónder de resultaten staat, houden twee dingen hun plek: `#nowline`
+  blijft in de lay-out als hij verborgen is (`#nowline[hidden]` is `display:flex; visibility:hidden`,
+  dus **controleer `visibility`, niet `display`**) en `#note` zit in `.noteslot` met een vaste hoogte
+  van twee regels — houd meldingen onder twee regels. Een melding onder de knoppen zonder slot duwt
+  de knoppen omhoog, want de ruimte erboven krimpt. Past de pagina niet in het scherm (browsertab,
+  groot lettertype) dan werkt de ruimte niet en schuift alles weer mee.
 - ⚠️ **Niets boven de knoppen mag van hoogte veranderen.** De meldingsregel staat ónder `.actions`
   omdat een `change` bij het verlaten van een invoerveld de melding kan tonen of verbergen terwijl
   je een knop indrukt; alles eronder verschuift dan tussen aanraken en loslaten, en je tik landt

@@ -244,7 +244,7 @@ function render(): void {
     // noemt deze regel `soc` en niet `to`: die laatste bevroor op 90% terwijl er 98% in zat.
     note(
       remainingMs <= 0
-        ? `Volgens de schatting staat hij op ${soc}%. Klopt dat niet, vul dan het echte percentage in — dan begint de schatting opnieuw.`
+        ? `Volgens de schatting staat hij op ${soc}%. Klopt dat niet? Vul het echte percentage in.`
         : null,
     );
   } else {
