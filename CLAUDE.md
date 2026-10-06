@@ -103,7 +103,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   null-check, een weggehaald element is een crash bij laden. Bereik, laadvermogen en kosten per km
   staan sindsdien samen in één grijze `.sub`-regel (`nowrap`, dus geen hoogtesprong).
 - ⚠️ **De indeling staat omgekeerd, voor de rechterduim (2026-10-06):** resultaten bovenaan, daaronder
-  een flexibele ruimte (`margin: auto` op `.pair`), dan Doel | Huidig (CSS `order`; in de HTML staat
+  een flexibele ruimte (`margin-top: auto` op `.out`, dus de resultaten zakken naar de invoer en de
+  lege ruimte komt bovenin, niet als gat ertussen), dan Doel | Huidig (CSS `order`; in de HTML staat
   Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van `100svh` (niet
   `dvh`: de adresbalk van een tab mag niets laten verspringen) en geen `interactive-widget` in de
   viewport-meta. Omdat de invoer nu ónder de resultaten staat, houden twee dingen hun plek: `#nowline`

@@ -55,7 +55,7 @@
   .entry select:focus { outline: none; border-color: #7fd4a0; }
   .entry .unit { color: #9a9a9a; font-size: 15px; font-weight: 600; }
   /* Huidig en Doel naast elkaar: label boven het veld, twee gelijke kolommen. Vaste hoogte. */
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: auto 0 6px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 6px; }
   .pair .half { min-width: 0; }
   /* Huidig staat in de HTML eerst (leesvolgorde) maar komt rechts te staan: het verandert elke beurt,
      Doel zelden, en de rechterduim bereikt de rechterkant het makkelijkst. */
@@ -64,7 +64,9 @@
   .pair .entry { display: flex; align-items: center; }
   .pair .entry input { flex: 1; width: 100%; min-width: 0; }
 
-  .out { margin: 6px 0 12px; }
+  /* `margin-top: auto`: de resultaten zakken naar de invoer toe, en de vrije ruimte komt bovenin te staan
+     in plaats van als gat tussen uitkomst en invoer. */
+  .out { margin: auto 0 12px; }
   .line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
           padding: 6px 0; border-top: 1px solid #2c2c2e; }
   /* ⚠️ Moet hierónder staan en expliciet zijn: eigen CSS met `display` verslaat de `display: none`
@@ -171,8 +173,6 @@
       erbij. `main.ts` zet de labels, verbergt wat niet hoort, en raakt de invoervelden niet aan.
     -->
     <div class="out">
-      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
-        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
       <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
       <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
       <div class="line hero"><span class="k">Klaar rond</span>
@@ -186,6 +186,8 @@
         <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
       <div class="sub"><span id="rangelabel">Bereik</span> <span id="range">–</span> ·
         <span id="power">–</span> · <span id="costkm">–</span></div>
+      <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
+        <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
     </div>
 
     <div class="pair">
