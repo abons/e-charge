@@ -422,3 +422,10 @@ test("logbook: achteraf invoeren over middernacht en met onzin", () => {
   assert.equal(typeof manualEntry({ date: "2026-10-02", from: "11:00", to: "15:00", fromPercent: 80, toPercent: 70, km: null, amps: 16 }), "string");
   assert.equal(typeof manualEntry({ date: "2026-10-02", from: "11:00", to: "15:00", fromPercent: NaN, toPercent: 70, km: null, amps: 16 }), "string");
 });
+
+test("logbook: achteraf invoeren weigert toekomst en meer dan 12 uur", () => {
+  const basis = { fromPercent: 40, toPercent: 90, km: null, amps: 16 };
+  assert.equal(typeof manualEntry({ ...basis, date: "2999-01-01", from: "11:00", to: "15:00" }), "string");
+  assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "11:00", to: "11:00" }), "string"); // 24 uur
+  assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "11:00", to: "15:00" }), "object");
+});

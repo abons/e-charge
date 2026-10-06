@@ -94,7 +94,13 @@
   /* Uitleg onder een invoerveld. Staat er altijd en verandert nooit van hoogte — een
      hint die verschijnt terwijl je een knop indrukt, verschuift die knop onder je duim. */
   .manual { margin-top: 14px; }
-  .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 0; }
+  /* Open = andere modus: de knoppen eronder bewaren dan een nieuwe beurt. Een groene rand zodat je
+     hem niet open laat staan zonder het te zien. */
+  .manual[open] { border-left: 3px solid #7fd4a0; padding-left: 10px; }
+  .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer;
+                    padding: 12px 8px; margin: 0 -8px; border-radius: 10px; }
+  .manual summary:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
+  #savetarget { color: #9a9a9a; font-size: 13px; min-height: 3em; }
   .manual .field { margin: 8px 0; }
   .manual .entry input { width: 132px; font-size: 18px; padding: 9px 12px; }
   .fieldhint { color: #6f6f6f; font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
@@ -212,26 +218,27 @@
       </div>
       <p class="fieldhint">Wat het dashboard zei bij het afkoppelen — dit wordt de
         <code>eind%</code> van de regel. Laat leeg en de app neemt het percentage dat bovenaan bij
-        <strong>Huidig</strong> staat.</p>
+        <strong>Huidig</strong> staat — behalve bij achteraf invoeren, daar is dit veld verplicht.</p>
       <!--
         Een beurt waarvan je vergeten bent hem te starten: hier alleen wat de twee velden hierboven
         niet kennen. Zolang dit openstaat bewaren en kopiëren de knoppen die beurt, als eigen regel —
         de laatste afgesloten beurt blijft dan met rust (zie `manualEntry` in `logbook.ts`).
       -->
       <details class="manual" id="manual">
-        <summary>Een andere beurt dan de laatste? Voer hem achteraf in</summary>
+        <summary>Vergeten te starten? Voer achteraf in</summary>
         <div class="field"><label for="m-date">Datum</label>
           <span class="entry"><input id="m-date" type="date"></span></div>
         <div class="field"><label for="m-from">Van</label>
           <span class="entry"><input id="m-from" type="time"></span></div>
         <div class="field"><label for="m-to">Tot</label>
           <span class="entry"><input id="m-to" type="time"></span></div>
-        <div class="field"><label for="m-pct-from">Start</label>
+        <div class="field"><label for="m-pct-from">Start%</label>
           <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
             inputmode="numeric" placeholder="43"><span class="unit">%</span></span></div>
-        <p class="fieldhint">Eind% en km-stand zijn de velden hierboven; de laadstand is die van de
-          keuzelijst bovenaan. Is <strong>Tot</strong> vroeger dan <strong>Van</strong>, dan telt het
-          als na middernacht.</p>
+        <p class="fieldhint">Eind% is het veld <strong>Afgelezen</strong> hierboven (verplicht), de
+          kilometerteller is <strong>Km-stand</strong>; de laadstand is die van de keuzelijst
+          bovenaan. Is <strong>Tot</strong> vroeger dan <strong>Van</strong>, dan telt het als na
+          middernacht.</p>
       </details>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>

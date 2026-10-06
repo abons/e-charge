@@ -56,6 +56,9 @@ const LOGBOOK_KEY = "e-charge.logbook";
 const COPY_LABEL = "📋 Kopieer logregel";
 const COPY_ALL_LABEL = "📋 Kopieer hele logboek";
 const SAVE_LABEL = "💾 Bewaar laadbeurt";
+const MANUAL_SAVE_LABEL = "💾 Bewaar als nieuwe beurt";
+/** Vier seconden "💾 Bewaard" op de knop; `renderSaveTarget` zet het label anders meteen terug. */
+let bewaardFlits = false;
 /** Zo vaak herrekenen: in de plan-stand loopt "nu" door, in de bezig-stand het percentage. */
 const TICK_MS = 15_000;
 
@@ -492,6 +495,8 @@ function toggleCharging(): void {
   if (from === null) return;
   const now = Date.now();
   writeSession({ startMs: now, from, logStartMs: now, logFrom: from, amps: currentAmps() });
+  // Nu er een lopende beurt is, bewaart 💾 die — het invoerblok zou de knop kapen.
+  manualBlock.open = false;
   render();
 }
 
@@ -518,7 +523,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // anders valt `eind%` terug op het startpercentage, en overschrijft een tweede druk op 💾 (om de
   // meterstand aan te vullen) een goede 90 met een zinloze 43: een laadbeurt van nul procentpunten,
   // die `calibrate` als 0,00 kW meerekent. Is er niets bekend, dan valt er ook niets te loggen.
-  const afgelopen = finished;
+  const afgelopen = bijwerkbaar();
   const bewaard = afgelopen === null ? undefined : logbook.find((e) => e.startMs === afgelopen.startMs);
   // Het logboek heeft zijn eigen percentageveld, en dat wint: het is wat je van het dashboard hebt
   // gelezen, en het hoeft het plan-scherm niet te verzetten om in de regel te komen.
@@ -570,19 +575,39 @@ function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: n
 }
 
 /**
+ * De afgesloten beurt die 💾 mag bijwerken: alleen als hij vandaag is afgekoppeld. Een oudere beurt
+ * blijft staan zoals hij is — een aflezing van 3 okt overschreef zo de beurt van 27 sep. Wie een
+ * oudere beurt wil aanvullen, wist hem (×) en voert hem opnieuw in.
+ */
+function bijwerkbaar(): Finished | null {
+  if (finished === null) return null;
+  return new Date(finished.endMs).toDateString() === new Date().toDateString() ? finished : null;
+}
+
+/** Datum van vandaag en de klok van nu in het blok "achteraf invoeren", alleen waar het veld leeg is. */
+function prefillManual(): void {
+  const nu = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  if (manualDate.value === "") manualDate.value = `${nu.getFullYear()}-${p(nu.getMonth() + 1)}-${p(nu.getDate())}`;
+  if (manualTo.value === "") manualTo.value = `${p(nu.getHours())}:${p(nu.getMinutes())}`;
+}
+
+/**
  * Welke beurt 💾 bijwerkt, in woorden. Na het afkoppelen is dat de afgesloten beurt — en die blijft
  * eeuwig staan, ook als je een volgende vergeet te starten. Dan landt je aflezing ongemerkt op de
  * oude beurt; deze regel maakt dat zichtbaar en wijst naar het formulier eronder.
  */
 function renderSaveTarget(): void {
+  if (!bewaardFlits) saveButton.textContent = manualBlock.open ? MANUAL_SAVE_LABEL : SAVE_LABEL;
   if (manualBlock.open) {
-    saveTarget.textContent = "💾 bewaart de beurt hierboven als een nieuwe regel; de afgesloten beurt blijft zoals hij was.";
+    saveTarget.textContent = "💾 bewaart de hier ingevoerde beurt als nieuwe regel; de afgesloten beurt blijft ongemoeid.";
   } else if (session !== null) {
     saveTarget.textContent = "💾 bewaart de lopende laadbeurt.";
-  } else if (finished !== null) {
-    const dag = new Date(finished.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  } else if (bijwerkbaar() !== null) {
+    const afgesloten = bijwerkbaar() as Finished;
+    const dag = new Date(afgesloten.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
     saveTarget.textContent =
-      `💾 werkt de afgesloten beurt van ${dag} (${clock(finished.startMs)}) bij. ` +
+      `💾 werkt de afgesloten beurt van ${dag} (${clock(afgesloten.startMs)}) bij. ` +
       "Een andere beurt vergeten te starten? Voer die hieronder achteraf in.";
   } else {
     saveTarget.textContent = "Geen beurt om te bewaren — start er een, of voer er een achteraf in.";
@@ -654,9 +679,18 @@ function saveEntry(): void {
   if (typeof handmatig === "string") return toonLogMelding(handmatig);
   const beurt = handmatig ?? huidigeLaadbeurt(true);
   if (beurt === null) return;
+  const bestond = handmatig !== null && logbook.some((e) => e.startMs === handmatig.startMs);
   logNote.hidden = true;
   writeLogbook(withEntry(logbook, beurt));
   if (handmatig !== null) {
+    // De velden worden leeg gemaakt en het blok klapt dicht; zeg dus wat er bewaard is, en als het een
+    // bestaande regel met dezelfde starttijd was die nu is bijgewerkt.
+    const dag = new Date(handmatig.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+    toonLogMelding(
+      `Bewaard: ${dag} ${clock(handmatig.startMs)}–${clock(handmatig.endMs)}, ` +
+        `${handmatig.fromPercent} → ${handmatig.toPercent}%` +
+        (bestond ? " (er stond al een beurt met deze starttijd; die is bijgewerkt)." : "."),
+    );
     // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag aan.
     const bron = manualBron(handmatig);
     prices.ensure(bron.startMs, bron.endMs, () => {
@@ -668,10 +702,16 @@ function saveEntry(): void {
     });
     // Klaar: de velden leeg en het blok dicht, zodat de volgende druk weer de gewone beurt bewaart.
     for (const input of [manualDate, manualFrom, manualTo, manualPctFrom, pctInput, kmInput]) input.value = "";
-    manualBlock.open = false;
+    // Is er geen beurt van vandaag om te bewaren, dan blijft het blok de standaard (open, met vandaag).
+    if (session !== null || bijwerkbaar() !== null) manualBlock.open = false;
+    else prefillManual();
   }
   saveButton.textContent = "💾 Bewaard";
-  setTimeout(() => { saveButton.textContent = SAVE_LABEL; }, 4000);
+  bewaardFlits = true;
+  setTimeout(() => {
+    bewaardFlits = false;
+    renderSaveTarget();
+  }, 4000);
   renderLogbook();
 }
 
@@ -764,6 +804,12 @@ if (verhuisd > 0) {
 }
 renderLogbook();
 if (session !== null) currentInput.value = String(session.from);
+// Geen lopende of vandaag afgesloten beurt: de enige zinnige invoer is een nieuwe, met de datum van
+// vandaag. Dus het blok staat open (de `toggle`-listener vult de datum en de klok in).
+if (session === null && bijwerkbaar() === null) {
+  manualBlock.open = true;
+  prefillManual();
+}
 
 for (const input of [currentInput, targetInput]) {
   input.addEventListener("input", render);
@@ -812,6 +858,10 @@ copyButton.addEventListener("click", copyLogRow);
 saveButton.addEventListener("click", saveEntry);
 copyAllButton.addEventListener("click", copyLogbook);
 manualBlock.addEventListener("toggle", () => {
+  // Vandaag en de klok van nu: scheelt een paar pickers; een eerdere dag kies je zelf.
+  if (manualBlock.open) prefillManual();
+  // Een oude foutmelding hoort niet mee te gaan naar een andere stand.
+  if (!bewaardFlits) logNote.hidden = true;
   renderSaveTarget();
   updateCopyButton();
 });

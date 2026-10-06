@@ -156,8 +156,13 @@ export function manualEntry(input: ManualInput): Entry | string {
   if (endMs <= startMs) endMs = at(tot, 1);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return "Die datum of tijd bestaat niet.";
   const geldig = (p: number) => Number.isFinite(p) && p >= 0 && p <= 100;
-  if (!geldig(input.fromPercent) || !geldig(input.toPercent)) return "Vul start% en eind% in (0–100).";
-  if (input.toPercent <= input.fromPercent) return "Eind% moet hoger zijn dan start%.";
+  if (!geldig(input.fromPercent)) return "Vul Start% in (0–100).";
+  if (!geldig(input.toPercent)) return "Vul Afgelezen (het eind%) hierboven in (0–100).";
+  if (input.toPercent <= input.fromPercent) return "Afgelezen moet hoger zijn dan Start%.";
+  // Een beurt in de toekomst of van meer dan een halve dag is bijna zeker een tikfout (Tot gelijk aan
+  // Van telt als 24 uur), en `calibrate` leest zo'n regel als meting.
+  if (startMs > Date.now()) return "Die beurt begint in de toekomst — controleer de datum.";
+  if (endMs - startMs > 12 * 3_600_000) return "Meer dan 12 uur laden — controleer Van en Tot.";
   return {
     startMs,
     endMs,
