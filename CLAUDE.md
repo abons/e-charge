@@ -33,7 +33,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de eerste auto (`FIRST_CAR_ID`) houdt de oude sleutels,
   doel en laadstand zijn globaal. De Leaf-startwaarden gelden alleen voor de Leaf (`Start | null`:
   een andere auto heeft er geen tot hij eigen beurten heeft, of een *gemarkeerde schatting* uit
-  accugrootte: `core/evest.ts`, tabel `evtable.ts` uit open-ev-data, ververs met `scripts/ev-data.mjs`;
+  accugrootte: `core/evest.ts`, tabel `evtable.ts` uit open-ev-data, ververs met `scripts/ev-data.mjs`, plus `evextra.ts` met de hand;
   `Start.estimated`, zegt ±25%; vervalt na drie eigen beurten, en de snelheid wordt al in de eerste
   beurt gemeten, `measureRate`/`learnRate`). Het kenteken staat nooit in een export,
   want `log.md` is publiek. Zie `design.md`.

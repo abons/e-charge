@@ -1,5 +1,6 @@
 import { CHARGE_POWER_KW } from "./charge.js";
 import type { Start } from "./derive.js";
+import { EV_EXTRA } from "./evextra.js";
 import { EV_ROWS } from "./evtable.js";
 import type { Rdw } from "./car.js";
 
@@ -34,7 +35,7 @@ export interface Ev {
  */
 export const CHARGE_EFFICIENCY = 0.85;
 
-export const EVS: readonly Ev[] = EV_ROWS.map(([id, brand, model, variant, year, kwh, consumption, acKw]) => ({
+export const EVS: readonly Ev[] = [...EV_ROWS, ...EV_EXTRA].map(([id, brand, model, variant, year, kwh, consumption, acKw]) => ({
   id,
   brand,
   model,

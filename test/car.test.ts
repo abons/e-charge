@@ -153,6 +153,20 @@ test("estimateStart: Leaf 40 komt in de buurt van het logboek, aan de veilige ka
   assert.equal(start.kmPerPp, 2.3); // 38 kWh / 16,4 kWh per 100 km; gemeten 2,0
 });
 
+test("Dacia en Toyota staan er ook in, en een RDW-antwoord vindt ze", () => {
+  assert.ok(brands().includes("Dacia"));
+  assert.ok(brands().includes("Toyota"));
+  const spring = matchEv({ merk: "Dacia", model: "Spring", uitvoering: "", jaar: 2023, voertuigsoort: "Personenauto" });
+  assert.equal(spring.length, 3);
+  assert.ok(spring.every((e) => e.brand === "Dacia"));
+  const bz4x = matchEv({ merk: "Toyota", model: "BZ4X", uitvoering: "", jaar: 2023, voertuigsoort: "Personenauto" });
+  assert.equal(bz4x[0]!.kwh, 64);
+  const chr = matchEv({ merk: "Toyota", model: "C-HR+", uitvoering: "", jaar: 2025, voertuigsoort: "Personenauto" });
+  assert.deepEqual(chr.map((e) => e.kwh).sort(), [54, 72]);
+  // Spring 45: 3,5 kW x 85% / 25 kWh
+  assert.equal(estimateStart(spring[0]!).ratePpPerHour, 11.9);
+});
+
 test("estimateStart: een boordlader onder het stopcontactvermogen is de beperking", () => {
   const ev = { id: "x", brand: "A", model: "B", variant: "", year: null, kwh: 30, consumption: 15, acKw: 2 };
   assert.equal(estimateStart(ev).ratePpPerHour, round1((2 * 0.85 * 100) / 30));

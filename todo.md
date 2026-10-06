@@ -19,8 +19,10 @@ logregel). **Nog niet op een echte telefoon gezien.**
   - **Het meten in de eerste beurt** (`learnRate`) is unit-getest maar niet in een echte beurt gezien:
     zet een tweede auto aan de lader, voer na >= 30 min een aflezing in en kijk of de ⓘ
     "gemeten in de eerste beurt" zegt.
-  - De accutabel (`evtable.ts`) heeft 118 uitvoeringen (31 merken, geen Dacia of Toyota): verversen met
-    `node scripts/ev-data.mjs`; bron en MIT-licentie: open-ev-data.
+  - De accutabel (`evtable.ts`) heeft 118 uitvoeringen (31 merken): verversen met
+    `node scripts/ev-data.mjs`; bron en MIT-licentie: open-ev-data. Dacia en Toyota staan met de hand
+    in `evextra.ts` (7 uitvoeringen; Spring en bZ4X uit ev-database, C-HR+ en Urban Cruiser met WLTP × 1,2).
+    Er ontbreekt nog: Toyota Urban Cruiser 49 kWh, bZ4X 73,1 kWh (bruikbare accu niet zeker) en Proace.
   - De klembord-export noemt de auto nog niet in een kopregel; `parseLogMd` moet die dan negeren.
   - Brandstofdataset `8ys7-d773` om een niet-elektrische auto te waarschuwen.
 
