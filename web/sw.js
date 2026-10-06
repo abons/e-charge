@@ -5,7 +5,7 @@
  * `skipWaiting`/`clients.claim` plus de reload in main.ts maken dat een nieuwe versie zichzelf
  * doorzet in plaats van achter een oude tab te blijven wachten. */
 const VERSION = "v1";
-const SHELL = ["./", "app.js", "manifest.webmanifest", "icon.svg"];
+const SHELL = ["./", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "icon-maskable-512.png"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
