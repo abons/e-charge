@@ -14,17 +14,17 @@ logregel). **Nog niet op een echte telefoon gezien.**
 ## Hier begint de volgende sessie
 
 - **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
-  telefoon gezien (75 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
+  telefoon gezien (79 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
   zin "schatting uit accugrootte" in de ⓘ voor een nieuwe auto. Probeer een tweede auto zonder kenteken.
   - **Het meten in de eerste beurt** (`learnRate`) is unit-getest maar niet in een echte beurt gezien:
     zet een tweede auto aan de lader, voer na >= 30 min een aflezing in en kijk of de ⓘ
-    "gemeten in de eerste beurt" zegt.
+    "gemeten in de eerste beurt" zegt. Sinds de review telt alleen een echte aflezing als begin
+    (`Session.real`): niet na een standwissel, niet als Huidig nog de schatting van een ⏹ is. De fixes
+    uit die review (kenteken dubbel, Enter tijdens de opzoeking, oude `leaf`-keuze, `real`) zijn niet in een
+    browser gezien: alleen `activeCar` is getest.
   - De accutabel (`evtable.ts`) heeft 118 uitvoeringen (31 merken): verversen met
     `node scripts/ev-data.mjs`; bron en MIT-licentie: open-ev-data. Dacia en Toyota staan met de hand
     in `evextra.ts` (7 uitvoeringen; Spring en bZ4X uit ev-database, C-HR+ en Urban Cruiser met WLTP × 1,2).
-    Er ontbreekt nog: Toyota Urban Cruiser 49 kWh, bZ4X 73,1 kWh (bruikbare accu niet zeker) en Proace.
-  - De klembord-export noemt de auto nog niet in een kopregel; `parseLogMd` moet die dan negeren.
-  - Brandstofdataset `8ys7-d773` om een niet-elektrische auto te waarschuwen.
 
 - **"Vergeten te starten? Voer achteraf in" en de regel onder 💾 op de telefoon bekijken**
   (2026-10-06). Gebouwd nadat een aflezing van 3 okt de afgesloten beurt van 27 sep overschreef.

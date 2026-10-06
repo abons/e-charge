@@ -107,6 +107,9 @@ test("activeCar: de bewaarde, anders de eerste, anders niets", () => {
   assert.equal(activeCar([a, b], "weg"), a);
   assert.equal(activeCar([a, b], null), a);
   assert.equal(activeCar([], "x"), null);
+  // de oude naam van de eerste auto in de opgeslagen keuze, terwijl de eerste auto niet vooraan staat
+  const eerste = { ...a, id: FIRST_CAR_ID };
+  assert.equal(activeCar([a, eerste], "leaf"), eerste);
 });
 
 test("withCar / withoutCar: vervangen op id, volgorde blijft", () => {

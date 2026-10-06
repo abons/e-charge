@@ -179,7 +179,9 @@ export function parseCars(raw: string | null): Car[] {
 
 /** De actieve auto: de bewaarde als die bestaat, anders de eerste. `null` alleen bij een lege lijst. */
 export function activeCar(cars: Car[], id: string | null): Car | null {
-  return cars.find((c) => c.id === id) ?? cars[0] ?? null;
+  // De actieve id kan nog de oude naam van de eerste auto zijn (zie `parseCars`).
+  const wanted = id === LEGACY_FIRST_CAR_ID ? FIRST_CAR_ID : id;
+  return cars.find((c) => c.id === wanted) ?? cars[0] ?? null;
 }
 
 /** Opslagsleutel van een per-auto-ding. De Leaf-auto houdt de oude sleutels, dus geen kopie bij adoptie. */

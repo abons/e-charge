@@ -163,7 +163,19 @@ let car: Car = { id: FIRST_CAR_ID, label: "", plate: null, rdw: null, start: nul
  * je de stekker erin stak, en die overleven het opnieuw verankeren. Zonder dat onderscheid zou een
  * tussentijdse aflezing de logregel korter maken dan de laadbeurt werkelijk duurde.
  */
-interface Session { startMs: number; from: number; logStartMs: number; logFrom: number; amps: number }
+interface Session {
+  startMs: number;
+  from: number;
+  logStartMs: number;
+  logFrom: number;
+  amps: number;
+  /**
+   * `true` als `from` van het dashboard is afgelezen; `false` als het een schatting is (een standwissel
+   * verankert op het gerekende percentage, en Huidig kan nog de schatting van een vorige ⏹ zijn).
+   * Alleen een aflezing als begin geeft een meting (`learnRate`).
+   */
+  real?: boolean;
+}
 let session: Session | null = null;
 
 /** De laatst afgesloten sessie, zodat je de logregel ná het afkoppelen nog kunt kopiëren. */
@@ -351,7 +363,7 @@ function sourceTag(): string {
   const bovenste = rate.source === "schaling" ? ratePerHour(logbook, RATED_CURRENT_A, car.start) : rate;
   const tags: string[] = [];
   if (rate.source === "schaling") tags.push(`geschat uit ${RATED_CURRENT_A} A`);
-  if (bovenste.source === "start" || kmPerPp(logbook, car.start).source === "start") tags.push(car.start?.estimated === true ? "schatting" : "startwaarde");
+  if (bovenste.source === "start" || kmPerPp(logbook, car.start).source === "start") tags.push(car.start?.measured === true && ratePerHour(logbook, amps, car.start).source !== "onbekend" && kmPerPp(logbook, car.start).source !== "start" ? "gemeten" : car.start?.estimated === true ? "schatting" : "startwaarde");
   if (kmPerPp(logbook, car.start).source === "onbekend") tags.push("km per % onbekend");
   return tags.length === 0 ? "" : ` · ${tags.join(", ")}`;
 }
@@ -424,16 +436,17 @@ function carName(): string {
 }
 
 /** `startwaarde uit log.md` is waar alleen voor de Leaf; een andere auto heeft de startwaarden van de eigenaar. */
-function startTekst(): string {
+function startTekst(deel: "snelheid" | "bereik" = "bereik"): string {
+  if (deel === "snelheid" && car.start?.measured === true) return "gemeten in de eerste beurt van deze auto";
   if (car.start?.estimated === true) {
     const ev = evById(car.ev);
-    return ev === null ? "schatting uit accugrootte" : `schatting uit accugrootte van de ${ev.brand} ${ev.model} ${evLabel(ev)}, ±25%`;
+    return ev === null ? "schatting uit accugrootte" : `schatting uit accugrootte van de ${ev.brand} ${ev.model} ${evLabel(ev)}, kan ±25% afwijken`;
   }
   return car.start?.ratePpPerHour === LEAF_START.ratePpPerHour ? "startwaarde uit log.md" : "startwaarde van jou";
 }
 
 function bronTekst(source: Source): string {
-  return source === "eigen" ? "uit je logboek" : source === "schaling" ? "geschat uit 16 A" : source === "onbekend" ? "onbekend" : startTekst();
+  return source === "eigen" ? "uit je logboek" : source === "schaling" ? "geschat uit 16 A" : source === "onbekend" ? "onbekend" : startTekst("snelheid");
 }
 
 // Eén regel onderaan met waar de getallen vandaan komen — er is geen aanname meer, alleen je eigen
@@ -451,7 +464,7 @@ function renderSetup(): void {
         ? `${nl(rate.value)} procentpunt per uur op ${amps} A (geschat uit ${RATED_CURRENT_A} A: je hebt nog niet vaak genoeg op deze stand geladen)`
         : rate.source === "onbekend"
           ? "onbekend (nog te weinig laadbeurten in het logboek van deze auto, en geen startwaarden ingevuld)"
-          : `${nl(rate.value)} procentpunt per uur op ${amps} A (${car.start?.measured === true ? "gemeten in de eerste beurt van deze auto" : startTekst()}: nog te weinig laadbeurten in je logboek)`;
+          : `${nl(rate.value)} procentpunt per uur op ${amps} A (${startTekst("snelheid")}: nog te weinig laadbeurten in je logboek)`;
   const bereik =
     km.source === "eigen"
       ? `${nl(km.value)} km per procentpunt (uit ${km.n} ritten in je logboek)`
@@ -533,6 +546,8 @@ function readSession(): Session | null {
       logFrom: typeof logFrom === "number" ? clampPercent(logFrom) : clampPercent(from),
       // En de stand ook niet: vóór 2026-09-27 rekende alles op de hoogste, dus dat is hij dan.
       amps: clampCurrent(amps),
+      // Een sessie uit een oudere versie kent het niet: dan geen meting, liever te voorzichtig.
+      real: (parsed as Record<string, unknown>)["real"] === true,
     };
   } catch {
     return null;
@@ -743,6 +758,7 @@ function positiefGetal(input: HTMLInputElement): number | null {
 }
 
 async function saveCar(): Promise<void> {
+  if (carSaveButton.disabled) return;
   const plate = normalizePlate(plateInput.value);
   const naam = carNameInput.value.trim();
   const rate = positiefGetal(carRateInput);
@@ -779,7 +795,9 @@ async function saveCar(): Promise<void> {
     return auto === null ? { start: null, ev: bestaand?.ev ?? null } : { start: estimateStart(auto), ev: auto.id };
   };
   const oud = plate === "" ? undefined : cars.find((c) => c.id === plate);
-  if (bewerk && oud !== undefined && oud.id !== car.id) {
+  // Het kenteken kan ook bij een auto staan waarvan het id iets anders is (de eerste auto heet `car`).
+  const dubbel = plate === "" ? undefined : cars.find((c) => c.plate === plate || c.id === plate);
+  if (dubbel !== undefined && dubbel.id !== (bewerk ? car.id : plate)) {
     carNote.textContent = "Dit kenteken staat al bij een andere auto.";
     return;
   }
@@ -862,7 +880,10 @@ function openCarDialog(): void {
  * zelf invulde of eerder mat: alleen over een schatting of een lege start.
  */
 function learnRate(s: Session, reading: number): void {
-  if (car.start !== null && car.start.estimated !== true) return;
+  if (!s.real) return;
+  // Alleen over een schatting of een lege start, en één keer: een tweede aflezing in dezelfde beurt
+  // overschrijft de eerste meting niet (en nooit een waarde die de eigenaar invulde of eerder mat).
+  if (car.start !== null && (car.start.estimated !== true || car.start.measured === true)) return;
   const rate = measureRate(Date.now() - s.startMs, s.from, reading, s.amps);
   if (rate === null) return;
   const start: Start = { ratePpPerHour: rate, kmPerPp: car.start?.kmPerPp ?? 0, measured: true };
@@ -898,7 +919,7 @@ function toggleCharging(): void {
   const from = percentOf(currentInput);
   if (from === null) return;
   const now = Date.now();
-  writeSession({ startMs: now, from, logStartMs: now, logFrom: from, amps: currentAmps() });
+  writeSession({ startMs: now, from, logStartMs: now, logFrom: from, amps: currentAmps(), real: !huidigIsSchatting });
   // Nu er een lopende beurt is, bewaart 💾 die — het invoerblok zou de knop kapen.
   manualBlock.open = false;
   render();
@@ -1268,7 +1289,7 @@ for (const input of [currentInput, targetInput]) {
       // het verschil met wat er stond is precies de fout in `USABLE_CAPACITY_KWH` × `EFFICIENCY`.
       // `logStartMs`/`logFrom` blijven staan — de laadbeurt begon bij het insteken, niet nu.
       learnRate(session, value);
-      writeSession({ ...session, startMs: Date.now(), from: value });
+      writeSession({ ...session, startMs: Date.now(), from: value, real: true });
     }
     render();
   });
@@ -1286,7 +1307,7 @@ ampsSelect.addEventListener("change", () => {
     // Naar beneden, zoals het scherm het toont en zoals `readSession` het na een herlaad leest —
     // en de veilige kant: iets te weinig aannemen maakt de schatting hooguit een paar minuten te lang.
     const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook, car.start)));
-    writeSession({ ...session, startMs: nu, from: soc, amps });
+    writeSession({ ...session, startMs: nu, from: soc, amps, real: false });
   }
   renderSetup();
   render();
