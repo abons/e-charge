@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { lookupPlate, type FetchFn } from "../src/car.js";
 import {
-  LEAF_ID,
+  FIRST_CAR_ID,
   activeCar,
   adoptLegacy,
   carFromPlate,
@@ -69,8 +69,8 @@ test("carTitle: RDW-naam met kenteken, of het eigen label", () => {
 });
 
 test("carKey: de Leaf houdt de oude sleutels, de rest krijgt een achtervoegsel", () => {
-  assert.equal(carKey("logbook", LEAF_ID), "e-charge.logbook");
-  assert.equal(carKey("session", LEAF_ID), "e-charge.session");
+  assert.equal(carKey("logbook", FIRST_CAR_ID), "e-charge.logbook");
+  assert.equal(carKey("session", FIRST_CAR_ID), "e-charge.session");
   assert.equal(carKey("finished", "GZ123B"), "e-charge.finished.GZ123B");
 });
 
@@ -91,6 +91,12 @@ test("parseCars: kapotte regels en dubbele id's vallen weg", () => {
   assert.deepEqual(lijst[0]!.start, { ratePpPerHour: 10, kmPerPp: 2 });
   assert.equal(lijst[1]!.plate, null); // niet genormaliseerd in opslag: onbruikbaar, niet stil gerepareerd
   assert.equal(lijst[1]!.start, null); // een negatieve snelheid is geen startwaarde
+});
+
+test("parseCars: de eerste versie noemde de eerste auto 'leaf'; dat wordt de neutrale id, met dezelfde sleutels", () => {
+  const [eerste] = parseCars(JSON.stringify([{ id: "leaf", label: "Nissan Leaf" }]));
+  assert.equal(eerste!.id, FIRST_CAR_ID);
+  assert.equal(carKey("logbook", eerste!.id), "e-charge.logbook");
 });
 
 test("activeCar: de bewaarde, anders de eerste, anders niets", () => {
@@ -114,7 +120,7 @@ test("adoptLegacy: eerste start maakt de Leaf, daarna nooit meer", () => {
   const eerste = adoptLegacy([], false, true);
   assert.equal(eerste.changed, true);
   assert.equal(eerste.cars.length, 1);
-  assert.equal(eerste.cars[0]!.id, LEAF_ID);
+  assert.equal(eerste.cars[0]!.id, FIRST_CAR_ID);
   assert.deepEqual(eerste.cars[0]!.start, LEAF_START);
   // al gemigreerd: een bewust verwijderde Leaf komt niet terug
   assert.deepEqual(adoptLegacy([], true, true), { cars: [], changed: false });

@@ -338,7 +338,7 @@ een review door drie agents — architectuur, UX, netwerk/privacy):
 - **Kenteken via RDW open data** (`m9d7-ebf2`, CORS `*` gemeten), alleen op "Zoek", 8 s timeout.
   Het geeft merk/model/uitvoering/bouwjaar om te tonen; capaciteit en snelheid komen nog uit het
   logboek van die auto. `8ys7-d773` (brandstof, herkent een EV) is bewust niet gebruikt.
-- **Per auto**: logboek, sessie, laatst afgesloten beurt. De Leaf houdt de oude `e-charge.*`-sleutels
+- **Per auto**: logboek, sessie, laatst afgesloten beurt. De eerste auto (`FIRST_CAR_ID`) houdt de oude `e-charge.*`-sleutels
   (geen kopie, geen dataverlies, een oude bundel in een open tab schrijft niet in het niets); andere
   auto's krijgen `.<kenteken>` erachter. Doel en laadstand zijn van de kabel en blijven globaal.
 - **Startwaarden zijn van een auto, niet van "een" auto**: `Start | null` in `derive.ts`; zonder

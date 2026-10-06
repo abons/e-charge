@@ -30,7 +30,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   hosts, een runner niet. Doe dat opnieuw vóór je van bron wisselt — en `price.value` is een string.
 - ⚠️ **Tweede uitzondering, sinds 2026-10-06: een kenteken opzoeken bij RDW** (`src/car.ts`, alleen op
   "Zoek", open data, merk/model om te *tonen*, nooit om mee te rekenen). Logboek, sessie en laatst
-  afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de Leaf houdt de oude sleutels,
+  afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de eerste auto (`FIRST_CAR_ID`) houdt de oude sleutels,
   doel en laadstand zijn globaal. De Leaf-startwaarden gelden alleen voor de Leaf (`Start | null`:
   een andere auto heeft er geen tot hij eigen beurten heeft). Het kenteken staat nooit in een export,
   want `log.md` is publiek. Zie `design.md`.

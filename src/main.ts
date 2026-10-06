@@ -12,7 +12,7 @@ import { lookupPlate } from "./car.js";
 import {
   CARS_KEY,
   CAR_KEY,
-  LEAF_ID,
+  FIRST_CAR_ID,
   MIGRATED_KEY,
   activeCar,
   adoptLegacy,
@@ -148,7 +148,7 @@ const carCloseButton = el<HTMLButtonElement>("carclose");
  * vóór de autokeuze houdt de oude sleutels, dus er wordt bij het overstappen niets gekopieerd.
  */
 let cars: Car[] = [];
-let car: Car = { id: LEAF_ID, label: "", plate: null, rdw: null, start: null };
+let car: Car = { id: FIRST_CAR_ID, label: "", plate: null, rdw: null, start: null };
 
 /**
  * Een lopende laadsessie: het moment en het percentage waarop de berekening staat, en het doel.
@@ -617,7 +617,7 @@ function initCars(): void {
   try {
     migrated = localStorage.getItem(MIGRATED_KEY) === "1";
     activeId = localStorage.getItem(CAR_KEY);
-    legacy = ["logbook", "session", "finished"].some((kind) => localStorage.getItem(carKey(kind as "logbook", LEAF_ID)) !== null);
+    legacy = ["logbook", "session", "finished"].some((kind) => localStorage.getItem(carKey(kind as "logbook", FIRST_CAR_ID)) !== null);
   } catch {
     /* geen opslag: geen auto, tot de gebruiker er een kiest */
   }

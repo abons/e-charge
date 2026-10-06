@@ -31,7 +31,9 @@ export interface Car {
 }
 
 /** De auto van vóór de autokeuze: de Leaf van de eigenaar, met zijn startwaarden uit `log.md`. */
-export const LEAF_ID = "leaf";
+export const FIRST_CAR_ID = "car";
+/** Zo heette de eerste auto in de eerste versie van de autokeuze; opgeslagen lijsten worden bij het lezen omgezet. */
+const LEGACY_FIRST_CAR_ID = "leaf";
 
 export const CARS_KEY = "e-charge.cars";
 export const CAR_KEY = "e-charge.car";
@@ -141,7 +143,8 @@ export function parseCars(raw: string | null): Car[] {
   for (const item of value) {
     if (typeof item !== "object" || item === null) continue;
     const o = item as Record<string, unknown>;
-    const id = tekst(o["id"]);
+    const stored = tekst(o["id"]);
+    const id = stored === LEGACY_FIRST_CAR_ID ? FIRST_CAR_ID : stored;
     if (id === "" || seen.has(id)) continue;
     seen.add(id);
     const plate = tekst(o["plate"]);
@@ -163,7 +166,7 @@ export function activeCar(cars: Car[], id: string | null): Car | null {
 
 /** Opslagsleutel van een per-auto-ding. De Leaf-auto houdt de oude sleutels, dus geen kopie bij adoptie. */
 export function carKey(kind: "logbook" | "session" | "finished", carId: string): string {
-  return carId === LEAF_ID ? `e-charge.${kind}` : `e-charge.${kind}.${carId}`;
+  return carId === FIRST_CAR_ID ? `e-charge.${kind}` : `e-charge.${kind}.${carId}`;
 }
 
 /** Een nieuwe auto van een kenteken (en wat RDW erover zei). Dezelfde plaat twee keer is dezelfde auto. */
@@ -193,7 +196,7 @@ export function adoptLegacy(cars: Car[], migrated: boolean, hasLegacyData: boole
   // staat. Een verse browser heeft nog geen auto: die kiest hij zelf, en tot dan is de snelheid onbekend.
   if (migrated || cars.length > 0 || !hasLegacyData) return { cars, changed: false };
   return {
-    cars: [{ id: LEAF_ID, label: "Nissan Leaf", plate: null, rdw: null, start: { ...LEAF_START } }],
+    cars: [{ id: FIRST_CAR_ID, label: "Nissan Leaf", plate: null, rdw: null, start: { ...LEAF_START } }],
     changed: true,
   };
 }
