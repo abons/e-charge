@@ -702,9 +702,8 @@ function saveEntry(): void {
     });
     // Klaar: de velden leeg en het blok dicht, zodat de volgende druk weer de gewone beurt bewaart.
     for (const input of [manualDate, manualFrom, manualTo, manualPctFrom, pctInput, kmInput]) input.value = "";
-    // Is er geen beurt van vandaag om te bewaren, dan blijft het blok de standaard (open, met vandaag).
-    if (session !== null || bijwerkbaar() !== null) manualBlock.open = false;
-    else prefillManual();
+    // Vergeten is sporadisch: het blok staat standaard dicht en klapt na bewaren weer dicht.
+    manualBlock.open = false;
   }
   saveButton.textContent = "💾 Bewaard";
   bewaardFlits = true;
@@ -804,12 +803,6 @@ if (verhuisd > 0) {
 }
 renderLogbook();
 if (session !== null) currentInput.value = String(session.from);
-// Geen lopende of vandaag afgesloten beurt: de enige zinnige invoer is een nieuwe, met de datum van
-// vandaag. Dus het blok staat open (de `toggle`-listener vult de datum en de klok in).
-if (session === null && bijwerkbaar() === null) {
-  manualBlock.open = true;
-  prefillManual();
-}
 
 for (const input of [currentInput, targetInput]) {
   input.addEventListener("input", render);
