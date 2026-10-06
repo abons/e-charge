@@ -188,8 +188,10 @@ export function withoutCar(cars: Car[], id: string): Car[] {
  * ⚠️ Niet doen bij een lijst die al bestaat, óók niet als `leaf` er niet in staat: wie de Leaf
  * bewust verwijderde wil hem niet bij de volgende start terug. Daarom de marker.
  */
-export function adoptLegacy(cars: Car[], migrated: boolean): { cars: Car[]; changed: boolean } {
-  if (migrated || cars.length > 0) return { cars, changed: false };
+export function adoptLegacy(cars: Car[], migrated: boolean, hasLegacyData: boolean): { cars: Car[]; changed: boolean } {
+  // ⚠️ Alleen de Leaf van de eigenaar erft zijn startwaarden, en alleen als er oude opslag van hem
+  // staat. Een verse browser heeft nog geen auto: die kiest hij zelf, en tot dan is de snelheid onbekend.
+  if (migrated || cars.length > 0 || !hasLegacyData) return { cars, changed: false };
   return {
     cars: [{ id: LEAF_ID, label: "Nissan Leaf", plate: null, rdw: null, start: { ...LEAF_START } }],
     changed: true,

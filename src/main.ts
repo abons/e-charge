@@ -12,6 +12,7 @@ import { lookupPlate } from "./car.js";
 import {
   CARS_KEY,
   CAR_KEY,
+  LEAF_ID,
   MIGRATED_KEY,
   activeCar,
   adoptLegacy,
@@ -25,7 +26,7 @@ import {
   withoutCar,
   type Car,
 } from "./core/car.js";
-import { kmPerPp, ratePerHour, setupAt, type Source } from "./core/derive.js";
+import { LEAF_START, kmPerPp, ratePerHour, setupAt, type Source } from "./core/derive.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -147,7 +148,7 @@ const carCloseButton = el<HTMLButtonElement>("carclose");
  * vóór de autokeuze houdt de oude sleutels, dus er wordt bij het overstappen niets gekopieerd.
  */
 let cars: Car[] = [];
-let car: Car = { id: "leaf", label: "Nissan Leaf", plate: null, rdw: null, start: null };
+let car: Car = { id: LEAF_ID, label: "", plate: null, rdw: null, start: null };
 
 /**
  * Een lopende laadsessie: het moment en het percentage waarop de berekening staat, en het doel.
@@ -418,7 +419,7 @@ function carName(): string {
 
 /** `startwaarde uit log.md` is waar alleen voor de Leaf; een andere auto heeft de startwaarden van de eigenaar. */
 function startTekst(): string {
-  return car.id === "leaf" ? "startwaarde uit log.md" : "startwaarde van jou";
+  return car.start?.ratePpPerHour === LEAF_START.ratePpPerHour ? "startwaarde uit log.md" : "startwaarde van jou";
 }
 
 function bronTekst(source: Source): string {
@@ -612,16 +613,19 @@ function writeCarId(id: string): void {
 function initCars(): void {
   let migrated = false;
   let activeId: string | null = null;
+  let legacy = false;
   try {
     migrated = localStorage.getItem(MIGRATED_KEY) === "1";
     activeId = localStorage.getItem(CAR_KEY);
+    legacy = ["logbook", "session", "finished"].some((kind) => localStorage.getItem(carKey(kind as "logbook", LEAF_ID)) !== null);
   } catch {
-    /* geen opslag: in het geheugen de Leaf */
+    /* geen opslag: geen auto, tot de gebruiker er een kiest */
   }
-  const adopted = adoptLegacy(readCars(), migrated);
+  const adopted = adoptLegacy(readCars(), migrated, legacy);
   cars = adopted.cars;
-  if (adopted.changed) {
-    writeCars(cars);
+  if (adopted.changed) writeCars(cars);
+  // Eénmalig: wat hierna in de oude sleutels komt is van de gebruiker zelf, niet meer van vóór de autokeuze.
+  if (!migrated) {
     try {
       localStorage.setItem(MIGRATED_KEY, "1");
     } catch {
@@ -632,8 +636,9 @@ function initCars(): void {
   if (first !== null) car = first;
 }
 
+/** Zonder gekozen auto staat er een uitnodiging; de opslag werkt intussen onder de sleutels van de eerste auto. */
 function renderCarButton(): void {
-  carButton.textContent = carTitle(car);
+  carButton.textContent = cars.length === 0 ? "Kies je auto" : carTitle(car);
 }
 
 /**
@@ -747,7 +752,11 @@ async function saveCar(): Promise<void> {
   }
   let nieuw: Car;
   if (plate === "") {
-    nieuw = { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, start };
+    // De eerste auto zonder kenteken neemt de naamloze opslag over; een tweede krijgt een eigen sleutel.
+    nieuw =
+      cars.length === 0
+        ? { ...car, label: naam, start }
+        : { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, start };
   } else {
     carSaveButton.disabled = true;
     carNote.textContent = "Zoeken bij RDW…";
@@ -765,7 +774,7 @@ async function saveCar(): Promise<void> {
     // Koppelen: de huidige auto zonder kenteken (de Leaf van vóór de autokeuze) krijgt het kenteken en
     // houdt zijn id, dus zijn logboek en sessie. Anders wordt het kenteken een nieuwe, lege auto.
     nieuw =
-      !carLinkRow.hidden && carLink.checked && car.plate === null && oud === undefined
+      (cars.length === 0 || (!carLinkRow.hidden && carLink.checked)) && car.plate === null && oud === undefined
         ? { ...car, plate, rdw, label: naam === "" ? car.label : naam, start: start ?? car.start }
         : { ...carFromPlate(plate, rdw, naam), start: start ?? oud?.start ?? null };
   }
@@ -787,7 +796,7 @@ function openCarDialog(): void {
   carRateInput.value = "";
   carKmInput.value = "";
   carNote.textContent = "";
-  carLinkRow.hidden = car.plate !== null;
+  carLinkRow.hidden = car.plate !== null || cars.length === 0;
   carLink.checked = true;
   carDialog.showModal();
 }

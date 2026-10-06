@@ -111,16 +111,20 @@ test("withCar / withoutCar: vervangen op id, volgorde blijft", () => {
 });
 
 test("adoptLegacy: eerste start maakt de Leaf, daarna nooit meer", () => {
-  const eerste = adoptLegacy([], false);
+  const eerste = adoptLegacy([], false, true);
   assert.equal(eerste.changed, true);
   assert.equal(eerste.cars.length, 1);
   assert.equal(eerste.cars[0]!.id, LEAF_ID);
   assert.deepEqual(eerste.cars[0]!.start, LEAF_START);
   // al gemigreerd: een bewust verwijderde Leaf komt niet terug
-  assert.deepEqual(adoptLegacy([], true), { cars: [], changed: false });
+  assert.deepEqual(adoptLegacy([], true, true), { cars: [], changed: false });
   // een bestaande lijst blijft zoals ze is
   const lijst = [carFromPlate("AA1111", null, "a")];
-  assert.deepEqual(adoptLegacy(lijst, false), { cars: lijst, changed: false });
+  assert.deepEqual(adoptLegacy(lijst, false, true), { cars: lijst, changed: false });
+});
+
+test("adoptLegacy: een verse browser krijgt geen Leaf met de startwaarden van de eigenaar", () => {
+  assert.deepEqual(adoptLegacy([], false, false), { cars: [], changed: false });
 });
 
 test("zonder startwaarden is de snelheid onbekend en rekent niets door", () => {
