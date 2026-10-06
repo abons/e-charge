@@ -27,6 +27,22 @@ export const START_RATE_PP_PER_H = 10.1;
 /** Kilometers per procentpunt, afgeleid uit vier geldige paren in `log.md` (2026-10-06): 2,01. */
 export const START_KM_PER_PP = 2.0;
 
+/**
+ * Startwaarden van één auto: wat het scherm gebruikt zolang het logboek van die auto te weinig
+ * beurten heeft. ⚠️ Ze zijn van die auto en niet van "een" auto: de Leaf-waarden hierboven komen uit
+ * het logboek van déze Leaf. Een andere auto heeft ze alleen als de eigenaar ze zelf invult; anders is
+ * `start` `null` en is de snelheid onbekend (`source: "onbekend"`) tot er eigen beurten zijn.
+ */
+export interface Start {
+  /** Procentpunt per uur op de hoogste stand. */
+  ratePpPerHour: number;
+  /** Kilometers per procentpunt. */
+  kmPerPp: number;
+}
+
+/** De startwaarden van de Leaf van de eigenaar — de default, zodat scripts en tests ongewijzigd blijven. */
+export const LEAF_START: Start = { ratePpPerHour: START_RATE_PP_PER_H, kmPerPp: START_KM_PER_PP };
+
 /** Bruikbare beurten op de hoogste stand voordat die de startwaarde vervangen. */
 export const MIN_SESSIONS = 3;
 /** Op een lagere stand volstaan er twee eigen beurten: de schaling uit de hoogste stand is zelf al een rekenregel. */
@@ -40,7 +56,7 @@ const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
 /** Waar een getal vandaan komt: je eigen logboek, een schaling uit de hoogste stand, of een startwaarde. */
-export type Source = "eigen" | "schaling" | "start";
+export type Source = "eigen" | "schaling" | "start" | "onbekend";
 
 export interface Value {
   value: number;
@@ -90,14 +106,19 @@ export function rateSamples(entries: Entry[], amps: number): number[] {
  * De laadsnelheid op stand [amps]. Eigen beurten op die stand winnen; zonder die schaalt de snelheid
  * van de hoogste stand mee met de kabelverhouding (8 A is de helft) — en het scherm zegt dat het dat is.
  */
-export function ratePerHour(entries: Entry[], amps: number): Value {
+export function ratePerHour(entries: Entry[], amps: number, start: Start | null = LEAF_START): Value {
   const stand = clampCurrent(amps);
   const own = rateSamples(entries, stand);
   if (own.length >= (stand === RATED_CURRENT_A ? MIN_SESSIONS : MIN_SESSIONS_OTHER)) {
     return { value: median(own), n: own.length, source: "eigen" };
   }
-  if (stand === RATED_CURRENT_A) return { value: START_RATE_PP_PER_H, n: 0, source: "start" };
-  const top = ratePerHour(entries, RATED_CURRENT_A);
+  if (stand === RATED_CURRENT_A) {
+    return start === null
+      ? { value: NaN, n: 0, source: "onbekend" }
+      : { value: start.ratePpPerHour, n: 0, source: "start" };
+  }
+  const top = ratePerHour(entries, RATED_CURRENT_A, start);
+  if (top.source === "onbekend") return top;
   return { value: (top.value * stand) / RATED_CURRENT_A, n: top.n, source: "schaling" };
 }
 
@@ -124,19 +145,22 @@ export function kmPerPpPairs(entries: Entry[]): { km: number; pp: number }[] {
 }
 
 /** Kilometers per procentpunt: gepoold over de geldige paren (Σkm ÷ Σpp), anders de startwaarde. */
-export function kmPerPp(entries: Entry[]): Value {
+export function kmPerPp(entries: Entry[], start: Start | null = LEAF_START): Value {
   const pairs = kmPerPpPairs(entries);
-  if (pairs.length < MIN_PAIRS) return { value: START_KM_PER_PP, n: 0, source: "start" };
+  if (pairs.length < MIN_PAIRS) {
+    return start === null ? { value: NaN, n: 0, source: "onbekend" } : { value: start.kmPerPp, n: 0, source: "start" };
+  }
   const km = pairs.reduce((s, p) => s + p.km, 0);
   const pp = pairs.reduce((s, p) => s + p.pp, 0);
   return { value: km / pp, n: pairs.length, source: "eigen" };
 }
 
 /** Wat `estimate`, `percentAfter`, `rangeKm` en de kosten nodig hebben, op stand [amps]. */
-export function setupAt(amps: number, entries: Entry[]): Setup {
+export function setupAt(amps: number, entries: Entry[], start: Start | null = LEAF_START): Setup {
   return {
-    ratePpPerHour: ratePerHour(entries, amps).value,
+    // `NaN` is "onbekend": `estimate` en `eurPerKm` lezen dat al als "niets te rekenen"; het scherm zegt het in woorden.
+    ratePpPerHour: ratePerHour(entries, amps, start).value,
     powerKw: powerKwAt(amps),
-    kmPerPp: kmPerPp(entries).value,
+    kmPerPp: kmPerPp(entries, start).value,
   };
 }

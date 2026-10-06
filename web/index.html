@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>Leaf laadtijd — hoe lang aan het stopcontact</title>
-<meta name="description" content="Rekenhulp voor een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact: vul je huidige en gewenste batterijpercentage in en zie hoe lang laden duurt en hoe laat de auto klaar is.">
+<title>Laadtijd — hoe lang aan het stopcontact</title>
+<meta name="description" content="Rekenhulp voor een elektrische auto aan een gewoon 230V-stopcontact: vul je huidige en gewenste batterijpercentage in en zie hoe lang laden duurt en hoe laat de auto klaar is.">
 <meta name="author" content="hrbons">
 <meta name="theme-color" content="#121213">
 <link rel="canonical" href="https://abons.github.io/e-charge/">
@@ -12,8 +12,8 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Leaf laadtijd — hoe lang aan het stopcontact">
-<meta property="og:description" content="Vul je huidige en gewenste batterijpercentage in en zie hoe lang een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact doet, en hoe laat hij klaar is.">
+<meta property="og:title" content="Laadtijd — hoe lang aan het stopcontact">
+<meta property="og:description" content="Vul je huidige en gewenste batterijpercentage in en zie hoe lang een elektrische auto aan een gewoon 230V-stopcontact doet, en hoe laat hij klaar is.">
 <meta property="og:url" content="https://abons.github.io/e-charge/">
 <style>
   /*
@@ -31,7 +31,25 @@
      mee en Chrome hoeft de pagina niet omhoog te schuiven. */
   main { width: 100%; max-width: 420px; padding: 12px 16px 20px; flex: 1;
          display: flex; flex-direction: column; }
-  .title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 10px; text-align: center; }
+  .title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 8px; text-align: center; }
+  /* De autoregel: vaste hoogte en nowrap, want het label wisselt zodra RDW antwoordt. De keuze zelf
+     staat in een <dialog> (bovenlaag), dus openen schuift niets. */
+  .carbtn { width: 100%; height: 44px; background: #1c1c1d; border: 1px solid #2c2c2e; color: #eee;
+            font: 700 18px system-ui, sans-serif; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; }
+  dialog { background: #1c1c1d; color: #eee; border: 1px solid #3a3a3c; border-radius: 14px; padding: 16px;
+           width: min(380px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { font-size: 16px; margin: 0 0 10px; }
+  dialog input[type=text] { width: 100%; min-height: 44px; background: #121213; color: #eee;
+            border: 1px solid #3a3a3c; border-radius: 10px; padding: 8px 12px; font: 600 18px system-ui, sans-serif; margin: 4px 0 8px; }
+  dialog .row { display: flex; gap: 8px; }
+  dialog .row > * { flex: 1; }
+  dialog .carlist { list-style: none; margin: 8px 0; padding: 0; }
+  dialog .carlist li { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  dialog .carlist li button:first-child { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+  dialog .carlist li.on button:first-child { outline: 2px solid #7fd4a0; }
+  dialog .carnote { color: #b5b5b5; font-size: 13px; min-height: 36px; margin: 4px 0 8px; }
+  dialog label { font-size: 13px; color: #b5b5b5; display: block; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
   main > .card:not(.about) { flex: 1; display: flex; flex-direction: column; }
 
@@ -172,7 +190,7 @@
 </head>
 <body>
 <main>
-  <h1 class="title">Nissan Leaf</h1>
+  <h1 class="title"><button class="carbtn" id="carbtn" type="button" aria-haspopup="dialog">Nissan Leaf</button></h1>
 
   <details class="card about" id="about">
     <summary>📲 Installeren</summary>
@@ -337,6 +355,28 @@
   </div>
 
 </main>
+
+<dialog id="cardlg">
+  <h2>Auto</h2>
+  <ul class="carlist" id="carlist"></ul>
+  <label for="plate">Kenteken</label>
+  <input type="text" id="plate" inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" placeholder="AB-123-C">
+  <label for="carname">Eigen naam (als RDW niets vindt)</label>
+  <input type="text" id="carname" autocomplete="off" maxlength="30">
+  <details>
+    <summary>Startwaarden (optioneel)</summary>
+    <label for="car-rate">Procentpunt per uur op 16 A</label>
+    <input type="text" id="car-rate" inputmode="decimal" autocomplete="off">
+    <label for="car-km">Kilometers per procentpunt</label>
+    <input type="text" id="car-km" inputmode="decimal" autocomplete="off">
+  </details>
+  <p class="carnote" id="carnote"></p>
+  <div class="row">
+    <button type="button" id="carsave">Zoek en bewaar</button>
+    <button type="button" id="carclose">Sluiten</button>
+  </div>
+  <p class="carnote">Het kenteken blijft op deze telefoon; alleen bij "Zoek" gaat het naar RDW (open data).</p>
+</dialog>
 <script src="app.js"></script>
 </body>
 </html>

@@ -28,6 +28,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   Dat kwam boven met een tijdelijke workflow die `curl -H "Origin: https://abons.github.io"` deed
   en de `access-control-allow-origin`-header afdrukte; de sessie-proxy van Claude blokkeert die
   hosts, een runner niet. Doe dat opnieuw vóór je van bron wisselt — en `price.value` is een string.
+- ⚠️ **Tweede uitzondering, sinds 2026-10-06: een kenteken opzoeken bij RDW** (`src/car.ts`, alleen op
+  "Zoek", open data, merk/model om te *tonen*, nooit om mee te rekenen). Logboek, sessie en laatst
+  afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de Leaf houdt de oude sleutels,
+  doel en laadstand zijn globaal. De Leaf-startwaarden gelden alleen voor de Leaf (`Start | null`:
+  een andere auto heeft er geen tot hij eigen beurten heeft). Het kenteken staat nooit in een export,
+  want `log.md` is publiek. Zie `design.md`.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
   klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon

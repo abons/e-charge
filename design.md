@@ -329,3 +329,22 @@ redenen:
 
 De service-worker-versie wordt door `scripts/build.mjs` gestempeld en niet door een publish-script,
 zodat een deploy zichzelf doorzet zonder dat iemand eraan moet denken.
+
+## Een auto kiezen: kenteken via RDW, logboek per auto — 2026-10-06
+
+De app was de Leaf van de eigenaar; op verzoek kan er bovenin een auto worden gekozen. Besloten (na
+een review door drie agents — architectuur, UX, netwerk/privacy):
+
+- **Kenteken via RDW open data** (`m9d7-ebf2`, CORS `*` gemeten), alleen op "Zoek", 8 s timeout.
+  Het geeft merk/model/uitvoering/bouwjaar om te tonen; capaciteit en snelheid komen nog uit het
+  logboek van die auto. `8ys7-d773` (brandstof, herkent een EV) is bewust niet gebruikt.
+- **Per auto**: logboek, sessie, laatst afgesloten beurt. De Leaf houdt de oude `e-charge.*`-sleutels
+  (geen kopie, geen dataverlies, een oude bundel in een open tab schrijft niet in het niets); andere
+  auto's krijgen `.<kenteken>` erachter. Doel en laadstand zijn van de kabel en blijven globaal.
+- **Startwaarden zijn van een auto, niet van "een" auto**: `Start | null` in `derive.ts`; zonder
+  startwaarden en met te weinig eigen beurten is de snelheid `onbekend` en zegt het scherm dat, in
+  plaats van met de Leaf te rekenen. De eigenaar kan ze bij een nieuwe auto zelf invullen.
+- **Het kenteken blijft op de telefoon** en gaat alleen bij "Zoek" in de URL naar RDW. Het staat niet
+  in de agenda-afspraak en niet in een export: `log.md` staat in een publieke repo.
+- **UI**: een vaste regel van 44 px vervangt de titel; de keuze staat in een `<dialog>` (bovenlaag),
+  omdat een blok in de flow de knoppen zou verschuiven (zie `CLAUDE.md`, lay-out).

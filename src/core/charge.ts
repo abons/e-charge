@@ -131,6 +131,6 @@ export function rangeKm(percent: number, setup: Setup): number {
 export function percentAfter(fromPercent: number, toPercent: number, elapsedMs: number, setup: Setup): number {
   const from = clampPercent(fromPercent);
   const to = clampPercent(toPercent);
-  if (elapsedMs <= 0 || to <= from) return from;
+  if (elapsedMs <= 0 || to <= from || !(setup.ratePpPerHour > 0)) return from;
   return Math.min(100, from + setup.ratePpPerHour * (elapsedMs / 3_600_000));
 }

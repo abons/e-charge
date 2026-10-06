@@ -8,6 +8,23 @@ import {
   powerKwAt,
   rangeKm,
 } from "./core/charge.js";
+import { lookupPlate } from "./car.js";
+import {
+  CARS_KEY,
+  CAR_KEY,
+  MIGRATED_KEY,
+  activeCar,
+  adoptLegacy,
+  carFromPlate,
+  carKey,
+  carTitle,
+  isPlate,
+  normalizePlate,
+  parseCars,
+  withCar,
+  withoutCar,
+  type Car,
+} from "./core/car.js";
 import { kmPerPp, ratePerHour, setupAt, type Source } from "./core/derive.js";
 import { calendar } from "./core/ics.js";
 import {
@@ -48,10 +65,11 @@ import * as prices from "./prices.js";
 
 const TARGET_KEY = "e-charge.target";
 const AMPS_KEY = "e-charge.amps";
-const SESSION_KEY = "e-charge.session";
-const FINISHED_KEY = "e-charge.finished";
 const DEFAULT_TARGET = 90;
-const LOGBOOK_KEY = "e-charge.logbook";
+/** De sleutels van sessie, laatst afgesloten beurt en logboek horen bij de actieve auto (`carKey`). */
+const sessionKey = (): string => carKey("session", car.id);
+const finishedKey = (): string => carKey("finished", car.id);
+const logbookKey = (): string => carKey("logbook", car.id);
 const COPY_LABEL = "📋 Kopieer logregel";
 const COPY_ALL_LABEL = "📋 Kopieer hele logboek";
 const SAVE_LABEL = "💾 Bewaar laadbeurt";
@@ -110,6 +128,24 @@ const logHint = el("loghint");
 const chargeButton = el<HTMLButtonElement>("start-charging");
 const calendarButton = el<HTMLButtonElement>("calendar");
 const installButton = el<HTMLButtonElement>("install");
+const carButton = el<HTMLButtonElement>("carbtn");
+const carDialog = el<HTMLDialogElement>("cardlg");
+const carList = el<HTMLUListElement>("carlist");
+const plateInput = el<HTMLInputElement>("plate");
+const carNameInput = el<HTMLInputElement>("carname");
+const carRateInput = el<HTMLInputElement>("car-rate");
+const carKmInput = el<HTMLInputElement>("car-km");
+const carNote = el("carnote");
+const carSaveButton = el<HTMLButtonElement>("carsave");
+const carCloseButton = el<HTMLButtonElement>("carclose");
+
+/**
+ * De auto's op deze telefoon en de actieve. Logboek, sessie en laatst afgesloten beurt zijn per
+ * auto (`carKey`); doel en laadstand zijn van de kabel en de eigenaar, niet van de auto. De Leaf van
+ * vóór de autokeuze houdt de oude sleutels, dus er wordt bij het overstappen niets gekopieerd.
+ */
+let cars: Car[] = [];
+let car: Car = { id: "leaf", label: "Nissan Leaf", plate: null, rdw: null, start: null };
 
 /**
  * Een lopende laadsessie: het moment en het percentage waarop de berekening staat, en het doel.
@@ -155,7 +191,7 @@ function activeAmps(): number {
 
 /** De auto aan de kabel op die stand — wat alles wat rekent meekrijgt. */
 function setup() {
-  return setupAt(activeAmps(), logbook);
+  return setupAt(activeAmps(), logbook, car.start);
 }
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
@@ -207,7 +243,18 @@ function render(): void {
   const rangePercent = Math.max(from, to);
   rangeLabel.textContent = `Bereik bij ${rangePercent}%`;
   const opzet = setup();
-  rangeOut.textContent = `± ${rangeKm(rangePercent, opzet)} km`;
+  rangeOut.textContent = rangeText(rangePercent, opzet);
+  // Een auto zonder startwaarden en met te weinig eigen beurten heeft geen snelheid: dan geen
+  // antwoord verzinnen (en `estimate` zou "laden niet nodig" zeggen). Starten en bewaren kan wel,
+  // want juist die beurten maken de snelheid bekend.
+  if (!(opzet.ratePpPerHour > 0)) {
+    show("–", "–", null, "");
+    showCost(null);
+    note("Laadsnelheid van deze auto nog onbekend: bewaar een paar beurten, of vul startwaarden in.", "info");
+    calendarButton.disabled = true;
+    chargeButton.disabled = false;
+    return;
+  }
   const result = estimate(from, to, opzet);
   // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` geeft dan het startpunt
   // terug. Liever de regel weg dan een bevroren getal laten staan.
@@ -241,7 +288,7 @@ function render(): void {
   if (session) {
     const soc = Math.floor(percentAfter(session.from, to, now - session.startMs, opzet));
     nowPctOut.textContent = `${soc}%`;
-    nowKmOut.textContent = `± ${rangeKm(soc, opzet)} km`;
+    nowKmOut.textContent = rangeText(soc, opzet);
     show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, sourceTag());
     // Voorbij het doel blijft de schatting oplopen naar 100% — de auto kent jouw doel niet. Dus
     // noemt deze regel `soc` en niet `to`: die laatste bevroor op 90% terwijl er 98% in zat.
@@ -270,6 +317,11 @@ function render(): void {
   chargeButton.disabled = false;
 }
 
+/** `± 86 km`, of een streepje zolang de kilometers per procentpunt van deze auto onbekend zijn. */
+function rangeText(percent: number, opzet: ReturnType<typeof setup>): string {
+  return opzet.kmPerPp > 0 ? `± ${rangeKm(percent, opzet)} km` : "–";
+}
+
 /** Zonder laadbeurt om over te rapporteren — of zonder eindpercentage — valt er niets te loggen. */
 function updateCopyButton(): void {
   // In het klapblok "achteraf invoeren" valideert de knop zelf, met een melding in woorden.
@@ -285,12 +337,13 @@ function updateCopyButton(): void {
  */
 function sourceTag(): string {
   const amps = activeAmps();
-  const rate = ratePerHour(logbook, amps);
+  const rate = ratePerHour(logbook, amps, car.start);
   // Een lagere stand schaalt uit 16 A, en die snelheid kan zelf nog een startwaarde zijn.
-  const bovenste = rate.source === "schaling" ? ratePerHour(logbook, RATED_CURRENT_A) : rate;
+  const bovenste = rate.source === "schaling" ? ratePerHour(logbook, RATED_CURRENT_A, car.start) : rate;
   const tags: string[] = [];
   if (rate.source === "schaling") tags.push(`geschat uit ${RATED_CURRENT_A} A`);
-  if (bovenste.source === "start" || kmPerPp(logbook).source === "start") tags.push("startwaarde");
+  if (bovenste.source === "start" || kmPerPp(logbook, car.start).source === "start") tags.push("startwaarde");
+  if (kmPerPp(logbook, car.start).source === "onbekend") tags.push("km per % onbekend");
   return tags.length === 0 ? "" : ` · ${tags.join(", ")}`;
 }
 
@@ -332,14 +385,14 @@ function note(text: string | null, kind: "ok" | "info" = "ok"): void {
 /** De agenda-afspraak: de eindtijd, met de aanname erbij zodat je later ziet waar die uit kwam. */
 function addToCalendar(): void {
   if (!ready) return;
-  const opzet = setupAt(ready.amps, logbook);
+  const opzet = setupAt(ready.amps, logbook, car.start);
   const result = estimate(ready.from, ready.to, opzet);
   const text = calendar({
     readyMs: ready.readyMs,
-    title: `Nissan Leaf ${ready.to}% — klaar met laden`,
+    title: `${carName()} ${ready.to}% — klaar met laden`,
     description:
       `Gestart om ${clock(ready.startMs)} op ${ready.from}%, doel ${ready.to}%.\n` +
-      `${nl(opzet.ratePpPerHour)} procentpunt per uur op ${ready.amps} A (${bronTekst(ratePerHour(logbook, ready.amps).source)}), ` +
+      `${nl(opzet.ratePpPerHour)} procentpunt per uur op ${ready.amps} A (${bronTekst(ratePerHour(logbook, ready.amps, car.start).source)}), ` +
       `${duration(result.minutes)} laden.` +
       (ready.cost === null
         ? ""
@@ -349,14 +402,25 @@ function addToCalendar(): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "leaf-klaar.ics";
+  link.download = "klaar.ics";
   link.click();
   // Pas vrijgeven als de browser de download echt heeft opgepakt; direct revoken breekt Safari.
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** De naam zonder kenteken: voor de agenda en overal waar tekst de telefoon verlaat. */
+function carName(): string {
+  const naam = car.rdw === null ? car.label : `${car.rdw.merk} ${car.rdw.model}`.trim();
+  return naam === "" ? "Auto" : naam;
+}
+
+/** `startwaarde uit log.md` is waar alleen voor de Leaf; een andere auto heeft de startwaarden van de eigenaar. */
+function startTekst(): string {
+  return car.id === "leaf" ? "startwaarde uit log.md" : "startwaarde van jou";
+}
+
 function bronTekst(source: Source): string {
-  return source === "eigen" ? "uit je logboek" : source === "schaling" ? "geschat uit 16 A" : "startwaarde uit log.md";
+  return source === "eigen" ? "uit je logboek" : source === "schaling" ? "geschat uit 16 A" : source === "onbekend" ? "onbekend" : startTekst();
 }
 
 // Eén regel onderaan met waar de getallen vandaan komen — er is geen aanname meer, alleen je eigen
@@ -365,18 +429,22 @@ function bronTekst(source: Source): string {
 // zodra de keuzelijst verandert.
 function renderSetup(): void {
   const amps = activeAmps();
-  const rate = ratePerHour(logbook, amps);
-  const km = kmPerPp(logbook);
+  const rate = ratePerHour(logbook, amps, car.start);
+  const km = kmPerPp(logbook, car.start);
   const snelheid =
     rate.source === "eigen"
       ? `${nl(rate.value)} procentpunt per uur op ${amps} A (mediaan van ${rate.n} laadbeurten uit je logboek)`
       : rate.source === "schaling"
         ? `${nl(rate.value)} procentpunt per uur op ${amps} A (geschat uit ${RATED_CURRENT_A} A: je hebt nog niet vaak genoeg op deze stand geladen)`
-        : `${nl(rate.value)} procentpunt per uur op ${amps} A (startwaarde uit log.md: nog te weinig laadbeurten in je logboek)`;
+        : rate.source === "onbekend"
+          ? "onbekend (nog te weinig laadbeurten in het logboek van deze auto, en geen startwaarden ingevuld)"
+          : `${nl(rate.value)} procentpunt per uur op ${amps} A (${startTekst()}: nog te weinig laadbeurten in je logboek)`;
   const bereik =
     km.source === "eigen"
       ? `${nl(km.value)} km per procentpunt (uit ${km.n} ritten in je logboek)`
-      : `${nl(km.value)} km per procentpunt (startwaarde uit log.md)`;
+      : km.source === "onbekend"
+        ? "onbekend"
+        : `${nl(km.value)} km per procentpunt (${startTekst()})`;
   setupOut.textContent = `Laadsnelheid: ${snelheid}. Bereik: ${bereik}.`;
 }
 
@@ -437,7 +505,7 @@ function writeAmps(value: number): void {
  */
 function readSession(): Session | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(sessionKey());
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -461,8 +529,8 @@ function readSession(): Session | null {
 function writeSession(value: Session | null): void {
   session = value;
   try {
-    if (value === null) localStorage.removeItem(SESSION_KEY);
-    else localStorage.setItem(SESSION_KEY, JSON.stringify(value));
+    if (value === null) localStorage.removeItem(sessionKey());
+    else localStorage.setItem(sessionKey(), JSON.stringify(value));
   } catch {
     /* zonder opslag werkt de aftelling wel, maar overleeft hij het sluiten van de app niet */
   }
@@ -470,7 +538,7 @@ function writeSession(value: Session | null): void {
 
 function readLogbook(): Entry[] {
   try {
-    return parseEntries(localStorage.getItem(LOGBOOK_KEY));
+    return parseEntries(localStorage.getItem(logbookKey()));
   } catch {
     return [];
   }
@@ -479,7 +547,7 @@ function readLogbook(): Entry[] {
 function writeLogbook(value: Entry[]): void {
   logbook = value;
   try {
-    localStorage.setItem(LOGBOOK_KEY, JSON.stringify(value));
+    localStorage.setItem(logbookKey(), JSON.stringify(value));
   } catch {
     /* zonder opslag blijft het logboek deze sessie staan; kopiëren werkt gewoon */
   }
@@ -487,7 +555,7 @@ function writeLogbook(value: Entry[]): void {
 
 function readFinished(): Finished | null {
   try {
-    const raw = localStorage.getItem(FINISHED_KEY);
+    const raw = localStorage.getItem(finishedKey());
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -503,10 +571,211 @@ function readFinished(): Finished | null {
 function writeFinished(value: Finished): void {
   finished = value;
   try {
-    localStorage.setItem(FINISHED_KEY, JSON.stringify(value));
+    localStorage.setItem(finishedKey(), JSON.stringify(value));
   } catch {
     /* dan is de logregel alleen kopieerbaar zolang deze pagina open blijft */
   }
+}
+
+function readCars(): Car[] {
+  try {
+    return parseCars(localStorage.getItem(CARS_KEY));
+  } catch {
+    return [];
+  }
+}
+
+function writeCars(value: Car[]): void {
+  cars = value;
+  try {
+    localStorage.setItem(CARS_KEY, JSON.stringify(value));
+  } catch {
+    /* zonder opslag blijven de auto's deze sessie staan */
+  }
+}
+
+function writeCarId(id: string): void {
+  try {
+    localStorage.setItem(CAR_KEY, id);
+  } catch {
+    /* de volgende start valt terug op de eerste auto */
+  }
+}
+
+/**
+ * De adoptie van vóór de autokeuze, en de actieve auto. ⚠️ Eerst alles lezen, dan schrijven, en de
+ * marker als laatste: een `SecurityError` halverwege mag geen half werk achterlaten. De oude sleutels
+ * blijven staan (de Leaf houdt ze), dus een oude bundel in een open tab schrijft niet in het niets.
+ */
+function initCars(): void {
+  let migrated = false;
+  let activeId: string | null = null;
+  try {
+    migrated = localStorage.getItem(MIGRATED_KEY) === "1";
+    activeId = localStorage.getItem(CAR_KEY);
+  } catch {
+    /* geen opslag: in het geheugen de Leaf */
+  }
+  const adopted = adoptLegacy(readCars(), migrated);
+  cars = adopted.cars;
+  if (adopted.changed) {
+    writeCars(cars);
+    try {
+      localStorage.setItem(MIGRATED_KEY, "1");
+    } catch {
+      /* dan doet de volgende start het opnieuw: idempotent */
+    }
+  }
+  const first = activeCar(cars, activeId);
+  if (first !== null) car = first;
+}
+
+function renderCarButton(): void {
+  carButton.textContent = carTitle(car);
+}
+
+/**
+ * Naar een andere auto: alles wat per auto is wordt opnieuw gelezen (sessie, laatst afgesloten
+ * beurt, logboek) en de invoer volgt de sessie. Niet tijdens het laden — dan raken de aftelling en het
+ * logboek ontkoppeld; de melding staat in de dialoog, want die staat dan open.
+ */
+function switchCar(id: string): boolean {
+  if (id === car.id) return true;
+  if (session !== null) {
+    carNote.textContent = "Er loopt een laadbeurt: sluit die eerst af (⏹ Stop) voor je van auto wisselt.";
+    return false;
+  }
+  const next = cars.find((c) => c.id === id);
+  if (next === undefined) return false;
+  car = next;
+  writeCarId(id);
+  session = readSession();
+  finished = readFinished();
+  logbook = readLogbook();
+  huidigIsSchatting = false;
+  currentInput.value = "";
+  renderCarButton();
+  renderSetup();
+  renderLogbook();
+  logBook.open = bijwerkbaar() !== null;
+  render();
+  return true;
+}
+
+let teVerwijderen: string | null = null;
+
+function renderCarList(): void {
+  carList.replaceChildren();
+  for (const c of cars) {
+    const li = document.createElement("li");
+    if (c.id === car.id) li.className = "on";
+    const kies = document.createElement("button");
+    kies.type = "button";
+    kies.textContent = carTitle(c);
+    kies.addEventListener("click", () => {
+      if (switchCar(c.id)) carDialog.close();
+      else renderCarList();
+    });
+    li.append(kies);
+    if (cars.length > 1) {
+      const weg = document.createElement("button");
+      weg.type = "button";
+      weg.textContent = teVerwijderen === c.id ? "Zeker? Logboek weg" : "×";
+      weg.addEventListener("click", () => deleteCar(c.id));
+      li.append(weg);
+    }
+    carList.append(li);
+  }
+}
+
+/** Twee tikken: het logboek van die auto gaat mee, en dat komt niet terug. */
+function deleteCar(id: string): void {
+  if (teVerwijderen !== id) {
+    teVerwijderen = id;
+    renderCarList();
+    return;
+  }
+  teVerwijderen = null;
+  if (id === car.id && session !== null) {
+    carNote.textContent = "Er loopt een laadbeurt: sluit die eerst af voor je deze auto verwijdert.";
+    renderCarList();
+    return;
+  }
+  try {
+    for (const kind of ["logbook", "session", "finished"] as const) localStorage.removeItem(carKey(kind, id));
+  } catch {
+    /* de lijst is wat telt; weesgegevens in opslag doen niets */
+  }
+  const rest = withoutCar(cars, id);
+  writeCars(rest);
+  if (id === car.id && rest[0] !== undefined) switchCar(rest[0].id);
+  renderCarList();
+}
+
+/** Een getal met komma of punt, groter dan nul; leeg of onzin is `null`. */
+function positiefGetal(input: HTMLInputElement): number | null {
+  const n = Number(input.value.trim().replace(",", "."));
+  return input.value.trim() !== "" && Number.isFinite(n) && n > 0 ? n : null;
+}
+
+async function saveCar(): Promise<void> {
+  const plate = normalizePlate(plateInput.value);
+  const naam = carNameInput.value.trim();
+  const rate = positiefGetal(carRateInput);
+  const km = positiefGetal(carKmInput);
+  if ((rate === null) !== (km === null) || (carRateInput.value.trim() !== "" && rate === null) || (carKmInput.value.trim() !== "" && km === null)) {
+    carNote.textContent = "Vul beide startwaarden in (positieve getallen), of geen van beide.";
+    return;
+  }
+  const start = rate !== null && km !== null ? { ratePpPerHour: rate, kmPerPp: km } : null;
+  if (plate === "" && naam === "") {
+    carNote.textContent = "Vul een kenteken of een naam in.";
+    return;
+  }
+  if (plate !== "" && !isPlate(plate)) {
+    carNote.textContent = "Een kenteken heeft 6 letters en cijfers.";
+    return;
+  }
+  let nieuw: Car;
+  if (plate === "") {
+    nieuw = { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, start };
+  } else {
+    carSaveButton.disabled = true;
+    carNote.textContent = "Zoeken bij RDW…";
+    const gevonden = await lookupPlate(plate);
+    carSaveButton.disabled = false;
+    if (gevonden.kind !== "gevonden" && naam === "") {
+      carNote.textContent =
+        gevonden.kind === "mislukt"
+          ? "Geen verbinding met RDW. Geef de auto een eigen naam om hem toch te bewaren."
+          : "RDW kent dit kenteken niet. Geef de auto een eigen naam om hem toch te bewaren.";
+      return;
+    }
+    const oud = cars.find((c) => c.id === plate);
+    nieuw = {
+      ...carFromPlate(plate, gevonden.kind === "gevonden" ? gevonden.rdw : (oud?.rdw ?? null), naam),
+      start: start ?? oud?.start ?? null,
+    };
+  }
+  writeCars(withCar(cars, nieuw));
+  if (switchCar(nieuw.id)) {
+    carDialog.close();
+  } else {
+    // Bewaard, maar niet gekozen omdat er een beurt loopt; de melding van `switchCar` blijft staan.
+    renderCarList();
+  }
+  renderCarButton();
+}
+
+function openCarDialog(): void {
+  teVerwijderen = null;
+  renderCarList();
+  plateInput.value = "";
+  carNameInput.value = "";
+  carRateInput.value = "";
+  carKmInput.value = "";
+  carNote.textContent = "";
+  carDialog.showModal();
 }
 
 /** ⚡ Start laden / ⏹ Stop: het enige wat de app van "plannen" naar "bezig" brengt en terug. */
@@ -519,7 +788,7 @@ function toggleCharging(): void {
     // `eind%` gelijk aan `start%` melden — een laadbeurt van nul procentpunten, die `calibrate`
     // als 0,00 kW meerekent. Wat je hierna van het dashboard leest, typ je eroverheen.
     const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
-    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook))));
+    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook, car.start))));
     // Wat nu in het veld staat is een schatting, geen aflezing. De logregel moet dat weten (`estimated`),
     // anders voedt de app zijn eigen rekenwerk terug in het logboek waar de snelheid uit komt.
     huidigIsSchatting = true;
@@ -590,7 +859,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
         startMs: session.logStartMs,
         endMs: nu,
         from: session.logFrom,
-        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook)),
+        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook, car.start)),
         amps: session.amps,
       }
     : afgelopen !== null && eind !== null
@@ -624,7 +893,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
 /** Het bedrag van een beurt uit de kwartierprijzen die er nu bekend zijn, of `null` als er gaten zitten. */
 function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: number; amps: number }): number | null {
   // Op de stand van díe beurt, niet op wat de keuzelijst nu toevallig zegt.
-  const opzet = setupAt(bron.amps, logbook);
+  const opzet = setupAt(bron.amps, logbook, car.start);
   const laadMs = estimate(bron.from, bron.to, opzet).minutes * 60_000;
   const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
   const kosten = chargingCost(bron.startMs, totMs, opzet.powerKw, prices.known());
@@ -854,6 +1123,8 @@ ampsSelect.value = String(readAmps());
 // Een sessie die nog loopt hoort het scherm meteen in de bezig-stand te zetten, en het veld op het
 // percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling. En de
 // keuzelijst op de stand van de sessie: dat is de stand waar de aftelling op gerekend is.
+initCars();
+renderCarButton();
 session = readSession();
 finished = readFinished();
 if (session !== null) ampsSelect.value = String(session.amps);
@@ -919,7 +1190,7 @@ ampsSelect.addEventListener("change", () => {
     const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
     // Naar beneden, zoals het scherm het toont en zoals `readSession` het na een herlaad leest —
     // en de veilige kant: iets te weinig aannemen maakt de schatting hooguit een paar minuten te lang.
-    const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook)));
+    const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook, car.start)));
     writeSession({ ...session, startMs: nu, from: soc, amps });
   }
   renderSetup();
@@ -939,6 +1210,9 @@ manualBlock.addEventListener("toggle", () => {
   updateCopyButton();
 });
 calendarButton.addEventListener("click", addToCalendar);
+carButton.addEventListener("click", openCarDialog);
+carSaveButton.addEventListener("click", () => void saveCar());
+carCloseButton.addEventListener("click", () => carDialog.close());
 
 render();
 setInterval(render, TICK_MS);
