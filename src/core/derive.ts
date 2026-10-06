@@ -1,0 +1,142 @@
+import { RATED_CURRENT_A, clampCurrent, powerKwAt, type Setup } from "./charge.js";
+import type { Entry } from "./logbook.js";
+
+/**
+ * Alles wat de app weet over de auto, afgeleid uit het logboek — en niets anders.
+ *
+ * Twee grootheden, allebei in eenheden die het logboek rechtstreeks geeft (percentage, klok, km-stand),
+ * zodat er geen capaciteit of rendement aan te pas komt:
+ *
+ * - **Laadsnelheid**: procentpunt per uur, per laadstand. Per beurt (eind% − start%) ÷ uren, daarna de
+ *   mediaan over de laatste [WINDOW] bruikbare beurten.
+ * - **Kilometers per procentpunt**: uit twee opeenvolgende regels, (km van de volgende − km van deze)
+ *   ÷ (eind% van deze − start% van de volgende), gepoold over de laatste [WINDOW] geldige paren.
+ *
+ * ⚠️ Een beurt telt alleen mee als zijn getallen **afgelezen** zijn (`estimated` is niet gezet) en niet
+ * afgekapt: de app bewaart ook beurten zonder aflezing, maar die bevatten haar eigen schatting, en een
+ * mediaan over haar eigen schatting bevestigt alleen zichzelf. Beurten die op 99–100% eindigen tellen
+ * niet voor de snelheid: de lader was daar eerder klaar dan je afkoppelde, dus de duur is een bovengrens.
+ *
+ * ⚠️ Met te weinig bruikbare beurten gelden de startwaarden hieronder — hard schakelen, geen gewogen
+ * gemiddelde. Een test legt vast dat ze overeenkomen met wat deze functies uit `log.md` afleiden, zodat
+ * ze niet ongemerkt uit elkaar lopen.
+ */
+
+/** Procentpunt per uur op de hoogste stand ([RATED_CURRENT_A]), afgeleid uit `log.md` (2026-10-06). */
+export const START_RATE_PP_PER_H = 10.1;
+/** Kilometers per procentpunt, afgeleid uit vier geldige paren in `log.md` (2026-10-06): 2,01. */
+export const START_KM_PER_PP = 2.0;
+
+/** Bruikbare beurten op de hoogste stand voordat die de startwaarde vervangen. */
+export const MIN_SESSIONS = 3;
+/** Op een lagere stand volstaan er twee eigen beurten: de schaling uit de hoogste stand is zelf al een rekenregel. */
+export const MIN_SESSIONS_OTHER = 2;
+/** Geldige paren voor de kilometers per procentpunt. */
+export const MIN_PAIRS = 3;
+/** Alleen de laatste zoveel beurten (paren) tellen mee, zodat seizoen en slijtage meelopen. */
+export const WINDOW = 8;
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** Waar een getal vandaan komt: je eigen logboek, een schaling uit de hoogste stand, of een startwaarde. */
+export type Source = "eigen" | "schaling" | "start";
+
+export interface Value {
+  value: number;
+  /** Aantal beurten (of paren) waar `value` op rust; 0 bij een startwaarde. */
+  n: number;
+  source: Source;
+}
+
+/** De mediaan; `NaN` voor een lege lijst. */
+export function median(values: number[]): number {
+  if (values.length === 0) return NaN;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 === 1 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
+}
+
+const ampsOf = (e: Entry): number => e.amps ?? RATED_CURRENT_A;
+
+/**
+ * De laadsnelheid van één beurt in procentpunt per uur, of `null` als de beurt er niets over zegt:
+ * een geschatte aflezing, minder dan 10 procentpunt of korter dan een uur (te grof), langer dan 12 uur
+ * (een tikfout of een vergeten stekker) of een eind boven 98% (afgekapt).
+ */
+export function rateOf(e: Entry): number | null {
+  if (e.estimated === true) return null;
+  const pp = e.toPercent - e.fromPercent;
+  const hours = (e.endMs - e.startMs) / HOUR_MS;
+  if (pp < 10 || hours < 1 || hours > 12 || e.toPercent > 98) return null;
+  return pp / hours;
+}
+
+/** De bruikbare snelheden op stand [amps], oudste eerst, de laatste [WINDOW], zonder uitschieters. */
+export function rateSamples(entries: Entry[], amps: number): number[] {
+  const samples = [...entries]
+    .sort((a, b) => a.startMs - b.startMs)
+    .filter((e) => ampsOf(e) === amps)
+    .map(rateOf)
+    .filter((r): r is number => r !== null)
+    .slice(-WINDOW);
+  if (samples.length < 3) return samples;
+  // Een beurt die half of dubbel zo snel ging als de rest is een vergissing in de invoer, geen auto.
+  const m = median(samples);
+  return samples.filter((r) => r >= m * 0.5 && r <= m * 2);
+}
+
+/**
+ * De laadsnelheid op stand [amps]. Eigen beurten op die stand winnen; zonder die schaalt de snelheid
+ * van de hoogste stand mee met de kabelverhouding (8 A is de helft) — en het scherm zegt dat het dat is.
+ */
+export function ratePerHour(entries: Entry[], amps: number): Value {
+  const stand = clampCurrent(amps);
+  const own = rateSamples(entries, stand);
+  if (own.length >= (stand === RATED_CURRENT_A ? MIN_SESSIONS : MIN_SESSIONS_OTHER)) {
+    return { value: median(own), n: own.length, source: "eigen" };
+  }
+  if (stand === RATED_CURRENT_A) return { value: START_RATE_PP_PER_H, n: 0, source: "start" };
+  const top = ratePerHour(entries, RATED_CURRENT_A);
+  return { value: (top.value * stand) / RATED_CURRENT_A, n: top.n, source: "schaling" };
+}
+
+/** De geldige paren (km per procentpunt) uit opeenvolgende regels, oudste eerst, de laatste [WINDOW]. */
+export function kmPerPpPairs(entries: Entry[]): { km: number; pp: number }[] {
+  const sorted = [...entries].sort((a, b) => a.startMs - b.startMs);
+  const pairs: { km: number; pp: number }[] = [];
+  for (let i = 0; i + 1 < sorted.length; i++) {
+    const a = sorted[i]!;
+    const b = sorted[i + 1]!;
+    if (a.estimated === true || b.estimated === true) continue;
+    if (a.km === null || b.km === null) continue;
+    const km = b.km - a.km;
+    const pp = a.toPercent - b.fromPercent;
+    const gap = b.startMs - a.endMs;
+    if (km < 10 || pp < 10 || gap < 0 || gap > 7 * DAY_MS) continue;
+    pairs.push({ km, pp });
+  }
+  const last = pairs.slice(-WINDOW);
+  if (last.length < 3) return last;
+  // Een rit waar de auto elders is bijgeladen (of een km-stand die niet klopt) valt ver buiten de rest.
+  const m = median(last.map((p) => p.km / p.pp));
+  return last.filter((p) => p.km / p.pp >= m / 1.35 && p.km / p.pp <= m * 1.35);
+}
+
+/** Kilometers per procentpunt: gepoold over de geldige paren (Σkm ÷ Σpp), anders de startwaarde. */
+export function kmPerPp(entries: Entry[]): Value {
+  const pairs = kmPerPpPairs(entries);
+  if (pairs.length < MIN_PAIRS) return { value: START_KM_PER_PP, n: 0, source: "start" };
+  const km = pairs.reduce((s, p) => s + p.km, 0);
+  const pp = pairs.reduce((s, p) => s + p.pp, 0);
+  return { value: km / pp, n: pairs.length, source: "eigen" };
+}
+
+/** Wat `estimate`, `percentAfter`, `rangeKm` en de kosten nodig hebben, op stand [amps]. */
+export function setupAt(amps: number, entries: Entry[]): Setup {
+  return {
+    ratePpPerHour: ratePerHour(entries, amps).value,
+    powerKw: powerKwAt(amps),
+    kmPerPp: kmPerPp(entries).value,
+  };
+}

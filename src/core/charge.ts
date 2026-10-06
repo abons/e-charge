@@ -1,46 +1,23 @@
 /**
- * De rekenkern: hoeveel energie er in moet, hoe hard die er in gaat, en hoe lang dat duurt.
+ * De rekenkern: hoe lang het duurt om van het ene percentage naar het andere te laden, en hoeveel
+ * kilometer een percentage is.
  *
- * ⚠️ **Alles wat aan de auto of de lader hangt staat in deze vier constanten** (plus de laadstanden
- * van de kabel, direct eronder) — dat is met opzet de enige plek om te kalibreren. Wie een andere
- * Leaf of een ander stopcontact heeft, verandert hier één getal en klaar; de UI leest ze en rekent
- * nergens anders met vaste waarden.
+ * ⚠️ **Sinds 2026-10-06 rekent de app zonder aannames.** Er zijn geen capaciteit, rendement of
+ * verbruik meer: de laadsnelheid (procentpunt per uur) en de kilometers per procentpunt komen uit
+ * het logboek (`derive.ts`), en alleen waar dat nog te weinig beurten heeft gelden startwaarden die
+ * uit `log.md` zijn afgeleid. Wat hier staat is wat van de kabel zelf is afgelezen.
  */
-
-/**
- * Wat er tussen 0% en 100% op het dashboard past. Nissan Leaf 2019 (ZE1) met het 40 kWh-pakket:
- * bruto 40, en nieuw was daarvan ~39 bruikbaar — het verschil is de buffer die de BMS nooit
- * vrijgeeft. Die 39 zijn er niet meer: dit is een auto van 2019 met bijna 97.000 km en zonder
- * accukoeling.
- *
- * ⚠️ 30,5 is teruggerekend uit drie laadbeurten in `log.md` (13/17/20 sep 2026: 102 procentpunt in
- * 10u06, dus 10,1 %/uur) bij de 3,5 kW die op [CHARGE_POWER_KW] staat en het rendement hieronder.
- * Dat is SoH ≈ 78%, negen à tien van de twaalf streepjes. Tot 2026-09-20 stond hier 39,0 en was de
- * app daardoor ruim 30% te pessimistisch.
- *
- * ⚠️ Wat de metingen vastpinnen is de *verhouding* `powerKw × efficiency ÷ capacityKwh` — meer
- * bepaalt de laadtijd niet. Dit getal is dus zo goed als [EFFICIENCY] geschat is: 0,93 rendement zou
- * 32,2 kWh betekenen. Voor de laadtijd maakt die verdeling niets uit, voor [rangeKm] wel — en een te
- * lage capaciteit belooft te weinig km, wat de veilige kant is.
- */
-export const USABLE_CAPACITY_KWH = 30.5;
 
 /**
  * Wat er *uit de muur* komt — een gewoon 230V-stopcontact achter de schuur, gevoed vanuit het
  * groepenkastje daar.
  *
  * 3,5 kW staat op het display van de laadkabel zelf (2026-09-13) — dat is ~15 A × 230 V, en het
- * blok zit tussen het stopcontact en de auto, dus dit is het vermogen *uit de muur*. Het verving de
- * 3,0 kW die tot dan uit het huisverbruik aan de meter was afgeleid; een aflezing op het blok is
- * directer bewijs dan een verschil in een meterstand. (Een meegeleverde Mode 2-kabel staat vaak een
- * stand lager — 8 of 10 A is 1,8 of 2,3 kW — en de volle 16 A zou 3,7 kW zijn.)
- *
- * ⚠️ Het is nog steeds geen meting van de laadsessie zelf: de lader toont wat hij *nu* trekt, niet
- * wat er over zeven uur gemiddeld doorheen ging. Drie beurten van bekend % naar bekend % (2026-09-20,
- * zie `log.md`) geven 10,1 %/uur, maar daar staat `powerKw × efficiency ÷ capacityKwh` in en dus
- * niet dit getal apart — de capaciteit is eromheen gefit, niet andersom. Dat dit hier het
- * *afgelezen* getal is en [USABLE_CAPACITY_KWH] het gefitte, is precies de reden dat die aflezing
- * telt. (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
+ * blok zit tussen het stopcontact en de auto, dus dit is het vermogen *uit de muur*. Het is een
+ * aflezing en geen aanname, maar ook geen meting van de laadsessie zelf: de lader toont wat hij
+ * *nu* trekt, niet wat er over zeven uur gemiddeld doorheen ging. Het telt alleen mee voor de
+ * kosten (kWh uit de muur × kwartierprijs); de laadtijd komt niet meer uit dit getal.
+ * (De Leaf kan 6,6 kW AC aan, dus de auto is hier nooit de beperking.)
  */
 export const CHARGE_POWER_KW = 3.5;
 
@@ -55,58 +32,26 @@ export const CHARGE_POWER_KW = 3.5;
  * afgelezen; klopt de knop niet met deze lijst, dan verander je hier één regel. De laatste stand
  * moet [RATED_CURRENT_A] zijn, en de test pint dat vast.
  *
- * ⚠️ Het rendement blijft [EFFICIENCY] op elke stand, en dat is aan de optimistische kant voor 8 A:
- * de vaste kosten van boordlader en BMS lopen door terwijl er minder doorheen gaat. Meetbaar met
- * één beurt op die stand in `log.md` — de app zet de stand in de `opm`-kolom, zodat `calibrate`
- * de beurten uit elkaar kan houden.
+ * ⚠️ De laadsnelheid van een lagere stand schaalt in `derive.ts` met dezelfde verhouding, en dat is
+ * een rekenregel en geen meting: zonder eigen beurten op die stand zegt het scherm dat ("geschat uit
+ * 16 A"). De overhead van de boordlader maakt 8 A waarschijnlijk trager dan lineair.
  */
 export const CHARGE_CURRENTS_A: readonly number[] = [8, 10, 13, 16];
 /** De stand waarop [CHARGE_POWER_KW] is afgelezen: de hoogste. */
 export const RATED_CURRENT_A = 16;
 
 /**
- * Rendement muur → batterij. Aan een stopcontact is dit merkbaar slechter dan aan een laadpunt: de
- * vaste kosten van de boordlader, de BMS en (bij warm of koud weer) de koeling lopen door terwijl
- * er maar een paar kW doorheen gaat, dus die overhead is een groter aandeel. Gemeten waarden voor
- * een Leaf aan een stopcontact liggen grofweg tussen 85% en 90%; 88% is daar een eerlijk midden in.
- *
- * Dit is de helft die *niet* afgelezen is — [CHARGE_POWER_KW] staat op het blok van de kabel, dit
- * getal nergens.
- *
- * ⚠️ Sinds de laadtijd gemeten is (2026-09-20) draai je hier niet meer vrij aan: de beurten in
- * `log.md` liggen vast, dus dit getal ruilt één op één tegen [USABLE_CAPACITY_KWH] en verandert aan
- * de laadtijd niets. Wat het wél verschuift is het bereik in km. Alleen de `kWh`-kolom in `log.md` —
- * wat de huismeter over één beurt telde — haalt de twee uit elkaar.
+ * Wat een berekening nodig heeft: de snelheid waarmee het percentage oploopt, het vermogen uit de
+ * muur (voor de kosten) en hoeveel kilometer één procentpunt is. Komt uit `setupAt` in `derive.ts`.
  */
-export const EFFICIENCY = 0.88;
-
-/**
- * Verbruik, voor het omrekenen van procenten naar kilometers. Een Leaf 40 kWh doet in gemengd
- * Nederlands rijden grofweg 17 kWh/100 km: in de zomer eerder 15, met vorst en verwarming ruim 20.
- *
- * ⚠️ Aan de hoge kant kiezen is hier de veiligere fout, net als het naar boven afronden van de
- * minuten: te veel bereik beloven laat je met een lege accu langs de weg staan, te weinig kost je
- * niets. Daarom staat dit op 17,0 terwijl `log.md` het lager meet: 158 km tussen drie laadbeurten
- * door kostte 78 procentpunt, en `npm run calibrate` maakt daar bij [USABLE_CAPACITY_KWH] 15,2
- * kWh/100 km van. Wie het echt wil weten, leest het gemiddelde verbruik van de boordcomputer en zet
- * dat hier.
- */
-export const CONSUMPTION_KWH_PER_100KM = 17.0;
-
-/** De auto en de lader in vier getallen; de defaults zijn de constanten hierboven. */
 export interface Setup {
-  capacityKwh: number;
+  /** Procentpunt per uur op de gekozen stand — uit het logboek of een startwaarde. */
+  ratePpPerHour: number;
+  /** Wat er uit de muur komt op de gekozen stand (kabeldisplay), voor kWh en kosten. */
   powerKw: number;
-  efficiency: number;
-  consumptionKwhPer100Km: number;
+  /** Kilometers per procentpunt — uit opeenvolgende logboekregels of een startwaarde. */
+  kmPerPp: number;
 }
-
-export const DEFAULT_SETUP: Setup = {
-  capacityKwh: USABLE_CAPACITY_KWH,
-  powerKw: CHARGE_POWER_KW,
-  efficiency: EFFICIENCY,
-  consumptionKwhPer100Km: CONSUMPTION_KWH_PER_100KM,
-};
 
 /**
  * Een geldige laadstand, of de hoogste als [amps] er geen is — een waarde uit opslag of een oude
@@ -117,24 +62,13 @@ export function clampCurrent(amps: unknown): number {
 }
 
 /** Wat er uit de muur komt op stand [amps]: [CHARGE_POWER_KW] naar rato van [RATED_CURRENT_A]. */
-export function powerKwAt(amps: number, setup: Setup = DEFAULT_SETUP): number {
-  return (setup.powerKw * clampCurrent(amps)) / RATED_CURRENT_A;
-}
-
-/** Dezelfde auto aan dezelfde kabel, maar op stand [amps] — wat `estimate` en `percentAfter` krijgen. */
-export function setupAt(amps: number, setup: Setup = DEFAULT_SETUP): Setup {
-  return { ...setup, powerKw: powerKwAt(amps, setup) };
+export function powerKwAt(amps: number): number {
+  return (CHARGE_POWER_KW * clampCurrent(amps)) / RATED_CURRENT_A;
 }
 
 export interface Estimate {
-  /** `false` zodra het huidige percentage het doel al haalt — dan zijn de andere velden 0. */
+  /** `false` zodra het huidige percentage het doel al haalt — dan is `minutes` 0. */
   needed: boolean;
-  /** Wat er netto de batterij in moet. */
-  energyKwh: number;
-  /** Wat er daarvoor uit de muur komt (energyKwh gedeeld door het rendement). */
-  wallEnergyKwh: number;
-  /** Het vermogen dat effectief in de batterij landt — wat de app als laadvermogen toont. */
-  effectivePowerKw: number;
   /** Naar boven afgerond: een halve minuut te weinig laden is een verkeerd antwoord. */
   minutes: number;
 }
@@ -148,27 +82,14 @@ export function clampPercent(value: number): number {
 /**
  * Hoe lang van [fromPercent] naar [toPercent], aan deze [setup].
  *
- * Geen taper-model, en dat is een keuze: een Leaf knijpt pas af als de cellen het vermogen niet
- * meer kwijtkunnen, en een paar kW is daar zó ver onder dat de boordlader tot vlak onder 100% gewoon
- * doorgaat. Bij snelladen zou dit model onzin zijn; hier is het lineair en klaar.
+ * Geen taper-model, en dat is een keuze: de snelheid is een mediaan uit je eigen beurten, en beurten
+ * die op 99–100% eindigen tellen daarin niet mee (de duur is daar afgekapt). Lineair en klaar.
  */
-export function estimate(fromPercent: number, toPercent: number, setup: Setup = DEFAULT_SETUP): Estimate {
+export function estimate(fromPercent: number, toPercent: number, setup: Setup): Estimate {
   const from = clampPercent(fromPercent);
   const to = clampPercent(toPercent);
-  const effectivePowerKw = setup.powerKw * setup.efficiency;
-
-  if (to <= from || effectivePowerKw <= 0) {
-    return { needed: false, energyKwh: 0, wallEnergyKwh: 0, effectivePowerKw, minutes: 0 };
-  }
-
-  const energyKwh = (setup.capacityKwh * (to - from)) / 100;
-  return {
-    needed: true,
-    energyKwh,
-    wallEnergyKwh: energyKwh / setup.efficiency,
-    effectivePowerKw,
-    minutes: Math.ceil((energyKwh / effectivePowerKw) * 60),
-  };
+  if (to <= from || !(setup.ratePpPerHour > 0)) return { needed: false, minutes: 0 };
+  return { needed: true, minutes: Math.ceil(((to - from) / setup.ratePpPerHour) * 60) };
 }
 
 /**
@@ -178,52 +99,38 @@ export function estimate(fromPercent: number, toPercent: number, setup: Setup = 
  *
  * ⚠️ Dit is een zeef voor de `kWh`-kolom van het logboek, geen rekenstap. De app vraagt sinds
  * 2026-09-13 niet meer om een meterstand — ze toont nergens een kWh, dus het enige getal dat je op
- * dat moment in je hand had was het dashboardpercentage, en dat belandde in die kolom. Zo'n waarde
- * is erger dan een lege kolom: `scripts/calibrate.mjs` rekent er rendement en vermogen uit terug, en
- * het antwoord ziet er precies zo uit als een meting. `withMeterAsPercent()` in `logbook.ts`
- * gebruikt deze grens om wat al bewaard is alsnog als aflezing te lezen.
+ * dat moment in je hand had was het dashboardpercentage, en dat belandde in die kolom.
+ * `withMeterAsPercent()` in `logbook.ts` gebruikt deze grens om wat al bewaard is alsnog als
+ * aflezing te lezen.
  */
-export function maxMeterKwh(ms: number, setup: Setup = DEFAULT_SETUP): number {
-  // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Zelfs
-  // met die marge zou 97 kWh aan dit stopcontact ruim achttien uur aan de muur vragen — en dán is
-  // het ook geen vergissing meer, maar een lange laadbeurt. Altijd met de hoogste stand: een grens
-  // hoort niet te zakken omdat de knop toevallig op 8 A stond.
-  return (setup.powerKw * Math.max(0, ms) * 1.5) / 3_600_000;
+export function maxMeterKwh(ms: number): number {
+  // Ruim bemeten, en dat hoort: een grens die twijfelt mag nooit aan een echte meting komen. Altijd
+  // met de hoogste stand: een grens hoort niet te zakken omdat de knop toevallig op 8 A stond.
+  return (CHARGE_POWER_KW * Math.max(0, ms) * 1.5) / 3_600_000;
 }
 
 /**
- * Hoeveel kilometer er bij [percent] ongeveer in zit. Naar beneden afgerond, om dezelfde reden dat
- * de minuten naar boven gaan: een kilometer te veel beloven is de duurdere fout.
+ * Hoeveel kilometer er bij [percent] ongeveer in zit. Naar beneden afgerond: een kilometer te veel
+ * beloven is de duurdere fout.
  */
-export function rangeKm(percent: number, setup: Setup = DEFAULT_SETUP): number {
+export function rangeKm(percent: number, setup: Setup): number {
   // ⚠️ Eerst naar beneden, dán klemmen. `clampPercent` rondt af, en dat maakte van 59,7% stilletjes
   // 60% — het scherm zei dan "59%" met de kilometers van 60 ernaast.
-  const kwh = (setup.capacityKwh * clampPercent(Math.floor(percent))) / 100;
-  return Math.floor((kwh / setup.consumptionKwhPer100Km) * 100);
+  return Math.floor(clampPercent(Math.floor(percent)) * setup.kmPerPp);
 }
 
 /**
  * Het percentage dat er na [elapsedMs] laden ongeveer in zit, gestart op [fromPercent].
  *
  * ⚠️ [toPercent] zegt hier alleen *of* er te laden valt en is **geen plafond**: de auto kent jouw
- * doel niet — dat staat in een browser — en laadt door tot 100%. Tot 2026-09-20 klemde dit op het
- * doel, en toen bleef het scherm 90% melden terwijl het dashboard 98% zei.
+ * doel niet — dat staat in een browser — en laadt door tot 100%.
  *
- * ⚠️ Dit is gerékend, niet gemeten: de app weet niets van de auto, dus dit is [estimate] achterstevoren
- * en erft al zijn aannames. Wie het echte percentage afleest en invult, zet de schatting weer gelijk;
- * dat is ook de manier om [USABLE_CAPACITY_KWH] en [EFFICIENCY] te controleren.
+ * ⚠️ Dit is gerékend, niet gemeten: het is [estimate] achterstevoren. Wie het echte percentage
+ * afleest en invult, zet de schatting weer gelijk — en dat getal komt als aflezing in het logboek.
  */
-export function percentAfter(
-  fromPercent: number,
-  toPercent: number,
-  elapsedMs: number,
-  setup: Setup = DEFAULT_SETUP,
-): number {
+export function percentAfter(fromPercent: number, toPercent: number, elapsedMs: number, setup: Setup): number {
   const from = clampPercent(fromPercent);
   const to = clampPercent(toPercent);
   if (elapsedMs <= 0 || to <= from) return from;
-
-  const addedKwh = setup.powerKw * setup.efficiency * (elapsedMs / 3_600_000);
-  const added = (addedKwh / setup.capacityKwh) * 100;
-  return Math.min(100, from + added);
+  return Math.min(100, from + setup.ratePpPerHour * (elapsedMs / 3_600_000));
 }

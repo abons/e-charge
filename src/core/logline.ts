@@ -36,6 +36,27 @@ export function noteForAmps(amps: number): string {
 }
 
 /**
+ * De opmerking van een beurt: de stand, en `geschat` als `eind%` niet van het dashboard is afgelezen
+ * maar door de app is uitgerekend. Zo'n regel blijft in het logboek (km en tijden zijn echt), maar
+ * telt niet mee voor de laadsnelheid en het bereik — zie `derive.ts`. Staat ook zo in `log.md`.
+ */
+export function noteFor(amps: number | null, estimated: boolean): string | undefined {
+  const delen: string[] = [];
+  if (amps !== null) delen.push(noteForAmps(amps));
+  if (estimated) delen.push("geschat");
+  return delen.length === 0 ? undefined : delen.join("; ");
+}
+
+/**
+ * Of een `opm` zegt dat de regel niet zuiver gemeten is: `geschat` (een getal uit de rekenkern, of een
+ * tijd bij benadering) of `elders geladen` (de auto heeft tussen twee regels ergens anders gehangen,
+ * dus het verbruik tussen die regels klopt niet).
+ */
+export function isUnreliableNote(note: string): boolean {
+  return /geschat|elders geladen/i.test(note);
+}
+
+/**
  * De stand die in [note] geschreven staat, of `null` als er geen staat (een regel van vóór de
  * standenkeuze, of `elders geladen` zonder meer). Wat er staat wordt níét geklemd: `12 A` is een
  * stand die de knop niet heeft, en dat hoort de lezer te melden in plaats van stil 16 A te rekenen

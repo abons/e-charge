@@ -52,42 +52,44 @@ klembord; plakken in [`log.md`](log.md) en `npm run calibrate` doet de rest. ⚠
 staat op één telefoon en verdwijnt met het wissen van websitegegevens — het bestand in de repo is de
 kopie die blijft.
 
-## De vier getallen die alles bepalen
+## Geen aannames: alleen het logboek
 
-Boven in [`src/core/charge.ts`](src/core/charge.ts), en nergens anders:
+Sinds 2026-10-06 rekent de app niet meer met geschatte autogegevens. Capaciteit, rendement en
+verbruik zijn weg; wat overblijft komt uit [`log.md`](log.md) en de laadbeurten die de app zelf
+bewaart:
 
-| constante              | waarde | waarom                                                   |
-| ---------------------- | ------ | -------------------------------------------------------- |
-| `USABLE_CAPACITY_KWH`  | 30,5   | teruggerekend uit drie laadbeurten; SoH ≈ 78% van de 39 nieuw |
-| `CHARGE_POWER_KW`      | 3,5    | ~15 A × 230 V, afgelezen op de laadkabel                 |
-| `EFFICIENCY`           | 0,88   | rendement muur → batterij bij zo'n traag laadvermogen     |
-| `CONSUMPTION_KWH_PER_100KM` | 17,0 | verbruik, voor het omrekenen van % naar km             |
+| grootheid | komt uit | startwaarde zolang er te weinig beurten zijn |
+| --- | --- | --- |
+| laadsnelheid (procentpunt per uur) | mediaan van de laatste 8 afgelezen beurten, per laadstand | 10,1 op 16 A (`START_RATE_PP_PER_H`) |
+| kilometers per procentpunt | opeenvolgende regels: km-verschil ÷ procentpunten verbruikt | 2,0 (`START_KM_PER_PP`) |
+| kosten per kilometer | prijs per kWh × (kW uit de muur ÷ snelheid) ÷ km per procentpunt | volgt uit bovenstaande |
 
-Plus de standen van de kabel, in hetzelfde bestand: `CHARGE_CURRENTS_A = [8, 10, 13, 16]` en
-`RATED_CURRENT_A = 16`, de stand waarop de 3,5 kW is afgelezen. De andere standen schalen daar
-lineair van af (`powerKwAt`: 8 A is 1,75 kW), niet met 230 V × A — de aflezing telt, niet het
-etiket. Het rendement blijft op elke stand hetzelfde, en dat is voor 8 A aan de optimistische kant;
-een beurt op die stand in `log.md` (met `8 A` in `opm`) laat zien hoeveel.
+Boven in [`src/core/derive.ts`](src/core/derive.ts) staat de afleiding, en daar de drempels (3 beurten
+op 16 A, 2 op een lagere stand, 3 geldige paren). Het enige getal dat nog in
+[`src/core/charge.ts`](src/core/charge.ts) staat is wat van de kabel zelf is afgelezen:
+`CHARGE_POWER_KW = 3,5` (voor kWh en kosten) en de standen `CHARGE_CURRENTS_A = [8, 10, 13, 16]` met
+`RATED_CURRENT_A = 16`. Een lagere stand schaalt de snelheid lineair mee (8 A is de helft) zolang je er
+nog niet vaak genoeg op hebt geladen, en het scherm zegt dat ("geschat uit 16 A").
 
-De capaciteit stond tot 2026-09-20 op 39,0, de waarde van een nieuw pakket, en de app was daardoor
-ruim 30% te pessimistisch: drie gemeten laadbeurten laten 10,1 procentpunt per uur zien waar de app
-7,9 rekende. Wat gemeten is, is de verhouding `powerKw × efficiency ÷ capacityKwh`; de verdeling
-daarover leunt op het rendement en vraagt nog één meterstand. Zie [`design.md`](design.md).
+Een beurt telt alleen mee als zijn `eind%` is **afgelezen** van het dashboard: ⏹ of 💾 zonder aflezing
+bewaart de regel nog wel, met `geschat` in `opm`, maar zo'n regel voedt de snelheid en het bereik niet
+(anders bevestigt de app zijn eigen schatting). Beurten die op 99–100% eindigen tellen niet voor de
+snelheid, want de lader was eerder klaar dan je afkoppelde.
 
-Kalibreren gaat via [`log.md`](log.md): noteer per laadbeurt de kilometerstand, de percentages en de
-klok, en `npm run calibrate` rekent er laadvermogen en verbruik uit terug. De `kWh`-kolom van je
-meter vult de app niet — die is met de hand bij te schrijven en scheidt dan rendement van
-capaciteit. Het verbruik komt daarmee uit gereden kilometers en niet uit de boordcomputer —
-die toont een voorspelling, geen meting. Een andere auto of laadpunt is één regel: 62 kWh en
-11 kW past er net zo goed in (daar is een test voor).
+Noteer per laadbeurt de kilometerstand, de percentages en de klok in `log.md` (de app doet dat met 💾),
+en `npm run calibrate` toont wat de app daaruit afleidt, welke regels niet meetellen en waarom, en of
+de startwaarden nog kloppen — een test laat de build falen als ze uit elkaar lopen. Een andere auto of
+laadpunt is dus geen constante meer aanpassen, maar een paar beurten loggen.
 
-De aannames staan ook onderaan het scherm, gelezen uit dezelfde constanten — een uitkomst die
-vreemd voelt, is zo te herleiden.
+De bron van de getallen staat onderaan het scherm ("uit je logboek" of "startwaarde uit log.md"), zodat
+een uitkomst die vreemd voelt te herleiden is.
 
 ## Layout
 
-- `src/core/` — de pure stukken, één bestand elk: `charge` (de rekenkern), `time` (klok, duur,
-  "morgen"), `ics` (de agenda-afspraak), `price` (de tariefopbouw en de kostensom per kwartier).
+- `src/core/` — de pure stukken, één bestand elk: `charge` (de rekenkern), `derive` (wat het
+  logboek zegt: laadsnelheid en km per procentpunt), `logmd` (leest `log.md`, alleen voor scripts en
+  tests), `time` (klok, duur, "morgen"), `ics` (de agenda-afspraak), `price` (de tariefopbouw en de
+  kostensom per kwartier).
 - `src/prices.ts` — het ophalen en bewaren van de kwartierprijzen; de enige plek met netwerk.
 - `src/main.ts` + `web/` — het enige scherm, de PWA-manifest en de service worker.
 - `test/charge.test.ts`, `test/price.test.ts` — de rekentests.

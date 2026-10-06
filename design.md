@@ -11,6 +11,39 @@ een rekenmachine met twee invoervelden, en die werkt offline, gaat nooit stuk do
 verandert, en heeft niets te onderhouden. Wie ooit "maar dan haalt hij het percentage zelf op" wil,
 bouwt een andere app.
 
+## Geen aannames: alleen het logboek — 2026-10-06
+
+De eigenaar vond de voetregel onduidelijk ("kWh bruikbaar", "rendement") en wilde geen aannames meer:
+*alleen op logboek gebaseerde data*. Het onderzoek met drie agents (rekenkunde, tekst, regressie) gaf:
+
+- **Capaciteit en rendement zijn van buitenaf niet te scheiden** en de app heeft ze niet nodig. De
+  laadtijd hangt alleen af van `vermogen × rendement ÷ capaciteit`, en dat is één getal dat het
+  logboek rechtstreeks geeft: procentpunt per uur. De 30,5 kWh was een omweg om 10,1 te schrijven, en
+  de 0,88 een aanname die er één-op-één tegenaan ruilde. Beide zijn weg.
+- **Het verbruik (17,0 kWh/100 km) was een aanname** die het logboek tegensprak. Het logboek geeft
+  kilometers per procentpunt: 2,0 (vier geldige paren), dus 181 km bij 90% waar het scherm 161 toonde.
+  Een eerdere voorstelwaarde van 2,1 kwam uit `calibrate` en bevatte een besmet paar (27 sep → 2 okt,
+  met een geschatte km-stand); het trimfilter van 1,35× de mediaan laat dat paar vallen.
+- **Kosten per km** = prijs × (kW uit de muur ÷ snelheid) ÷ km per procentpunt. De mediaan van € per
+  procentpunt is hier fout: één dure avondbeurt (45 ct/kWh) bepaalt het gewogen gemiddelde, kosten
+  zijn additief.
+- **Besluiten van de eigenaar:** (1) alles uit het logboek, niets op aannames; (2) bij te weinig eigen
+  beurten (nieuwe telefoon) gelden **startwaarden uit `log.md`**, hard geschakeld, geen gewogen mix;
+  (3) een lagere stand zonder eigen beurten **schaalt uit 16 A en zegt dat**; (4) ⏹/💾 zonder aflezing
+  bewaart de regel, maar **telt niet mee**; (5) het bereik is de mediaan, niet het onderste kwartiel.
+- **Het gat dat dit dichtte:** de app voedde haar eigen logboek. ⏹ zonder aflezing bewaarde de
+  schatting als `eind%`, en een mediaan over eigen schatting bevestigt zichzelf. Daarom `estimated` op
+  de regel (`geschat` in `opm`), `huidigIsSchatting` in `main.ts`, en filters in `derive.ts`
+  (geen geschatte regels, geen 99–100%, 1–12 uur, minstens 10 procentpunt, uitschieters weg).
+- **Wat nog steeds een aflezing is en geen meting:** het kabelvermogen van 3,5 kW (display), en de
+  schaling naar lagere standen (dat is een rekenregel, daarom het label "geschat uit 16 A").
+- **Risico, bewust niet opgelost:** het logboek bevat alleen septembercijfers. In de winter ligt het
+  verbruik 20–30% hoger en toont de app dan te veel bereik, tot er koude beurten in het venster van 8
+  zitten. Het onderste kwartiel was de voorzichtiger keuze en is afgewezen.
+
+Wat hieronder over `USABLE_CAPACITY_KWH`, `EFFICIENCY` en `CONSUMPTION_KWH_PER_100KM` staat is
+**vervangen** door dit besluit; de secties blijven staan als verslag van hoe het zo ver kwam.
+
 ## De stroomprijs komt van het net, en dat is de enige uitzondering — 2026-09-25
 
 De vraag was: *zijn de stroomkosten van Zonneplan publiek, zodat ik de laadkosten in de app kan
@@ -71,6 +104,9 @@ rendementsfactor (`EFFICIENCY`), en die is meetbaar met één laadsessie — een
 procentpunt per uur. Was er een afknik, dan zou juist de beurt die tot 98% ging eruit springen.
 
 ## De constanten staan in één bestand — 2026-09-11
+
+> ⚠️ **Vervangen 2026-10-06** door *Geen aannames: alleen het logboek*: de vier constanten zijn
+> er niet meer; alleen het kabelvermogen en de laadstanden staan nog in `charge.ts`.
 
 Alle auto- en laderkennis staat boven in `src/core/charge.ts`: bruikbare capaciteit, laadvermogen,
 rendement — en sinds *Kilometers zijn een vierde constante* hieronder ook het verbruik. De UI leest
@@ -169,6 +205,9 @@ uitbrengen. Anders zegt de aftelling iets anders dan de eindtijd erboven.
 
 ## De capaciteit is gefit op drie laadbeurten — 2026-09-20
 
+> ⚠️ **Vervangen 2026-10-06:** er is geen capaciteit meer; de snelheid (procentpunt per uur) komt
+> rechtstreeks uit het logboek. De fit hieronder is de herkomst van de startwaarde 10,1.
+
 Het scherm meldde 90% terwijl het dashboard 98% zei. Drie beurten uit het logboek (13/17/20 sep:
 74→97 in 2u21, 55→90 in 3u24, 54→98 in 4u21) geven samen 102 procentpunt in 10u06 — **10,1 %/uur**,
 waar de app op 7,9 rekende. Ruim 30% mis, en niet één keer maar alle drie.
@@ -207,6 +246,9 @@ boven, dus op het klaar-moment zit er hooguit 0,17 procentpunt overheen, en het 
 `Math.floor(soc)`.
 
 ## Kilometers zijn een vierde constante — 2026-09-11
+
+> ⚠️ **Vervangen 2026-10-06:** het bereik komt uit kilometers per procentpunt in het logboek
+> (startwaarde 2,0), niet uit 17,0 kWh/100 km.
 
 Bereik in km vraagt een verbruik, en dat is uit de andere drie niet af te leiden.
 `CONSUMPTION_KWH_PER_100KM = 17,0` is gemengd Nederlands rijden voor een Leaf 40 kWh; in de zomer

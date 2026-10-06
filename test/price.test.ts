@@ -132,12 +132,19 @@ test("chargingCost: buiten de bekende prijzen wordt geschat, en dat staat erbij"
   assert.equal(chargingCost(T0, T0 + Q, 0, prijzen), null);
 });
 
-test("eurPerKm: prijs maal verbruik, gedeeld door het rendement", () => {
-  // 20 ct/kWh, 17 kWh/100 km uit de accu, 88% rendement: 0,20 × 0,17 ÷ 0,88 = 3,86 ct/km.
-  assert.equal(((eurPerKm(0.2, 17, 0.88) ?? 0) * 100).toFixed(2), "3.86");
-  assert.equal(eurPerKm(0.2, 17, 1), 0.034);
-  // Zonder rendement is er geen bedrag — nul zou "gratis" zeggen.
-  assert.equal(eurPerKm(0.2, 17, 0), null);
+test("eurPerKm: prijs maal kWh uit de muur per procentpunt, per kilometer", () => {
+  // 3,5 kW bij 10 procentpunt per uur is 0,35 kWh uit de muur per procentpunt; 2 km per procentpunt
+  // maakt dat 0,175 kWh per km. Bij 20 ct/kWh is dat 3,5 ct/km.
+  const s = { ratePpPerHour: 10, powerKw: 3.5, kmPerPp: 2 };
+  assert.equal(((eurPerKm(0.2, s) ?? 0) * 100).toFixed(2), "3.50");
+  // Een lagere stand laadt half zo snel aan half zoveel vermogen: dezelfde prijs per kilometer.
+  assert.equal(
+    ((eurPerKm(0.2, { ratePpPerHour: 5, powerKw: 1.75, kmPerPp: 2 }) ?? 0) * 100).toFixed(2),
+    "3.50",
+  );
+  // Zonder snelheid of kilometers is er geen bedrag — nul zou "gratis" zeggen.
+  assert.equal(eurPerKm(0.2, { ...s, ratePpPerHour: 0 }), null);
+  assert.equal(eurPerKm(0.2, { ...s, kmPerPp: 0 }), null);
 });
 
 test("covered: alleen waar als elk moment een prijs heeft", () => {

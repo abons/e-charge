@@ -1,13 +1,20 @@
 # Laadlog
 
-> **Waarom dit bestand bestaat.** De app rekent met vier aannames (`src/core/charge.ts`), en drie
-> daarvan zijn geschat. Dit logboek vervangt ze door gemeten waarden. Het is met opzet een bestand
-> in deze repo en geen functie in de app: die weet niets van de auto en praat met geen enkele
-> server — dat blijft zo. Jij noteert, git bewaart, `npm run calibrate` rekent.
+> **Waarom dit bestand bestaat.** Sinds 2026-10-06 rekent de app zonder aannames: de laadsnelheid
+> (procentpunt per uur) en de kilometers per procentpunt komen uit **dit logboek** (`src/core/derive.ts`),
+> en alleen waar het te weinig beurten heeft gelden startwaarden die uit deze tabel zijn afgeleid. Het
+> is met opzet een bestand in deze repo en geen functie in de app: die praat met geen enkele server —
+> dat blijft zo. Jij noteert, git bewaart, `npm run calibrate` toont wat de app eruit afleidt.
 >
 > Het rijbereik van de boordcomputer hoort hier niet in. Dat is een voorspelling op grond van je
-> laatste ritten, geen meting; het getal dat we wél kunnen meten is je verbruik, en dat volgt uit
-> twee opeenvolgende regels hieronder.
+> laatste ritten, geen meting; het getal dat we wél kunnen meten volgt uit twee opeenvolgende regels
+> hieronder (kilometers per procentpunt).
+>
+> **Welke regels tellen mee.** Alleen een regel waarvan `eind%` van het dashboard is **afgelezen**. Een
+> regel met `geschat` in `opm` (de app schrijft dat als je ⏹ of 💾 drukt zonder aflezing, of schrijf het
+> zelf bij een getal of tijd bij benadering) blijft staan, maar telt niet. Een beurt die op 99–100%
+> eindigt telt niet voor de snelheid: de lader was eerder klaar dan je afkoppelde. `elders geladen` laat
+> het verbruik tussen twee regels buiten beschouwing.
 
 ## Bijhouden in de app
 
@@ -77,31 +84,29 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | 2026-09-27 | 97195 | 65 | 85 | 10:31 | 12:48 |  | 1,06 | 16 A; eind% en km geschat (overschreven, hersteld 2026-10-06) |
 | 2026-10-02 | 97280 | 60 | 100 | 11:00 | 15:00 |  | 4,32 | 16 A; start% geschat, tijden bij benadering |
 
-De eerste drie zijn de beurten waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`:
-samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt. De `kWh`-kolom is nog
-leeg, en zolang dat zo is blijven capaciteit en rendement één product. De `€`-kolom is achteraf
+De eerste drie beurten gaven de eerste fit van de laadsnelheid (2026-09-20, zie `design.md`): samen
+102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt. De twee regels met `geschat`
+(27 sep en 2 okt) tellen niet mee. De `kWh`-kolom is nog leeg en hoeft niet gevuld. De `€`-kolom is achteraf
 gevuld met `npm run kosten` (2026-09-26): overdag laden kostte 13–17 ct/kWh, de avondbeurt van 25
 september 45 ct/kWh — het verschil tussen zon en piek in één tabel.
 
 ## Wat er dan uitkomt
 
-`npm run calibrate` leest deze tabel en rekent terug:
+`npm run calibrate` leest deze tabel met dezelfde functies als de app en toont:
 
-- **Effectief laadvermogen** = (eind% − start%) × capaciteit / 100 ÷ uren → wat er in de accu ging.
-- **Vermogen uit de muur** = kWh ÷ uren → vergelijk met `CHARGE_POWER_KW` (3,5).
-- **Rendement** = (Δ% × capaciteit / 100) ÷ kWh → vergelijk met `EFFICIENCY` (0,88).
-- **Verbruik** = (vorige `eind%` − deze `start%`) × capaciteit / 100 ÷ (deze `km` − vorige `km`)
-  → vergelijk met `CONSUMPTION_KWH_PER_100KM` (17,0). Hier zit geen boordcomputer tussen.
-- **Kosten per km** = het gemeten verbruik hierboven × de gemiddelde prijs van de vorige beurt ÷
-  rendement. Die prijs is `€` ÷ (Δ% × capaciteit ÷ rendement): de aanname waarmee de app het
-  bedrag maakte, dus niet de meterstand. Vergelijk met de regel "Kosten per km" op het scherm, die
-  dezelfde som met het verbruik van 17,0 doet.
+- **Laadsnelheid** = (eind% − start%) ÷ uren, per beurt en per stand → de mediaan van de laatste 8
+  bruikbare beurten is wat de app gebruikt. Zonder eigen beurten op een lagere stand schaalt de app
+  de snelheid van 16 A mee met de kabelverhouding (8 A is de helft) en zegt dat.
+- **Kilometers per procentpunt** = (km van de volgende regel − km van deze) ÷ (eind% van deze − start%
+  van de volgende), gepoold over de geldige paren. Een paar dat meer dan 1,35 keer van de mediaan
+  afwijkt valt weg (de auto is dan vermoedelijk elders bijgeladen of een km-stand klopt niet).
+- **Kosten per km** = prijs per kWh × (kW uit de muur ÷ laadsnelheid) ÷ kilometers per procentpunt.
+  Het kabelvermogen (3,5 kW op 16 A) is een aflezing van het display; het staat niet in deze tabel.
 
-⚠️ Die laatste klopt alleen als de auto tussen twee regels **nergens anders geladen** heeft en de
-kilometerstand van hetzelfde moment komt als het percentage. Is dat niet zo, zet dan
-`elders geladen` in `opm`; de berekening slaat die stap dan over.
+⚠️ De km-paren kloppen alleen als de auto tussen twee regels **nergens anders geladen** heeft en de
+kilometerstand van hetzelfde moment komt als het percentage. Is dat niet zo, zet dan `elders geladen`
+in `opm`; het paar wordt dan overgeslagen.
 
-⚠️ Capaciteit en rendement zijn van buitenaf niet te scheiden: je meet aan de muur wat erin gaat en
-op het dashboard een percentage, maar hoeveel kWh de cellen in ging weet alleen de auto. Wat hier
-uitkomt is dus de verhouding. Voor de vraag die de app stelt — hoe laat ben ik klaar — is dat genoeg;
-wil je de twee apart, dan is de SoH (capaciteitsstreepjes op het dashboard) de ontbrekende helft.
+⚠️ Er is geen kWh-meter nodig en er komt ook geen rendement of capaciteit uit: die zijn van buitenaf
+niet te scheiden, en de app heeft ze niet nodig om te zeggen hoe laat je klaar bent of hoe ver je komt.
+De `kWh`-kolom blijft een vrije kolom voor wie zijn meterstand wil bijhouden.

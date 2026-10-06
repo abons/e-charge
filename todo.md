@@ -19,8 +19,16 @@ logregel). **Nog niet op een echte telefoon gezien.**
   telefoon: de regel onder de knoppen, de groene rand van het open blok, de date/time-kiezers van
   Android, en of het bedrag achteraf verschijnt voor een beurt van dagen terug.
 - **Echte waarden in de geschatte logregels** (2026-10-06): 27 sep eind% 85 en km 97195, 2 okt
-  start% 60 — in de app (× en opnieuw invoeren) én in `log.md`. Tot dan geeft `npm run calibrate`
-  voor 2 okt 9,0 kWh/100 km, en dat is geen meting.
+  start% 60 — in de app (× en opnieuw invoeren) én in `log.md`. De app slaat die regels sinds
+  2026-10-06 zelf over (`geschat` in `opm`), dus er is geen vals getal meer; met echte waarden telt
+  27 sep weer mee voor snelheid en bereik, en krijgt het km-paar van 26 → 27 sep en 27 sep → 2 okt
+  zijn waarde terug.
+- **De nieuwe rekenkern op de telefoon bekijken** (2026-10-06, geen aannames meer). Gebouwd en
+  getest (54 tests, de afleiding tegen `log.md`), op de telefoon alleen gezien met de startwaarden
+  (de telefoon had toen 7 regels en dus eigen waarden: 10,2 procentpunt/uur, 2,0 km/%). Kijk of de
+  bijregel "Bereik bij 90% ± 18x km · x ct/km" en de voetregel ("Laadsnelheid: … uit je logboek")
+  kloppen met `npm run calibrate`, of ⏹ zonder aflezing een regel met `geschat` bewaart (en of die
+  de snelheid niet verschuift), en of een 8 A-beurt "geschat uit 16 A" zegt.
 
 - **Draai `npm run kosten` zodra er een machine met netwerk aan de repo hangt.** De bouwsessies van
   Claude mogen `public.api.energyzero.nl` niet bereiken, dus elke regel die uit de app in `log.md`
@@ -48,30 +56,15 @@ logregel). **Nog niet op een echte telefoon gezien.**
 - **De tariefconstanten controleren tegen je Zonneplan-rekening**: 1,652 ct opslag (excl. btw) en
   9,161 ct energiebelasting 2026 komen van vergelijkingssites, niet van de tariefkaart zelf. Eén
   kwartier in de Zonneplan-app naast de app leggen zegt genoeg; ze staan in `src/core/price.ts`.
-- **Het laadvermogen staat op 3,5 kW, afgelezen op de lader zelf** (2026-09-13), en is sinds
-  2026-09-20 het anker waar de capaciteit omheen gefit is — zie `design.md`. Dat verving de
-  3,0 kW die uit het huisverbruik aan de meter was afgeleid; het display van het blok is directer
-  bewijs dan een verschil in een meterstand, en 3,5 kW is ~15 A × 230 V. Wat nog open is: de lader
-  toont wat hij *nu* trekt, niet het gemiddelde over zeven uur.
-  Drie sessies teruggerekend (2026-09-20) geven 10,1 %/uur, maar daar staat de capaciteit óók in;
-  het scheidt dus niets, en de aflezing op het blok blijft het enige harde getal.
+- **Het laadvermogen staat op 3,5 kW, afgelezen op de lader zelf** (2026-09-13). Het is het enige
+  getal van de kabel dat de app nog gebruikt, en alleen voor kWh en kosten; de laadtijd komt uit het
+  logboek. Wat nog open is: de lader toont wat hij *nu* trekt, niet het gemiddelde over zeven uur.
   - Het blok hééft een standenknop (8 tot 16 A, 2026-09-27), en sinds die dag staat hij ook op het
     scherm. **Controleer de tussenstanden**: `CHARGE_CURRENTS_A` zegt 8/10/13/16, en 10 en 13 zijn
     aangenomen, niet afgelezen. Staat er iets anders op de knop, dan is het één regel in `charge.ts`.
-  - **Eén beurt op 8 of 10 A in `log.md`** (de app zet de stand in `opm`) laat zien of het rendement
-    op een lage stand echt lager is — de app rekent nu op elke stand met 0,88, en dat is voor 8 A
-    aan de optimistische kant.
-- **Zonder de kWh-kolom blijft het een product, geen paar.** Uit `(eind% − start%) × capaciteit ÷
-  uren` komt `CHARGE_POWER_KW × EFFICIENCY` (3,08), niet de twee getallen apart — en sinds
-  2026-09-20 hangt de capaciteit er ook nog aan: gemeten is `powerKw × efficiency ÷ capacityKwh`,
-  dus 3,5 × 0,88 bij 30,5 kWh en 3,5 × 0,93 bij 32,2 kWh passen allebei even goed. Klopt de
-  laadtijd, dan klopt het scherm; het bereik in km en de vraag of de stekker te zwaar belast wordt
-  hangen wél aan de splitsing, en die maakt alleen een meterstand. Sinds 2026-09-13 vraagt de app
-  niet meer om die stand (het veld is de aflezing in procenten geworden, zie `design.md`), dus die
-  kolom vul je met de hand in `log.md` of hij blijft leeg.
-- **Tel de capaciteitsstreepjes** rechts op het dashboard — gratis tegenproef, twaalf is nieuw en
-  elk streepje is ~6,25%. De fit voorspelt er negen à tien (SoH ≈ 78%). Zijn het er twaalf, dan klopt
-  er iets anders niet en moet dit opnieuw.
+  - **Twee beurten op 8 of 10 A in `log.md`** (de app zet de stand in `opm`) vervangen de schaling
+    "geschat uit 16 A" door een eigen snelheid; tot dan is een lage stand een rekenregel en geen
+    meting, en waarschijnlijk te optimistisch (de overhead van de boordlader).
 - ⚠️ **15 A door een gewoon stopcontact is over de grens.** De contactdoos achter de schuur is door
   de vorige bewoner geplaatst en niet nagekeken; schuko is voor korte pieken gemaakt, niet voor zes
   uur aan één stuk op 15 A. Met de aflezing van 3,5 kW is dit geen theoretisch punt meer: voel na
@@ -79,26 +72,24 @@ logregel). **Nog niet op een echte telefoon gezien.**
   kabel een stand lager — en die stand kies je sinds 2026-09-27 ook op het scherm, zodat de
   laadtijd meegaat (10 A → 2,2 kW, 13 A → 2,8 kW naar rato van de aflezing) — of er hoort een
   echt laadpunt te komen.
-- **Vul `log.md`, en de aannames verdwijnen één voor één.** Drie van de vier constanten zijn
-  geschat; het logboek vervangt ze door metingen zodra er sessies in staan (`npm run calibrate`).
-  Eén regel geeft het effectieve laadvermogen (het product hierboven); diezelfde regel mét een
-  meterstand erbij splitst het in vermogen en rendement, en twee opeenvolgende regels geven het
-  verbruik, zonder de boordcomputer te hoeven geloven.
-- **Het verbruik van 17,0 kWh/100 km is een boekwaarde**, en staat er bewust nog: het logboek meet
-  15,2, maar te weinig bereik beloven kost niets en te veel wel. De boordcomputer van de Leaf toont je
-  eigen gemiddelde (in **km/kWh** — 5,9 km/kWh is 17 kWh/100 km, 6,5 is 15,4). Eén blik daarop en
-  het bereik op het scherm klopt met jouw rijstijl in plaats van met een gemiddelde Nederlander.
-  Let op het seizoen: hetzelfde getal is in januari een ander getal dan in juli.
+- **Vul `log.md`, en de startwaarden verdwijnen.** De app rekent op je eigen beurten zodra er drie
+  op 16 A afgelezen zijn (twee op een lagere stand, drie km-paren). Noteer bij het afkoppelen de
+  het echte percentage van het dashboard — een beurt zonder aflezing telt niet mee — en bij het
+  insteken de kilometerstand.
+- **Het bereik komt uit septembercijfers.** 2,0 km per procentpunt is het gemiddelde van zomerse
+  ritten; in de winter ligt het verbruik 20–30% hoger en de app toont dan te veel bereik. Het
+  venster van 8 beurten laat koude ritten vanzelf meetellen, maar tot die er zijn is het getal
+  optimistisch. Loggen in de winter, of het onderste kwartiel als voorzichtiger keuze (afgewezen,
+  zie `design.md`).
 - **De agenda-download op een echte telefoon.** In Chromium komt het `.ics` goed binnen, maar of
   Android hem aan de agenda-app aanbiedt (en of de melding meekomt) is niet te zien in een headless
   browser.
 
 ## Openstaand
 
-- **Het icoon is één SVG.** Goed genoeg voor de favicon en voor Chrome's installatie, maar een
-  maskable launcher-icoon knipt een vol vierkant af; een echt PNG-paar (192/512) vraagt een oog op
-  een toestel. Zelfde open punt als bij Word Guesser.
+- **Het icoon**: sinds 2026-10-06 zijn er PNG's van 192 en 512 en een maskable (in het manifest),
+  zodat Chrome er een echte app van maakt; de maskable is niet op een toestel bekeken.
 - **Winterverlies is niet gemodelleerd.** Bij vorst gaat een deel van het vermogen naar het
-  verwarmen van het pakket, en dan duurt laden langer dan deze app zegt. Dat is eerlijk op te lossen
-  met één extra factor, maar niet zonder een winter aan metingen — tot die tijd is `EFFICIENCY`
-  bijdraaien de betere knop.
+  verwarmen van het pakket, en dan duurt laden langer dan deze app zegt. Het venster van de laatste
+  8 afgelezen beurten laat dat vanzelf meetellen zodra er koude beurten in staan — een aparte factor
+  is niet nodig, maar de eerste koude beurten zijn de proef.

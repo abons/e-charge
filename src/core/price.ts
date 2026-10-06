@@ -1,3 +1,5 @@
+import type { Setup } from "./charge.js";
+
 /**
  * De stroomprijs per kwartier, en wat een laadbeurt daarmee kost.
  *
@@ -6,8 +8,8 @@
  * plus de energiebelasting, en over dat geheel 21% btw. De vaste maandbedragen (levering, netbeheer)
  * hangen niet aan een laadbeurt en tellen hier niet mee.
  *
- * ⚠️ **De drie constanten hieronder zijn de enige plek met tariefkennis**, net als de vier in
- * `charge.ts` de enige plek met autokennis zijn. Ze staan op de tariefkaart van Zonneplan en in de
+ * ⚠️ **De drie constanten hieronder zijn de enige plek met tariefkennis** — contractafspraken met
+ * Zonneplan en de fiscus, geen aannames over de auto. Ze staan op de tariefkaart van Zonneplan en in de
  * belastingtabel; verandert een van beide, dan verandert hier één getal. Een andere leverancier is
  * een andere opslag, meer niet — het kwartiermodel is bij elk dynamisch contract hetzelfde.
  *
@@ -138,15 +140,16 @@ export function chargingCost(startMs: number, endMs: number, powerKw: number, qu
 }
 
 /**
- * Wat een kilometer kost bij deze gemiddelde prijs: het verbruik uit `charge.ts` (per 100 km, uit
- * de accu) gedeeld door het rendement (want je betaalt wat er uit de muur komt), maal de prijs.
- * Bij 20 ct/kWh, 17 kWh/100 km en 88% is dat 3,9 ct/km. Gerekend, niet gemeten — de gemeten
- * tegenhanger staat in `npm run calibrate`, uit twee opeenvolgende regels in `log.md`. Zonder
- * rendement valt er niets te rekenen: `null`, geen 0 — nul is een bedrag.
+ * Wat een kilometer kost bij deze gemiddelde prijs: de kWh uit de muur per procentpunt (vermogen van
+ * de kabel gedeeld door de laadsnelheid uit het logboek) gedeeld door de kilometers per procentpunt,
+ * maal de prijs. Bij 20 ct/kWh, 3,5 kW, 10,2 procentpunt per uur en 2,0 km per procentpunt is dat
+ * 3,4 ct/km. Alles komt uit het logboek, behalve het kabelvermogen (een aflezing). Zonder snelheid of
+ * kilometers valt er niets te rekenen: `null`, geen 0 — nul is een bedrag.
  */
-export function eurPerKm(avgEurPerKwh: number, consumptionKwhPer100Km: number, efficiency: number): number | null {
-  if (!(efficiency > 0)) return null;
-  return (avgEurPerKwh * consumptionKwhPer100Km) / 100 / efficiency;
+export function eurPerKm(avgEurPerKwh: number, setup: Setup): number | null {
+  if (!(setup.ratePpPerHour > 0) || !(setup.kmPerPp > 0)) return null;
+  // kWh uit de muur per procentpunt = vermogen ÷ snelheid; per kilometer daardoor delen.
+  return (avgEurPerKwh * (setup.powerKw / setup.ratePpPerHour)) / setup.kmPerPp;
 }
 
 /** Of elk moment van [startMs, endMs) een bekende prijs heeft — dan hoeft er niets opgehaald. */

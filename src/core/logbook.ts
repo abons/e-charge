@@ -1,5 +1,5 @@
 import { clampCurrent, maxMeterKwh } from "./charge.js";
-import { logRow, noteForAmps, type LogEntry } from "./logline.js";
+import { logRow, noteFor, type LogEntry } from "./logline.js";
 
 /**
  * Het logboek zoals de app het bewaart: een lijst afgesloten laadbeurten, op deze telefoon.
@@ -28,6 +28,12 @@ export interface Entry {
    * want de kolomvolgorde is een contract met `calibrate`, en `opm` was al vrije tekst.
    */
   amps: number | null;
+  /**
+   * `true` als `eind%` niet van het dashboard is afgelezen maar door de app uitgerekend (⏹ of 💾 zonder
+   * aflezing), of als de regel op een andere manier niet zuiver gemeten is. De regel blijft staan, maar
+   * telt niet mee voor de laadsnelheid en het bereik (`derive.ts`). Ontbreekt in oudere opslag: dan niet.
+   */
+  estimated?: boolean;
 }
 
 const getal = (v: unknown): number | null =>
@@ -55,6 +61,7 @@ function parseEntry(value: unknown): Entry | null {
     // wordt een stand die de knop heeft, net als in `readSession` — `12.5` uit een bewerkte opslag
     // zou anders als `12.5 A` in de regel komen en in de scripts als een onbekende stand.
     amps: o["amps"] === null || o["amps"] === undefined ? null : clampCurrent(o["amps"]),
+    estimated: o["estimated"] === true,
   };
 }
 
@@ -96,6 +103,8 @@ export function withEntry(entries: Entry[], entry: Entry): Entry[] {
           kwh: entry.kwh ?? oud.kwh,
           eur: entry.eur ?? (oud.endMs === entry.endMs ? oud.eur : null),
           amps: entry.amps ?? oud.amps,
+          // Het nieuwste woord wint: een aflezing die er later bij komt maakt een geschatte beurt gemeten.
+          estimated: entry.estimated === true,
         };
   const zonder = entries.filter((e) => e.startMs !== entry.startMs);
   return [...zonder, samen].sort((a, b) => a.startMs - b.startMs);
@@ -176,6 +185,7 @@ export function manualEntry(input: ManualInput): Entry | string {
     kwh: null,
     eur: null,
     amps: clampCurrent(input.amps),
+    estimated: false,
   };
 }
 
@@ -192,7 +202,7 @@ export function toMarkdown(entries: Entry[]): string {
         kwh: e.kwh,
         eur: e.eur,
         // De stand als opmerking, zodat `calibrate` een beurt op 8 A niet naast een op 16 A middelt.
-        note: e.amps === null ? undefined : noteForAmps(e.amps),
+        note: noteFor(e.amps, e.estimated === true),
       } satisfies LogEntry),
     )
     .join("\n");

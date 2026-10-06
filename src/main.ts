@@ -1,6 +1,5 @@
 import {
   CHARGE_CURRENTS_A,
-  DEFAULT_SETUP,
   RATED_CURRENT_A,
   clampCurrent,
   clampPercent,
@@ -8,8 +7,8 @@ import {
   percentAfter,
   powerKwAt,
   rangeKm,
-  setupAt,
 } from "./core/charge.js";
+import { kmPerPp, ratePerHour, setupAt, type Source } from "./core/derive.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -59,6 +58,11 @@ const SAVE_LABEL = "💾 Bewaar laadbeurt";
 const MANUAL_SAVE_LABEL = "💾 Bewaar als nieuwe beurt";
 /** Vier seconden "💾 Bewaard" op de knop; `renderSaveTarget` zet het label anders meteen terug. */
 let bewaardFlits = false;
+/**
+ * `true` zolang het veld Huidig de schatting bevat die ⏹ erin zette, en `false` zodra jij erin typt:
+ * dan is het een aflezing. Alleen dit onderscheidt een geschatte van een gemeten `eind%` in de logregel.
+ */
+let huidigIsSchatting = false;
 /** Zo vaak herrekenen: in de plan-stand loopt "nu" door, in de bezig-stand het percentage. */
 const TICK_MS = 15_000;
 
@@ -151,7 +155,7 @@ function activeAmps(): number {
 
 /** De auto aan de kabel op die stand — wat alles wat rekent meekrijgt. */
 function setup() {
-  return setupAt(activeAmps());
+  return setupAt(activeAmps(), logbook);
 }
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
@@ -189,7 +193,7 @@ function render(): void {
   if (from === null) {
     rangeLabel.textContent = `Bereik bij ${to}%`;
     rangeOut.textContent = "–";
-    show("–", "–", null, "–");
+    show("–", "–", null, "");
     showCost(null);
     note("Vul je huidige batterijpercentage in.", "info");
     calendarButton.disabled = true;
@@ -202,16 +206,15 @@ function render(): void {
   // toont.
   const rangePercent = Math.max(from, to);
   rangeLabel.textContent = `Bereik bij ${rangePercent}%`;
-  rangeOut.textContent = `± ${rangeKm(rangePercent)} km`;
-
   const opzet = setup();
+  rangeOut.textContent = `± ${rangeKm(rangePercent, opzet)} km`;
   const result = estimate(from, to, opzet);
   // Zonder laadtijd valt er ook geen percentage te schatten: `percentAfter` geeft dan het startpunt
   // terug. Liever de regel weg dan een bevroren getal laten staan.
   nowLine.hidden = session === null || !result.needed;
 
   if (!result.needed) {
-    show("—", "—", null, "—");
+    show("—", "—", null, "");
     showCost(null);
     note(`Laden niet nodig: je zit met ${from}% al op of boven je doel van ${to}%.`, "ok");
     calendarButton.disabled = true;
@@ -238,8 +241,8 @@ function render(): void {
   if (session) {
     const soc = Math.floor(percentAfter(session.from, to, now - session.startMs, opzet));
     nowPctOut.textContent = `${soc}%`;
-    nowKmOut.textContent = `± ${rangeKm(soc)} km`;
-    show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
+    nowKmOut.textContent = `± ${rangeKm(soc, opzet)} km`;
+    show(duration(Math.max(0, remainingMs) / 60_000), clock(readyMs), label, sourceTag());
     // Voorbij het doel blijft de schatting oplopen naar 100% — de auto kent jouw doel niet. Dus
     // noemt deze regel `soc` en niet `to`: die laatste bevroor op 90% terwijl er 98% in zat.
     note(
@@ -248,7 +251,7 @@ function render(): void {
         : null,
     );
   } else {
-    show(duration(result.minutes), clock(readyMs), label, `± ${nl(result.effectivePowerKw)} kW`);
+    show(duration(result.minutes), clock(readyMs), label, sourceTag());
     note(null);
   }
 
@@ -273,6 +276,19 @@ function updateCopyButton(): void {
   const niets = !manualBlock.open && huidigeLaadbeurt() === null;
   copyButton.disabled = niets;
   saveButton.disabled = niets;
+}
+
+/**
+ * Waar de getallen vandaan komen, als tag achter de bijregel: niets als alles uit je eigen logboek
+ * komt, "startwaarde" zolang er te weinig beurten zijn, en "geschat uit 16 A" voor een stand waar je
+ * nog niet op geladen hebt. Zo is een vreemde uitkomst altijd te herleiden.
+ */
+function sourceTag(): string {
+  const amps = activeAmps();
+  const rate = ratePerHour(logbook, amps);
+  if (rate.source === "schaling") return ` · geschat uit ${RATED_CURRENT_A} A`;
+  if (rate.source === "start" || kmPerPp(logbook).source === "start") return " · startwaarde";
+  return "";
 }
 
 function show(durationText: string, readyText: string, day: string | null, powerText: string): void {
@@ -300,7 +316,7 @@ function showCost(cost: Cost | null, expected = false): void {
   costNote.textContent = `${Math.round(cost.avgEurPerKwh * 100)} ct/kWh${cost.complete ? "" : ", deels geschat"}`;
   // Per kilometer bij de gemiddelde prijs van deze beurt en het verbruik uit `charge.ts` — dezelfde
   // aanname als "Bereik", dus de twee regels kunnen elkaar niet tegenspreken.
-  const perKm = eurPerKm(cost.avgEurPerKwh, DEFAULT_SETUP.consumptionKwhPer100Km, DEFAULT_SETUP.efficiency);
+  const perKm = eurPerKm(cost.avgEurPerKwh, setup());
   costKmOut.textContent = perKm === null ? "–" : `${nl(perKm * 100)} ct/km`;
 }
 
@@ -313,13 +329,14 @@ function note(text: string | null, kind: "ok" | "info" = "ok"): void {
 /** De agenda-afspraak: de eindtijd, met de aanname erbij zodat je later ziet waar die uit kwam. */
 function addToCalendar(): void {
   if (!ready) return;
-  const result = estimate(ready.from, ready.to, setupAt(ready.amps));
+  const opzet = setupAt(ready.amps, logbook);
+  const result = estimate(ready.from, ready.to, opzet);
   const text = calendar({
     readyMs: ready.readyMs,
     title: `Nissan Leaf ${ready.to}% — klaar met laden`,
     description:
       `Gestart om ${clock(ready.startMs)} op ${ready.from}%, doel ${ready.to}%.\n` +
-      `${nl(result.energyKwh)} kWh nodig, ± ${nl(result.effectivePowerKw)} kW op ${ready.amps} A, ` +
+      `${nl(opzet.ratePpPerHour)} procentpunt per uur op ${ready.amps} A (${bronTekst(ratePerHour(logbook, ready.amps).source)}), ` +
       `${duration(result.minutes)} laden.` +
       (ready.cost === null
         ? ""
@@ -335,15 +352,29 @@ function addToCalendar(): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-// Eén regel onderaan met de aannames, gelezen uit dezelfde constanten waarmee gerekend wordt —
-// zodat een uitkomst die vreemd voelt, meteen te herleiden is naar wat er in `charge.ts` staat.
-// Het vermogen is dat van de gekozen stand, dus de regel gaat mee zodra de keuzelijst verandert.
+function bronTekst(source: Source): string {
+  return source === "eigen" ? "uit je logboek" : source === "schaling" ? "geschat uit 16 A" : "startwaarde uit log.md";
+}
+
+// Eén regel onderaan met waar de getallen vandaan komen — er is geen aanname meer, alleen je eigen
+// logboek of (zolang dat te weinig beurten heeft) een startwaarde uit `log.md`. Zo is een uitkomst die
+// vreemd voelt meteen te herleiden. De snelheid is die van de gekozen stand, dus de regel gaat mee
+// zodra de keuzelijst verandert.
 function renderSetup(): void {
-  const opzet = setup();
-  setupOut.textContent =
-    `${nl(opzet.capacityKwh)} kWh bruikbaar · ${nl(opzet.powerKw)} kW uit de muur op ${activeAmps()} A · ` +
-    `${Math.round(opzet.efficiency * 100)}% rendement · ` +
-    `${nl(opzet.consumptionKwhPer100Km)} kWh/100 km`;
+  const amps = activeAmps();
+  const rate = ratePerHour(logbook, amps);
+  const km = kmPerPp(logbook);
+  const snelheid =
+    rate.source === "eigen"
+      ? `${nl(rate.value)} procentpunt per uur op ${amps} A (mediaan van ${rate.n} laadbeurten uit je logboek)`
+      : rate.source === "schaling"
+        ? `${nl(rate.value)} procentpunt per uur op ${amps} A (geschat uit ${RATED_CURRENT_A} A: je hebt nog niet vaak genoeg op deze stand geladen)`
+        : `${nl(rate.value)} procentpunt per uur op ${amps} A (startwaarde uit log.md: nog te weinig laadbeurten in je logboek)`;
+  const bereik =
+    km.source === "eigen"
+      ? `${nl(km.value)} km per procentpunt (uit ${km.n} ritten in je logboek)`
+      : `${nl(km.value)} km per procentpunt (startwaarde uit log.md)`;
+  setupOut.textContent = `Laadsnelheid: ${snelheid}. Bereik: ${bereik}.`;
 }
 
 // En de tariefopbouw, uit dezelfde constanten als de kostensom (`price.ts`): de marktprijs per
@@ -485,7 +516,10 @@ function toggleCharging(): void {
     // `eind%` gelijk aan `start%` melden — een laadbeurt van nul procentpunten, die `calibrate`
     // als 0,00 kW meerekent. Wat je hierna van het dashboard leest, typ je eroverheen.
     const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
-    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs, setup())));
+    currentInput.value = String(Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook))));
+    // Wat nu in het veld staat is een schatting, geen aflezing. De logregel moet dat weten (`estimated`),
+    // anders voedt de app zijn eigen rekenwerk terug in het logboek waar de snelheid uit komt.
+    huidigIsSchatting = true;
     // Bij het afkoppelen de hele laadbeurt bewaren — vanaf het insteken, niet vanaf de laatste
     // tussentijdse aflezing — zodat de logregel klopt met wat er werkelijk aan de muur hing.
     writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom, amps: session.amps });
@@ -532,13 +566,28 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // Het logboek heeft zijn eigen percentageveld, en dat wint: het is wat je van het dashboard hebt
   // gelezen, en het hoeft het plan-scherm niet te verzetten om in de regel te komen.
   const afgelezen = percentOf(pctInput);
-  const eind = afgelezen ?? percentOf(currentInput) ?? bewaard?.toPercent ?? null;
+  const huidig = percentOf(currentInput);
+  // ⚠️ Een echte aflezing wint altijd van een schatting, en een schatting wordt als `estimated`
+  // bewaard: de regel blijft (km en tijden zijn echt) maar telt niet mee voor snelheid en bereik.
+  //   1. Afgelezen (het logboekveld);
+  //   2. Huidig, als jij dat zelf hebt ingetikt — niet de schatting die ⏹ erin zette;
+  //   3. wat al bewaard is, als dat een aflezing was (een tweede druk op 💾 mag die niet vervangen);
+  //   4. de schatting: Huidig na ⏹, of de gerekende stand tijdens het laden.
+  let eind: number | null;
+  let geschat = false;
+  if (afgelezen !== null) eind = afgelezen;
+  else if (!session && huidig !== null && !huidigIsSchatting) eind = huidig;
+  else if (!session && bewaard !== undefined && bewaard.estimated !== true) eind = bewaard.toPercent;
+  else {
+    eind = !session ? (huidig ?? bewaard?.toPercent ?? null) : null;
+    geschat = true;
+  }
   const bron = session
     ? {
         startMs: session.logStartMs,
         endMs: nu,
         from: session.logFrom,
-        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setup()),
+        to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook)),
         amps: session.amps,
       }
     : afgelopen !== null && eind !== null
@@ -565,13 +614,14 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
     kwh: null,
     eur,
     amps: bron.amps,
+    estimated: geschat,
   };
 }
 
 /** Het bedrag van een beurt uit de kwartierprijzen die er nu bekend zijn, of `null` als er gaten zitten. */
 function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: number; amps: number }): number | null {
   // Op de stand van díe beurt, niet op wat de keuzelijst nu toevallig zegt.
-  const opzet = setupAt(bron.amps);
+  const opzet = setupAt(bron.amps, logbook);
   const laadMs = estimate(bron.from, bron.to, opzet).minutes * 60_000;
   const totMs = Math.min(bron.endMs, bron.startMs + laadMs);
   const kosten = chargingCost(bron.startMs, totMs, opzet.powerKw, prices.known());
@@ -823,7 +873,10 @@ if (session !== null || bijwerkbaar() !== null) logBook.open = true;
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {
-  input.addEventListener("input", render);
+  input.addEventListener("input", () => {
+    if (input === currentInput) huidigIsSchatting = false;
+    render();
+  });
   // Bij het verlaten van het veld pas de waarde aan naar wat er gerekend is (120 wordt 100), zodat
   // het scherm nooit een percentage laat staan waar de uitkomst niet bij hoort.
   input.addEventListener("change", () => {
@@ -857,7 +910,7 @@ ampsSelect.addEventListener("change", () => {
     const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
     // Naar beneden, zoals het scherm het toont en zoals `readSession` het na een herlaad leest —
     // en de veilige kant: iets te weinig aannemen maakt de schatting hooguit een paar minuten te lang.
-    const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps)));
+    const soc = Math.floor(percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook)));
     writeSession({ ...session, startMs: nu, from: soc, amps });
   }
   renderSetup();

@@ -20,7 +20,9 @@ import { readFileSync, writeFileSync } from "node:fs";
  */
 process.env.TZ ??= "Europe/Amsterdam";
 
-const { RATED_CURRENT_A, clampCurrent, estimate, setupAt } = await import("../out/src/core/charge.js");
+const { RATED_CURRENT_A, clampCurrent, estimate } = await import("../out/src/core/charge.js");
+const { setupAt } = await import("../out/src/core/derive.js");
+const { parseLogMd } = await import("../out/src/core/logmd.js");
 const { ampsFromNote } = await import("../out/src/core/logline.js");
 const { chargingCost, mergeQuarters, parseEnergyZero } = await import("../out/src/core/price.js");
 
@@ -78,6 +80,8 @@ async function prijzenVoor(ms) {
 
 const bron = readFileSync("log.md", "utf8");
 const regels = bron.split("\n");
+// De snelheid waarmee de app de eindtijd van een beurt rekent komt uit dit logboek, net als in de app.
+const { entries: logboek } = parseLogMd(bron);
 let gevuld = 0;
 let overgeslagen = 0;
 
@@ -108,7 +112,7 @@ for (let i = 0; i < regels.length; i++) {
     overgeslagen++;
     continue;
   }
-  const opzet = setupAt(amps);
+  const opzet = setupAt(amps, logboek);
   const totMs = Math.min(endMs, startMs + estimate(from, to, opzet).minutes * 60_000);
   let kwartieren = await prijzenVoor(startMs);
   if (apiDate(totMs) !== apiDate(startMs)) kwartieren = mergeQuarters(kwartieren, await prijzenVoor(totMs), 0);

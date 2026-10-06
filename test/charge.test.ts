@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
   CHARGE_CURRENTS_A,
-  DEFAULT_SETUP,
   RATED_CURRENT_A,
   clampCurrent,
   clampPercent,
@@ -12,10 +12,24 @@ import {
   percentAfter,
   powerKwAt,
   rangeKm,
-  setupAt,
+  type Setup,
 } from "../src/core/charge.js";
+import {
+  MIN_PAIRS,
+  START_KM_PER_PP,
+  START_RATE_PP_PER_H,
+  WINDOW,
+  kmPerPp,
+  kmPerPpPairs,
+  median,
+  rateOf,
+  ratePerHour,
+  rateSamples,
+  setupAt,
+} from "../src/core/derive.js";
 import { calendar } from "../src/core/ics.js";
-import { ampsFromNote, logRow, noteForAmps } from "../src/core/logline.js";
+import { ampsFromNote, isUnreliableNote, logRow, noteFor, noteForAmps } from "../src/core/logline.js";
+import { parseLogMd } from "../src/core/logmd.js";
 import {
   manualEntry,
   parseEntries,
@@ -23,162 +37,299 @@ import {
   withEntry,
   withMeterAsPercent,
   withoutEntry,
+  type Entry,
 } from "../src/core/logbook.js";
 import { clock, dayLabel, dayOffset, duration, number as nl } from "../src/core/time.js";
 
 /** De rekenkern en de weergave. Eén laadsessie is niet te controleren met een debugger, dus hier. */
 
-test("estimate: 43% → 90% aan een stopcontact", () => {
-  const result = estimate(43, 90);
-  assert.equal(result.needed, true);
-  // 47% van 30,5 kWh = 14,34 kWh netto de batterij in.
-  assert.equal(result.energyKwh.toFixed(2), "14.34");
-  // Daarvoor moet er 14,34 / 0,88 = 16,29 kWh uit de muur komen.
-  assert.equal(result.wallEnergyKwh.toFixed(2), "16.29");
-  // 3,5 kW × 88% = 3,08 kW effectief; 14,34 / 3,08 = 4,66 uur.
-  assert.equal(result.effectivePowerKw.toFixed(3), "3.080");
-  assert.equal(duration(result.minutes), "4u 40m");
-});
+const HOUR = 3_600_000;
 
-// De drie beurten uit `log.md` waar de capaciteit op gefit is (2026-09-20). Deze test is de reden
-// dat de constanten staan zoals ze staan: wijkt een voorspelling meer dan vijf minuten af van wat
-// de klok zei, dan is er aan een constante gesleuteld zonder naar de metingen te kijken.
-test("estimate: de gemeten laadbeurten komen er binnen vijf minuten uit", () => {
-  for (const [van, tot, minuten] of [[74, 97, 141], [55, 90, 205], [54, 98, 261]] as const) {
-    const afwijking = estimate(van, tot).minutes - minuten;
-    assert.ok(Math.abs(afwijking) <= 5, `${van} → ${tot}: ${afwijking} minuten mis`);
-  }
-});
+/** Een vaste opzet voor de rekenkern: 10 procentpunt per uur, 3,5 kW uit de muur, 2 km per procentpunt. */
+const S: Setup = { ratePpPerHour: 10, powerKw: 3.5, kmPerPp: 2 };
 
-test("estimate: rendement maakt het langer, nooit korter", () => {
-  const lossless = estimate(43, 90, { ...DEFAULT_SETUP, efficiency: 1 });
-  const real = estimate(43, 90);
-  assert.ok(real.minutes > lossless.minutes);
-  assert.equal(lossless.energyKwh, real.energyKwh); // in de batterij moet hetzelfde
-  assert.equal(lossless.wallEnergyKwh.toFixed(2), lossless.energyKwh.toFixed(2));
-});
+/** Een afgelezen beurt op de hoogste stand: [dag] van september 2026, 11:00, [uren] lang. */
+function sessie(dag: number, from: number, to: number, uren: number, extra: Partial<Entry> = {}): Entry {
+  const startMs = new Date(2026, 8, dag, 11, 0).getTime();
+  return {
+    startMs,
+    endMs: startMs + uren * HOUR,
+    fromPercent: from,
+    toPercent: to,
+    km: null,
+    kwh: null,
+    eur: null,
+    amps: 16,
+    estimated: false,
+    ...extra,
+  };
+}
 
-test("estimate: alles wat aan de auto hangt is te verzetten", () => {
-  const other = estimate(0, 100, { ...DEFAULT_SETUP, capacityKwh: 62, powerKw: 11, efficiency: 0.92 });
-  assert.equal(other.energyKwh, 62);
-  assert.equal(other.effectivePowerKw.toFixed(2), "10.12");
-  assert.equal(duration(other.minutes), "6u 08m");
-});
-
-// De standenknop op de kabel. Het afgelezen vermogen hoort bij de hoogste stand; de rest schaalt
-// daar lineair van af — en de tests hierboven (de gemeten beurten!) rekenen dus op die hoogste stand.
 test("laadstanden: de hoogste stand is het afgelezen vermogen, de rest schaalt mee", () => {
   assert.equal(CHARGE_CURRENTS_A.at(-1), RATED_CURRENT_A);
   assert.ok(CHARGE_CURRENTS_A.every((a, i) => i === 0 || a > (CHARGE_CURRENTS_A[i - 1] ?? 0)), "oplopend");
-  assert.equal(powerKwAt(RATED_CURRENT_A), DEFAULT_SETUP.powerKw);
-  assert.equal(setupAt(RATED_CURRENT_A).powerKw, DEFAULT_SETUP.powerKw);
-  // 8 A is de helft van 16 A: 1,75 kW uit de muur, en dan duurt dezelfde beurt twee keer zo lang.
+  assert.equal(powerKwAt(RATED_CURRENT_A), 3.5);
+  // 8 A is de helft van 16 A: 1,75 kW uit de muur.
   assert.equal(powerKwAt(8).toFixed(3), "1.750");
   assert.equal(powerKwAt(10).toFixed(3), "2.188");
-  // Op een minuut na: estimate rondt naar boven, en twee keer afronden is niet één keer afronden.
-  assert.ok(Math.abs(estimate(43, 90, setupAt(8)).minutes - 2 * estimate(43, 90).minutes) <= 1);
-  assert.equal(estimate(43, 90, setupAt(8)).energyKwh, estimate(43, 90).energyKwh); // de accu wil hetzelfde
-  // De andere drie constanten gaan ongemoeid mee — het rendement ook, en dat is een keuze (charge.ts).
-  assert.equal(setupAt(8).efficiency, DEFAULT_SETUP.efficiency);
-  assert.equal(setupAt(8).capacityKwh, DEFAULT_SETUP.capacityKwh);
   // Een stand die de knop niet heeft, is de hoogste — wat er in opslag staat is niet te vertrouwen.
   assert.equal(clampCurrent(9), RATED_CURRENT_A);
   assert.equal(clampCurrent("10"), RATED_CURRENT_A);
   assert.equal(clampCurrent(Number.NaN), RATED_CURRENT_A);
   assert.equal(clampCurrent(10), 10);
-  assert.equal(powerKwAt(999), DEFAULT_SETUP.powerKw);
-  // En percentAfter gaat op 8 A half zo hard, dus estimate en percentAfter blijven elkaars omgekeerde.
-  assert.equal(percentAfter(43, 90, 3_600_000, setupAt(8)).toFixed(2), "48.05");
-  const ms = estimate(43, 90, setupAt(8)).minutes * 60_000;
-  assert.equal(Math.floor(percentAfter(43, 90, ms, setupAt(8))), 90);
+  assert.equal(powerKwAt(999), 3.5);
+});
+
+test("estimate: de laadtijd komt uit procentpunt per uur", () => {
+  // 47 procentpunt aan 10 per uur is 4,7 uur: 282 minuten.
+  const e = estimate(43, 90, S);
+  assert.equal(e.needed, true);
+  assert.equal(e.minutes, 282);
+  // Half zo snel, dubbel zo lang.
+  assert.equal(estimate(43, 90, { ...S, ratePpPerHour: 5 }).minutes, 564);
 });
 
 test("estimate: doel al gehaald betekent niet laden", () => {
-  for (const [from, to] of [[90, 90], [95, 90], [100, 0]] as const) {
-    const result = estimate(from, to);
-    assert.equal(result.needed, false, `${from} → ${to}`);
-    assert.equal(result.minutes, 0);
-  }
-  // Het vermogen blijft ook dan gewoon bekend — het is een eigenschap van de lader, niet van de rit.
-  assert.equal(estimate(90, 90).effectivePowerKw.toFixed(3), "3.080");
+  assert.deepEqual(estimate(90, 90, S), { needed: false, minutes: 0 });
+  assert.deepEqual(estimate(95, 90, S), { needed: false, minutes: 0 });
+  // Zonder snelheid valt er niets te rekenen — geen oneindige laadtijd.
+  assert.deepEqual(estimate(10, 90, { ...S, ratePpPerHour: 0 }), { needed: false, minutes: 0 });
+  assert.deepEqual(estimate(10, 90, { ...S, ratePpPerHour: Number.NaN }), { needed: false, minutes: 0 });
 });
 
 test("estimate: rondt minuten naar boven en klemt percentages", () => {
-  assert.equal(estimate(-10, 200).energyKwh, 30.5); // 0 → 100
-  assert.equal(estimate(89.6, 90).minutes, Math.ceil(estimate(90, 90).minutes)); // 89,6 rondt naar 90
-  assert.ok(Number.isInteger(estimate(43, 90).minutes));
+  // 1 procentpunt aan 7 per uur is 8,57 minuten: 9, niet 8.
+  assert.equal(estimate(50, 51, { ...S, ratePpPerHour: 7 }).minutes, 9);
+  assert.equal(estimate(-20, 150, S).minutes, 600); // 0 → 100
+  assert.equal(estimate(Number.NaN, 90, S).minutes, 540);
 });
 
-// De aanleiding: 97 (het dashboardpercentage) belandde in de kWh-kolom, omdat de app nergens een
-// kWh toont en dat het enige getal is dat je op dat moment in je hand hebt. Zo'n waarde is erger dan
-// een lege kolom — calibrate rekent er een rendement uit dat eruitziet als een meting.
 test("maxMeterKwh: een percentage is geen meterstand", () => {
-  const nacht = 7 * 3_600_000;
+  const nacht = 7 * HOUR;
   // Wat de lader er in zeven uur doorheen krijgt is 24,5 kWh; de grens laat ruimte voor het huis.
   assert.equal(maxMeterKwh(nacht).toFixed(2), "36.75");
   assert.ok(20.4 <= maxMeterKwh(nacht), "een echte meterstand hoort er ruim onder te blijven");
   assert.ok(97 > maxMeterKwh(nacht), "97 procent hoort tegen de grens te lopen");
-  // De zeef hangt aan de lader en aan de klok: pas na bijna een etmaal aan de muur zou 97 kWh
-  // kunnen kloppen, en dan is het ook geen vergissing meer.
-  assert.ok(97 > maxMeterKwh(18 * 3_600_000));
-  assert.ok(97 < maxMeterKwh(20 * 3_600_000));
-  // Een sneller laadpunt mag meer: de grens hangt aan de lader, niet aan een vast getal.
-  assert.ok(97 < maxMeterKwh(nacht, { ...DEFAULT_SETUP, powerKw: 11 }));
+  // Pas na bijna een etmaal aan de muur zou 97 kWh kunnen kloppen, en dan is het ook geen vergissing meer.
+  assert.ok(97 > maxMeterKwh(18 * HOUR));
+  assert.ok(97 < maxMeterKwh(20 * HOUR));
   // Onzin levert geen negatieve grens op, en zonder tijd past er niets.
   assert.equal(maxMeterKwh(0), 0);
-  assert.equal(maxMeterKwh(-3_600_000), 0);
+  assert.equal(maxMeterKwh(-HOUR), 0);
 });
 
 test("rangeKm: procenten naar kilometers, naar beneden afgerond", () => {
-  // 30,5 kWh bij 17 kWh/100 km = 179 km vol; 90% daarvan is 161.
-  assert.equal(rangeKm(100), 179);
-  assert.equal(rangeKm(90), 161);
-  assert.equal(rangeKm(43), 77);
-  assert.equal(rangeKm(0), 0);
-  // Een zuiniger of dorstiger auto verzet het bereik, net als bij estimate().
-  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, consumptionKwhPer100Km: 13 }), 234);
-  // Een ongesleten pakket levert meer km bij hetzelfde percentage.
-  assert.equal(rangeKm(100, { ...DEFAULT_SETUP, capacityKwh: 39 }), 229);
+  assert.equal(rangeKm(90, S), 180);
+  assert.equal(rangeKm(100, S), 200);
+  assert.equal(rangeKm(0, S), 0);
+  assert.equal(rangeKm(43, { ...S, kmPerPp: 2.01 }), 86); // 86,43
+  assert.equal(rangeKm(150, S), 200); // klemt op 100%
 });
 
 test("rangeKm: een gebroken percentage gaat naar beneden, niet naar het dichtstbijzijnde", () => {
-  // 59,7% mag geen kilometers van 60% opleveren: het scherm toont Math.floor(soc) ernaast, en dan
-  // zou er "59% ± 107 km" staan terwijl 107 km bij 60% hoort.
-  assert.equal(rangeKm(59.7), rangeKm(59));
-  assert.equal(rangeKm(59), 105);
-  assert.equal(rangeKm(60), 107);
-  assert.equal(rangeKm(-0.5), 0);
+  // Het scherm toont Math.floor(soc): 59,7% heet 59%, en dan horen de kilometers van 59 erbij.
+  assert.equal(rangeKm(59.7, S), 118);
+  assert.equal(rangeKm(59.7, S), rangeKm(59, S));
 });
 
-test("percentAfter: loopt op met het laadvermogen en stopt pas op 100%", () => {
-  // 3,08 kW effectief in 30,5 kWh: 10,10 procentpunt per uur.
-  assert.equal(percentAfter(43, 90, 0).toFixed(1), "43.0");
-  assert.equal(percentAfter(43, 90, 3_600_000).toFixed(1), "53.1");
-  assert.equal(percentAfter(43, 90, 3 * 3_600_000).toFixed(1), "73.3");
-  // ⚠️ Het doel is géén plafond: de auto weet er niets van en laadt door. Dit klemde tot 2026-09-20
-  // op `to`, en toen bleef het scherm 90% melden terwijl het dashboard 98% zei.
-  assert.equal(percentAfter(43, 90, 5 * 3_600_000).toFixed(1), "93.5");
-  assert.equal(percentAfter(43, 90, 99 * 3_600_000), 100);
+test("percentAfter: loopt op met de snelheid en stopt pas op 100%", () => {
+  assert.equal(percentAfter(43, 90, HOUR, S), 53);
+  assert.equal(percentAfter(43, 90, 0, S), 43);
+  // Het doel is geen plafond: de auto kent jouw doel niet en laadt door tot 100%.
+  assert.equal(percentAfter(43, 90, 5 * HOUR, S), 93);
+  assert.equal(percentAfter(43, 90, 20 * HOUR, S), 100);
 });
 
 test("percentAfter: onzinnige invoer levert gewoon het startpunt op", () => {
-  assert.equal(percentAfter(43, 90, -1), 43);
-  assert.equal(percentAfter(90, 90, 3_600_000), 90); // niets te laden
-  assert.equal(percentAfter(95, 90, 3_600_000), 95); // al voorbij het doel
+  assert.equal(percentAfter(43, 90, -HOUR, S), 43);
+  assert.equal(percentAfter(90, 90, HOUR, S), 90); // niets te laden
+  assert.equal(percentAfter(Number.NaN, 90, HOUR, S), 10);
 });
 
 test("percentAfter en estimate zijn elkaars omgekeerde", () => {
   // Wat estimate() als laadtijd geeft, moet percentAfter() op het doel uitbrengen — anders zou de
   // aftelling op het scherm iets anders zeggen dan de eindtijd erboven. Het scherm toont
-  // `Math.floor(soc)`, dus gelijk tot op de hele procent is wat er te controleren valt: estimate()
-  // rondt de minuten naar boven af, en dan zit er hooguit één minuut (0,17 procentpunt) overheen.
-  for (const [from, to] of [[10, 80], [43, 90], [0, 100], [65, 66]] as const) {
-    const ms = estimate(from, to).minutes * 60_000;
-    const soc = percentAfter(from, to, ms);
-    assert.equal(Math.floor(soc), to, `${from} → ${to}: ${soc}`);
-    // Eén minuut eerder is hij er nog net niet (afronden naar boven zit in estimate).
-    assert.ok(percentAfter(from, to, ms - 60_000) < to, `${from} → ${to}`);
+  // `Math.floor(soc)`, dus gelijk tot op de hele procent is wat er te controleren valt.
+  const snelheden = [10.1, 7, 5.05, 11.04];
+  for (const ratePpPerHour of snelheden) {
+    for (const [from, to] of [[10, 80], [43, 90], [0, 100], [65, 66]] as const) {
+      const opzet = { ...S, ratePpPerHour };
+      const ms = estimate(from, to, opzet).minutes * 60_000;
+      const soc = percentAfter(from, to, ms, opzet);
+      assert.equal(Math.floor(soc), to, `${ratePpPerHour}: ${from} → ${to}: ${soc}`);
+      // Eén minuut eerder is hij er nog net niet (afronden naar boven zit in estimate).
+      assert.ok(percentAfter(from, to, ms - 60_000, opzet) < to, `${ratePpPerHour}: ${from} → ${to}`);
+    }
   }
+});
+
+// --- Wat uit het logboek volgt (derive.ts) -------------------------------------------------------
+
+test("median: het midden, en NaN zonder getallen", () => {
+  assert.equal(median([3, 1, 2]), 2);
+  assert.equal(median([4, 1, 2, 3]), 2.5);
+  assert.equal(median([7]), 7);
+  assert.ok(Number.isNaN(median([])));
+});
+
+test("rateOf: alleen een afgelezen, niet afgekapte beurt zegt iets over de snelheid", () => {
+  assert.equal(rateOf(sessie(1, 40, 90, 5)), 10);
+  // Geschat: de eigen schatting bevestigt alleen zichzelf.
+  assert.equal(rateOf(sessie(1, 40, 90, 5, { estimated: true })), null);
+  // Afgekapt: de lader was eerder klaar dan je afkoppelde.
+  assert.equal(rateOf(sessie(1, 40, 100, 5)), null);
+  assert.equal(rateOf(sessie(1, 40, 99, 5)), null);
+  assert.ok(rateOf(sessie(1, 40, 98, 5)) !== null);
+  // Te weinig procentpunt of te kort: te grof; te lang: een vergeten stekker of een tikfout.
+  assert.equal(rateOf(sessie(1, 50, 59, 1)), null);
+  assert.equal(rateOf(sessie(1, 50, 80, 0.5)), null);
+  assert.equal(rateOf(sessie(1, 20, 80, 13)), null);
+});
+
+test("ratePerHour: eigen beurten winnen pas vanaf drie, daarvoor de startwaarde", () => {
+  const twee = [sessie(1, 40, 90, 5), sessie(2, 40, 90, 5)];
+  assert.deepEqual(ratePerHour(twee, 16), { value: START_RATE_PP_PER_H, n: 0, source: "start" });
+  assert.deepEqual(ratePerHour([], 16), { value: START_RATE_PP_PER_H, n: 0, source: "start" });
+  const drie = [...twee, sessie(3, 40, 90, 4.5)];
+  const r = ratePerHour(drie, 16);
+  assert.equal(r.source, "eigen");
+  assert.equal(r.n, 3);
+  assert.equal(r.value, 10); // mediaan van 10, 10 en 11,1
+  // Zonder stand in de regel (van vóór de standenkeuze) is het de hoogste.
+  assert.equal(ratePerHour(drie.map((e) => ({ ...e, amps: null })), 16).source, "eigen");
+});
+
+test("ratePerHour: een lagere stand schaalt met de kabel, tot er eigen beurten op die stand zijn", () => {
+  const drie = [sessie(1, 40, 90, 5), sessie(2, 40, 90, 5), sessie(3, 40, 90, 5)];
+  const acht = ratePerHour(drie, 8);
+  assert.equal(acht.source, "schaling");
+  assert.equal(acht.value, 5); // de helft van 10
+  assert.equal(acht.n, 3);
+  assert.equal(ratePerHour(drie, 10).value, 6.25);
+  // Met één eigen beurt op 8 A nog niet; met twee wel.
+  const een = [...drie, sessie(4, 40, 70, 10, { amps: 8 })];
+  assert.equal(ratePerHour(een, 8).source, "schaling");
+  const twee = [...een, sessie(5, 30, 60, 10, { amps: 8 })];
+  assert.deepEqual(ratePerHour(twee, 8), { value: 3, n: 2, source: "eigen" });
+  // En de hoogste stand blijft onaangetast door beurten op een andere stand.
+  assert.equal(ratePerHour(twee, 16).value, 10);
+  // Zonder beurten op 16 A schaalt een lagere stand uit de startwaarde.
+  assert.equal(ratePerHour([], 8).value, START_RATE_PP_PER_H / 2);
+});
+
+test("rateSamples: de laatste acht, en een vergissing valt eruit", () => {
+  const veel = Array.from({ length: 12 }, (_, i) => sessie(i + 1, 40, 90, 5 + (i % 2)));
+  assert.equal(rateSamples(veel, 16).length, WINDOW);
+  // Een beurt die half zo snel ging als de rest is een vergissing in de invoer, geen auto.
+  const met = [sessie(1, 40, 90, 5), sessie(2, 40, 90, 5), sessie(3, 40, 90, 5), sessie(4, 40, 90, 12)];
+  assert.deepEqual(rateSamples(met, 16), [10, 10, 10]);
+});
+
+test("kmPerPp: opeenvolgende regels, gepoold, met een rit die er ver naast zit weggelaten", () => {
+  // km-stand bij insteken; eind% van de ene en start% van de volgende zeggen wat er is verbruikt.
+  const lijst: Entry[] = [
+    sessie(1, 50, 90, 4, { km: 1000 }),
+    sessie(3, 50, 90, 4, { km: 1080 }), // 80 km voor 40 procentpunt: 2,0
+    sessie(5, 50, 90, 4, { km: 1160 }), // 2,0
+    sessie(7, 50, 90, 4, { km: 1244 }), // 84 km voor 40: 2,1
+    sessie(9, 60, 90, 4, { km: 1330 }), // 86 km voor 30: 2,87 — te ver af
+  ];
+  assert.equal(kmPerPpPairs(lijst).length, 3); // het vierde paar valt buiten 1,35 keer de mediaan
+  const v = kmPerPp(lijst);
+  assert.equal(v.source, "eigen");
+  // 3 paren blijven over: (80 + 80 + 84) ÷ (40 + 40 + 40)
+  assert.equal(v.n, 3);
+  assert.ok(Math.abs(v.value - 244 / 120) < 1e-9, String(v.value));
+});
+
+test("kmPerPp: te weinig paren, een geschatte regel en een km-sprong tellen niet", () => {
+  assert.deepEqual(kmPerPp([]), { value: START_KM_PER_PP, n: 0, source: "start" });
+  const twee: Entry[] = [
+    sessie(1, 50, 90, 4, { km: 1000 }),
+    sessie(3, 50, 90, 4, { km: 1080 }),
+    sessie(5, 50, 90, 4, { km: 1160 }),
+  ];
+  assert.equal(kmPerPp(twee).source, "start"); // 2 paren < MIN_PAIRS
+  assert.ok(MIN_PAIRS > 2);
+  const geschat = [...twee, sessie(7, 50, 90, 4, { km: 1240 }, )];
+  assert.equal(kmPerPp(geschat).source, "eigen");
+  // Is een eind% geschat, dan zegt het paar met de volgende regel niets.
+  const nep = geschat.map((e, i) => (i === 1 ? { ...e, estimated: true } : e));
+  assert.equal(kmPerPpPairs(nep).length, 1);
+  // Terugdraaiende km-stand, of te weinig procentpunt: geen paar. Meer dan een week ertussen ook niet.
+  const kapot: Entry[] = [sessie(1, 50, 90, 4, { km: 1000 }), sessie(2, 50, 90, 4, { km: 990 })];
+  assert.equal(kmPerPpPairs(kapot).length, 0);
+  const zonderKm: Entry[] = [sessie(1, 50, 90, 4), sessie(3, 50, 90, 4, { km: 1080 })];
+  assert.equal(kmPerPpPairs(zonderKm).length, 0);
+  const lang: Entry[] = [sessie(1, 50, 90, 4, { km: 1000 }), sessie(20, 50, 90, 4, { km: 1080 })];
+  assert.equal(kmPerPpPairs(lang).length, 0);
+});
+
+test("setupAt: snelheid, kabelvermogen en kilometers per procentpunt op één stand", () => {
+  const s = setupAt(8, []);
+  assert.equal(s.ratePpPerHour, START_RATE_PP_PER_H / 2);
+  assert.equal(s.powerKw, powerKwAt(8));
+  assert.equal(s.kmPerPp, START_KM_PER_PP);
+  // De kWh uit de muur per procentpunt blijft op elke stand gelijk: halve snelheid, half vermogen.
+  assert.ok(Math.abs(s.powerKw / s.ratePpPerHour - setupAt(16, []).powerKw / setupAt(16, []).ratePpPerHour) < 1e-9);
+});
+
+test("startwaarden: staan op wat dezelfde afleiding uit log.md haalt", () => {
+  const { entries, skipped } = parseLogMd(readFileSync("log.md", "utf8"));
+  assert.deepEqual(skipped, []);
+  assert.ok(entries.length >= 7, "log.md hoort zijn beurten te hebben");
+  const snelheid = median(rateSamples(entries, RATED_CURRENT_A));
+  assert.ok(Math.abs(snelheid - START_RATE_PP_PER_H) / snelheid < 0.05, `log.md ${snelheid}, startwaarde ${START_RATE_PP_PER_H}`);
+  const km = kmPerPp(entries);
+  assert.equal(km.source, "eigen");
+  assert.ok(Math.abs(km.value - START_KM_PER_PP) / km.value < 0.02, `log.md ${km.value}, startwaarde ${START_KM_PER_PP}`);
+  // De geschatte beurten (27 sep, 2 okt) zitten er niet in.
+  assert.ok(entries.some((e) => e.estimated === true));
+  assert.ok(rateSamples(entries, RATED_CURRENT_A).every((r) => r > 9 && r < 12));
+});
+
+test("zelfvoeding: een logboek met alleen geschatte beurten geeft de startwaarden", () => {
+  // Wat de app zelf uitrekende en als eind% bewaarde, mag de snelheid niet bevestigen.
+  const eigenSchatting = [1, 2, 3, 4, 5].map((d) =>
+    sessie(d, 40, 90, 3, { estimated: true, km: 1000 + d * 80 }),
+  );
+  assert.equal(ratePerHour(eigenSchatting, 16).source, "start");
+  assert.equal(kmPerPp(eigenSchatting).source, "start");
+  assert.equal(setupAt(16, eigenSchatting).ratePpPerHour, START_RATE_PP_PER_H);
+});
+
+test("parseLogMd: de tabel als regels, met herkomst en over middernacht", () => {
+  const tekst = [
+    "| datum | km | start% | eind% | van | tot | kWh | € | opm |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| 2026-09-13 | 96839 | 74 | 97 | 13:52 | 16:13 |  | 2,54 |  |",
+    "| 2026-09-27 | 97195 | 65 | 85 | 22:00 | 02:00 |  | 1,06 | 16 A; eind% en km geschat |",
+    "| 2026-09-28 | 97200 | 50 | 60 | 10:00 | 12:00 |  |  | 12 A |",
+    "| 2026-09-29 | 97200 | 50 | 60 | 10:00 |",
+    "<!-- | 2026-09-30 | 1 | 1 | 1 | 10:00 | 11:00 |  |  |  | -->",
+  ].join("\n");
+  const { entries, skipped } = parseLogMd(tekst);
+  assert.equal(entries.length, 2);
+  assert.equal(entries[0]?.eur, 2.54);
+  assert.equal(entries[0]?.amps, null);
+  assert.equal(entries[0]?.estimated, false);
+  assert.equal(entries[1]?.amps, 16);
+  assert.equal(entries[1]?.estimated, true);
+  assert.equal((entries[1]!.endMs - entries[1]!.startMs) / HOUR, 4); // 22:00 → 02:00
+  // Een stand die de knop niet heeft en een regel met te weinig cellen worden gemeld, niet geraden.
+  assert.deepEqual(skipped.map((s) => s.datum), ["2026-09-28", "2026-09-29"]);
+});
+
+test("noteFor en isUnreliableNote: de stand en 'geschat' in de opm-kolom", () => {
+  assert.equal(noteFor(16, false), "16 A");
+  assert.equal(noteFor(16, true), "16 A; geschat");
+  assert.equal(noteFor(null, true), "geschat");
+  assert.equal(noteFor(null, false), undefined);
+  assert.equal(ampsFromNote("16 A; geschat"), 16); // de stand blijft leesbaar
+  assert.equal(isUnreliableNote("16 A; eind% en km geschat (hersteld)"), true);
+  assert.equal(isUnreliableNote("elders geladen"), true);
+  assert.equal(isUnreliableNote("16 A"), false);
+  assert.equal(isUnreliableNote(""), false);
 });
 
 test("clampPercent: hele getallen, 0 t/m 100", () => {
@@ -432,4 +583,22 @@ test("logbook: achteraf invoeren weigert toekomst en meer dan 12 uur", () => {
   assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "08:00", to: "20:00" }), "object");
   assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "08:00", to: "21:00" }), "string");
   assert.equal(typeof manualEntry({ ...basis, date: "2026-02-30", from: "08:00", to: "10:00" }), "string");
+});
+
+test("logbook: een geschatte beurt blijft staan maar telt niet, en een latere aflezing maakt hem gemeten", () => {
+  const geschat = withEntry([], { ...beurt(12), amps: 16, estimated: true });
+  assert.equal(geschat[0]?.estimated, true);
+  // In log.md staat het als 'geschat' achter de stand, en het overleeft opslag.
+  assert.ok(toMarkdown(geschat).endsWith("| 16 A; geschat |"), toMarkdown(geschat));
+  assert.equal(parseEntries(JSON.stringify(geschat))[0]?.estimated, true);
+  // Oudere opslag kent het veld niet: dan is de regel niet geschat.
+  assert.equal(parseEntries(JSON.stringify([beurt(12)]))[0]?.estimated, false);
+  // Dezelfde beurt opnieuw bewaren, nu met een echte aflezing: het nieuwste woord wint.
+  const gemeten = withEntry(geschat, { ...beurt(12), amps: 16, estimated: false, toPercent: 88 });
+  assert.equal(gemeten.length, 1);
+  assert.equal(gemeten[0]?.estimated, false);
+  assert.equal(gemeten[0]?.toPercent, 88);
+  // En een regel van achteraf invoeren is altijd gemeten: eind% is daar verplicht.
+  const achteraf = manualEntry({ date: "2026-09-01", from: "10:00", to: "14:00", fromPercent: 40, toPercent: 85, km: null, amps: 16 });
+  assert.equal(typeof achteraf === "string" ? null : achteraf.estimated, false);
 });

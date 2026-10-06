@@ -8,7 +8,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 
 ## Standing rules
 
-- **De app weet niets van de auto, en dat blijft zo.** Geen backend, geen login, geen cloud, geen
+- **De app weet niets van de auto dat niet in zijn eigen logboek staat, en dat blijft zo.** Geen backend, geen login, geen cloud, geen
   Nissan API, geen OBD — dat was de opdracht bij het ontstaan (2026-09-11) en het is ook de reden dat
   deze app offline werkt en niets te onderhouden heeft.
 - ⚠️ **Eén uitzondering, sinds 2026-09-25: de stroomprijs komt van het net.** De eigenaar wilde de
@@ -60,30 +60,41 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
   aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk
   was.
-- ⚠️ **De vier constanten in `src/core/charge.ts` zijn de enige plek met auto- of laderkennis** —
-  plus, sinds 2026-09-27, de laadstanden van de kabel (`CHARGE_CURRENTS_A`, `RATED_CURRENT_A`).
-  Reken nooit met een vast getal in `main.ts` of in de HTML; de regel onderaan het scherm en de
-  agenda-tekst lezen dezelfde constanten, zodat scherm en rekenkern niet uit elkaar kunnen lopen.
-  De `<select id="amps">` in de HTML is dus **leeg**; `main.ts` vult hem uit die lijst.
+- ⚠️ **Geen aannames, alleen het logboek (2026-10-06, de eigenaar).** Capaciteit, rendement en
+  verbruik zijn weg. `src/core/derive.ts` leidt uit het logboek af: de **laadsnelheid** (procentpunt
+  per uur, mediaan over de laatste 8 bruikbare beurten, per stand) en de **kilometers per
+  procentpunt** (gepoold over opeenvolgende regels, met een rit die >1,35× van de mediaan afwijkt
+  weggelaten). Met te weinig beurten (3 op 16 A, 2 op een lagere stand, 3 geldige paren) gelden de
+  **startwaarden** `START_RATE_PP_PER_H` en `START_KM_PER_PP` — hard schakelen, geen gewogen mix — en
+  een test legt vast dat ze overeenkomen met wat dezelfde functies uit `log.md` halen. Het scherm
+  zegt waar het getal vandaan komt ("startwaarde", "geschat uit 16 A", of de voetregel). Alles in
+  `charge.ts` dat nog een getal is, is een **aflezing van de kabel**: `CHARGE_POWER_KW` (3,5 kW op
+  16 A, voor kWh en kosten) en de laadstanden. Reken nooit met een vast getal in `main.ts` of in de
+  HTML. De `<select id="amps">` in de HTML is **leeg**; `main.ts` vult hem uit `CHARGE_CURRENTS_A`.
+- ⚠️ **Een beurt telt alleen mee als zijn `eind%` is afgelezen (`Entry.estimated`).** ⏹ en 💾 zonder
+  aflezing bewaren de regel nog wel (km en tijden zijn echt), maar met `estimated` en `geschat` in
+  `opm` (`16 A; geschat`): zo'n regel telt niet voor snelheid en bereik, anders bevestigt een mediaan
+  alleen zijn eigen schatting. `huidigIsSchatting` in `main.ts` weet of Huidig de schatting is die ⏹
+  erin zette of iets dat jij intikte; een echte aflezing wint altijd van een schatting, ook van wat
+  al bewaard was. Beurten die op 99–100% eindigen tellen niet voor de snelheid (de duur is
+  afgekapt). `isUnreliableNote` (`geschat`, `elders geladen`) doet hetzelfde voor `log.md`.
 - ⚠️ **De laadstand zit in de sessie, en `setup()` in `main.ts` is de enige weg naar een `Setup`.**
-  `CHARGE_POWER_KW` is het vermogen op de hoogste stand; alles wat rekent (`estimate`,
-  `percentAfter`, `chargingCost`, de agenda-tekst, de logregel) krijgt `setupAt(amps)` mee. Tijdens
-  het laden is dat de stand van de sessie, en een andere keuze in de lijst verankert de sessie
-  opnieuw vanaf het gerekende percentage van nu — net als een aflezing. Een `Setup` zonder stand
-  (`DEFAULT_SETUP`) is alleen nog goed voor wat níét van de stand afhangt: het bereik, de kosten
-  per km, en `maxMeterKwh` (een bovengrens hoort op de hoogste stand). In het logboek gaat de stand
-  als `16 A` de `opm`-kolom in — géén eigen kolom, want de kolomvolgorde is een contract — via het
-  paar `noteForAmps`/`ampsFromNote` in `logline.ts` (één test pint de round-trip vast), en
-  `calibrate` en `kosten` lezen hem daar weer uit; een regel zonder stand is van vóór de
-  standenkeuze en telt als de hoogste, een regel met een stand die de knop niet heeft (`12 A`)
-  wordt met een waarschuwing overgeslagen. `calibrate` houdt het rendement per stand apart en stelt
-  `EFFICIENCY` alleen uit de beurten op de hoogste stand voor.
+  Een `Setup` is `{ ratePpPerHour, powerKw, kmPerPp }` uit `setupAt(amps, logbook)` in `derive.ts`;
+  alles wat rekent (`estimate`, `percentAfter`, `rangeKm`, `eurPerKm`, `chargingCost`, de
+  agenda-tekst, de logregel) krijgt hem mee. Tijdens het laden is dat de stand van de sessie, en een
+  andere keuze in de lijst verankert de sessie opnieuw vanaf het gerekende percentage van nu — net
+  als een aflezing. In het logboek gaat de stand als `16 A` de `opm`-kolom in — géén eigen kolom,
+  want de kolomvolgorde is een contract — via `noteFor`/`noteForAmps`/`ampsFromNote` in `logline.ts`
+  (één test pint de round-trip vast); een regel zonder stand is van vóór de standenkeuze en telt als
+  de hoogste, een regel met een stand die de knop niet heeft (`12 A`) wordt overgeslagen en
+  gemeld. `src/core/logmd.ts` leest `log.md` met dezelfde regels, voor `calibrate`, `kosten` en de
+  tests — nooit de app zelf.
 - ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
   tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
   meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —
   zie `design.md`.
 - ⚠️ **`estimate()` rondt minuten naar boven.** Een halve minuut te weinig laden is een verkeerd
-  antwoord; "±" staat er niet voor niets bij het vermogen.
+  antwoord; "±" staat er niet voor niets bij het bereik. `rangeKm` rondt naar beneden.
 - **Lokale tijd is hier de juiste tijd** — anders dan bij de zusters, waar UTC een contract tussen
   apparaten is. Dit is een stekker in één huis: de keukenklok telt. `src/core/time.ts` gebruikt dus
   bewust de `getHours()`-familie en geen UTC.
@@ -93,8 +104,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   sessie is "Start" de klok van nu, en schuift de eindtijd dus mee met de tijd — juist zolang je nog
   niet ingestoken bent, fout zodra dat wel zo is. `⚡ Start laden` zet het moment vast in
   `localStorage`; vanaf dan telt de app af en loopt "Nu ongeveer" gerékend op. Een percentage dat je
-  tijdens het laden intypt is een *aflezing van de auto* en verankert de sessie opnieuw vanaf nu —
-  meteen de manier om `USABLE_CAPACITY_KWH` en `EFFICIENCY` te controleren.
+  tijdens het laden intypt is een *aflezing van de auto* en verankert de sessie opnieuw vanaf nu.
 - ⚠️ **Het logboek is een `<details id="logbook">` onder de knoppen, standaard dicht (2026-10-06).**
   `main.ts` opent het bij laden als er een sessie loopt of een beurt `bijwerkbaar()` is, bij ⏹ Stop
   en bij elke `toonLogMelding` — **nooit in `render()`** (dat tikt elke 15 s en zou een handmatig
