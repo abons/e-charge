@@ -93,10 +93,7 @@ const manualDate = el<HTMLInputElement>("m-date");
 const manualFrom = el<HTMLInputElement>("m-from");
 const manualTo = el<HTMLInputElement>("m-to");
 const manualPctFrom = el<HTMLInputElement>("m-pct-from");
-const manualPctTo = el<HTMLInputElement>("m-pct-to");
-const manualKm = el<HTMLInputElement>("m-km");
-const manualAdd = el<HTMLButtonElement>("m-add");
-const manualNote = el("m-note");
+const manualBlock = el<HTMLDetailsElement>("manual");
 const logLineOut = el("logline");
 const logList = el("loglist");
 const logActions = el("logactions");
@@ -267,7 +264,8 @@ function render(): void {
 
 /** Zonder laadbeurt om over te rapporteren — of zonder eindpercentage — valt er niets te loggen. */
 function updateCopyButton(): void {
-  const niets = huidigeLaadbeurt() === null;
+  // In het klapblok "achteraf invoeren" valideert de knop zelf, met een melding in woorden.
+  const niets = !manualBlock.open && huidigeLaadbeurt() === null;
   copyButton.disabled = niets;
   saveButton.disabled = niets;
 }
@@ -577,7 +575,9 @@ function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: n
  * oude beurt; deze regel maakt dat zichtbaar en wijst naar het formulier eronder.
  */
 function renderSaveTarget(): void {
-  if (session !== null) {
+  if (manualBlock.open) {
+    saveTarget.textContent = "💾 bewaart de beurt hierboven als een nieuwe regel; de afgesloten beurt blijft zoals hij was.";
+  } else if (session !== null) {
     saveTarget.textContent = "💾 bewaart de lopende laadbeurt.";
   } else if (finished !== null) {
     const dag = new Date(finished.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
@@ -602,8 +602,45 @@ function naarKlembord(tekst: string, knop: HTMLButtonElement, label: string): vo
   setTimeout(() => { knop.textContent = label; }, 4000);
 }
 
+/**
+ * De beurt uit het klapblok "achteraf invoeren", met eind% en km uit de gewone logboekvelden;
+ * `null` als het blok dicht is (dan geldt de lopende of afgesloten beurt), een tekst bij een fout.
+ */
+function handmatigeBeurt(): Entry | string | null {
+  if (!manualBlock.open) return null;
+  const getal = (input: HTMLInputElement): number => (input.value.trim() === "" ? NaN : Number(input.value));
+  const beurt = manualEntry({
+    date: manualDate.value,
+    from: manualFrom.value,
+    to: manualTo.value,
+    fromPercent: getal(manualPctFrom),
+    toPercent: getal(pctInput),
+    km: optioneelGetal(kmInput),
+    amps: currentAmps(),
+  });
+  if (typeof beurt === "string") return beurt;
+  return { ...beurt, eur: beurtKosten(manualBron(beurt)) };
+}
+
+function manualBron(beurt: Entry): { startMs: number; endMs: number; from: number; to: number; amps: number } {
+  return {
+    startMs: beurt.startMs,
+    endMs: beurt.endMs,
+    from: beurt.fromPercent,
+    to: beurt.toPercent,
+    amps: beurt.amps ?? RATED_CURRENT_A,
+  };
+}
+
+function toonLogMelding(tekst: string): void {
+  logNote.textContent = tekst;
+  logNote.hidden = false;
+}
+
 function copyLogRow(): void {
-  const beurt = huidigeLaadbeurt(true);
+  const handmatig = handmatigeBeurt();
+  if (typeof handmatig === "string") return toonLogMelding(handmatig);
+  const beurt = handmatig ?? huidigeLaadbeurt(true);
   if (beurt !== null) naarKlembord(toMarkdown([beurt]), copyButton, COPY_LABEL);
 }
 
@@ -613,9 +650,26 @@ function copyLogRow(): void {
  * overschrijft. Zo kun je ook eerst bewaren en later de meterstand erbij zetten.
  */
 function saveEntry(): void {
-  const beurt = huidigeLaadbeurt(true);
+  const handmatig = handmatigeBeurt();
+  if (typeof handmatig === "string") return toonLogMelding(handmatig);
+  const beurt = handmatig ?? huidigeLaadbeurt(true);
   if (beurt === null) return;
+  logNote.hidden = true;
   writeLogbook(withEntry(logbook, beurt));
+  if (handmatig !== null) {
+    // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag aan.
+    const bron = manualBron(handmatig);
+    prices.ensure(bron.startMs, bron.endMs, () => {
+      const eur = beurtKosten(bron);
+      if (eur !== null) {
+        writeLogbook(withEntry(logbook, { ...handmatig, eur }));
+        renderLogbook();
+      }
+    });
+    // Klaar: de velden leeg en het blok dicht, zodat de volgende druk weer de gewone beurt bewaart.
+    for (const input of [manualDate, manualFrom, manualTo, manualPctFrom, pctInput, kmInput]) input.value = "";
+    manualBlock.open = false;
+  }
   saveButton.textContent = "💾 Bewaard";
   setTimeout(() => { saveButton.textContent = SAVE_LABEL; }, 4000);
   renderLogbook();
@@ -662,45 +716,6 @@ function renderLogbook(): void {
       ? ""
       : `${logbook.length} laadbeurt${logbook.length === 1 ? "" : "en"} op deze telefoon. ` +
         "Plak ze af en toe in log.md — het wissen van websitegegevens neemt deze lijst mee.";
-}
-
-/** Een vergeten beurt in het logboek zetten, als eigen regel; het bedrag komt zodra de prijzen er zijn. */
-function addManualEntry(): void {
-  const getal = (input: HTMLInputElement): number => (input.value.trim() === "" ? NaN : Number(input.value));
-  const beurt = manualEntry({
-    date: manualDate.value,
-    from: manualFrom.value,
-    to: manualTo.value,
-    fromPercent: getal(manualPctFrom),
-    toPercent: getal(manualPctTo),
-    km: optioneelGetal(manualKm),
-    amps: currentAmps(),
-  });
-  if (typeof beurt === "string") {
-    manualNote.textContent = beurt;
-    manualNote.hidden = false;
-    return;
-  }
-  const bron = {
-    startMs: beurt.startMs,
-    endMs: beurt.endMs,
-    from: beurt.fromPercent,
-    to: beurt.toPercent,
-    amps: beurt.amps ?? RATED_CURRENT_A,
-  };
-  writeLogbook(withEntry(logbook, { ...beurt, eur: beurtKosten(bron) }));
-  // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag aan.
-  prices.ensure(bron.startMs, bron.endMs, () => {
-    const eur = beurtKosten(bron);
-    if (eur !== null) {
-      writeLogbook(withEntry(logbook, { ...beurt, eur }));
-      renderLogbook();
-    }
-  });
-  manualNote.textContent = "Toegevoegd aan het logboek.";
-  manualNote.hidden = false;
-  for (const input of [manualDate, manualFrom, manualTo, manualPctFrom, manualPctTo, manualKm]) input.value = "";
-  renderLogbook();
 }
 
 function copyLogbook(): void {
@@ -796,7 +811,10 @@ chargeButton.addEventListener("click", toggleCharging);
 copyButton.addEventListener("click", copyLogRow);
 saveButton.addEventListener("click", saveEntry);
 copyAllButton.addEventListener("click", copyLogbook);
-manualAdd.addEventListener("click", addManualEntry);
+manualBlock.addEventListener("toggle", () => {
+  renderSaveTarget();
+  updateCopyButton();
+});
 calendarButton.addEventListener("click", addToCalendar);
 
 render();

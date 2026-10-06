@@ -213,6 +213,26 @@
       <p class="fieldhint">Wat het dashboard zei bij het afkoppelen — dit wordt de
         <code>eind%</code> van de regel. Laat leeg en de app neemt het percentage dat bovenaan bij
         <strong>Huidig</strong> staat.</p>
+      <!--
+        Een beurt waarvan je vergeten bent hem te starten: hier alleen wat de twee velden hierboven
+        niet kennen. Zolang dit openstaat bewaren en kopiëren de knoppen die beurt, als eigen regel —
+        de laatste afgesloten beurt blijft dan met rust (zie `manualEntry` in `logbook.ts`).
+      -->
+      <details class="manual" id="manual">
+        <summary>Een andere beurt dan de laatste? Voer hem achteraf in</summary>
+        <div class="field"><label for="m-date">Datum</label>
+          <span class="entry"><input id="m-date" type="date"></span></div>
+        <div class="field"><label for="m-from">Van</label>
+          <span class="entry"><input id="m-from" type="time"></span></div>
+        <div class="field"><label for="m-to">Tot</label>
+          <span class="entry"><input id="m-to" type="time"></span></div>
+        <div class="field"><label for="m-pct-from">Start</label>
+          <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
+            inputmode="numeric" placeholder="43"><span class="unit">%</span></span></div>
+        <p class="fieldhint">Eind% en km-stand zijn de velden hierboven; de laadstand is die van de
+          keuzelijst bovenaan. Is <strong>Tot</strong> vroeger dan <strong>Van</strong>, dan telt het
+          als na middernacht.</p>
+      </details>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
         <button id="copylog" type="button">📋 Kopieer logregel</button>
@@ -229,32 +249,6 @@
       <p class="loghint" id="savetarget"></p>
       <code class="logline" id="logline" hidden></code>
 
-      <!--
-        Een beurt waarvan je vergeten bent hem te starten. Altijd een eigen regel: dit raakt de
-        laatste afgesloten beurt nooit aan (zie `manualEntry` in `logbook.ts`).
-      -->
-      <details class="manual" id="manual">
-        <summary>Beurt achteraf invoeren</summary>
-        <div class="field"><label for="m-date">Datum</label>
-          <span class="entry"><input id="m-date" type="date"></span></div>
-        <div class="field"><label for="m-from">Van</label>
-          <span class="entry"><input id="m-from" type="time"></span></div>
-        <div class="field"><label for="m-to">Tot</label>
-          <span class="entry"><input id="m-to" type="time"></span></div>
-        <div class="field"><label for="m-pct-from">Start</label>
-          <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
-            inputmode="numeric" placeholder="43"><span class="unit">%</span></span></div>
-        <div class="field"><label for="m-pct-to">Eind</label>
-          <span class="entry"><input id="m-pct-to" type="number" min="0" max="100" step="1"
-            inputmode="numeric" placeholder="97"><span class="unit">%</span></span></div>
-        <div class="field"><label for="m-km">Km-stand <span class="opt">optioneel</span></label>
-          <span class="entry"><input id="m-km" type="number" min="0" step="1" inputmode="numeric"
-            placeholder="84210"><span class="unit">km</span></span></div>
-        <p class="fieldhint">De laadstand is die van de keuzelijst bovenaan. Is <strong>Tot</strong>
-          vroeger dan <strong>Van</strong>, dan telt het als na middernacht.</p>
-        <div class="actions"><button id="m-add" type="button">➕ Voeg toe aan logboek</button></div>
-        <p class="note info" id="m-note" hidden></p>
-      </details>
 
       <ul class="loglist" id="loglist"></ul>
       <div class="actions" id="logactions" hidden>
