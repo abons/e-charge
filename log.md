@@ -73,6 +73,9 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | 2026-09-17 | 96928 | 55 | 90 | 11:47 | 15:12 |  | 2,05 |  |
 | 2026-09-20 | 96997 | 54 | 98 | 11:02 | 15:23 |  | 1,95 |  |
 | 2026-09-25 | 97125 | 40 | 73 | 18:14 | 21:12 |  | 4,71 |  |
+| 2026-09-26 | 97191 | 34 | 64 | 13:13 | 15:56 |  | 1,60 |  |
+| 2026-09-27 |  | 65 | 85 | 10:31 | 12:48 |  | 1,06 | 16 A; eind% en km geschat (overschreven, hersteld 2026-10-06) |
+| 2026-10-02 | 97280 | 60 | 100 | 11:00 | 15:00 |  | 4,32 | 16 A; start% geschat, tijden bij benadering |
 
 De eerste drie zijn de beurten waar `USABLE_CAPACITY_KWH` op gefit is (2026-09-20), zie `design.md`:
 samen 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt. De `kWh`-kolom is nog
