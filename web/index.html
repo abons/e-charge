@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Leaf laadtijd — hoe lang aan het stopcontact</title>
 <meta name="description" content="Rekenhulp voor een Nissan Leaf 40 kWh aan een gewoon 230V-stopcontact: vul je huidige en gewenste batterijpercentage in en zie hoe lang laden duurt en hoe laat de auto klaar is.">
 <meta name="author" content="hrbons">
@@ -23,10 +23,12 @@
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: #121213; color: #eee; font: 16px system-ui, sans-serif;
-         display: flex; flex-direction: column; align-items: center; min-height: 100vh; min-height: 100svh; }
+         display: flex; flex-direction: column; align-items: center; min-height: 100%; }
+  html { height: 100%; }
   /* main vult het scherm en de kaart neemt de rest: de invoer en de knoppen zakken zo naar de
-     onderkant (duimzone), de resultaten staan bovenaan. svh en niet dvh: de adresbalk van een
-     browsertab mag de indeling niet laten verspringen. */
+     onderkant (duimzone), de resultaten staan bovenaan. De hoogte is 100% van het layout-viewport en de viewport-meta zet
+     interactive-widget=resizes-content: het toetsenbord krimpt dat viewport, de ruimte hierboven geeft
+     mee en Chrome hoeft de pagina niet omhoog te schuiven. */
   main { width: 100%; max-width: 420px; padding: 12px 16px 20px; flex: 1;
          display: flex; flex-direction: column; }
   .title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 10px; text-align: center; }

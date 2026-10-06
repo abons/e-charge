@@ -105,9 +105,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 - ⚠️ **De indeling staat omgekeerd, voor de rechterduim (2026-10-06):** resultaten bovenaan, daaronder
   een flexibele ruimte (`margin-top: auto` op `.out`, dus de resultaten zakken naar de invoer en de
   lege ruimte komt bovenin, niet als gat ertussen), dan Doel | Huidig (CSS `order`; in de HTML staat
-  Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van `100svh` (niet
-  `dvh`: de adresbalk van een tab mag niets laten verspringen) en geen `interactive-widget` in de
-  viewport-meta. Omdat de invoer nu ónder de resultaten staat, houden twee dingen hun plek: `#nowline`
+  Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van 100% (`html`/`body`) en de
+  viewport-meta heeft `interactive-widget=resizes-content`: zonder dat schuift Chrome de hele pagina
+  ~217 px omhoog zodra het toetsenbord opent (gemeten op de telefoon: titel en uitkomst uit beeld,
+  terwijl onder Huidig ruimte genoeg was); nu krimpt het viewport en geeft de ruimte erboven mee. Bij
+  sluiten zakken de knoppen weer, dus tik pas na ✓. (`100svh` is losgelaten: het volgt het
+  toetsenbord niet.) Omdat de invoer nu ónder de resultaten staat, houden twee dingen hun plek: `#nowline`
   blijft in de lay-out als hij verborgen is (`#nowline[hidden]` is `display:flex; visibility:hidden`,
   dus **controleer `visibility`, niet `display`**) en `#note` zit in `.noteslot` met een vaste hoogte
   van twee regels — houd meldingen onder twee regels. Een melding onder de knoppen zonder slot duwt
