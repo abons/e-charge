@@ -351,6 +351,12 @@ een review door drie agents — architectuur, UX, netwerk/privacy):
   (WLTP-actieradius en -verbruik, dataset `8ys7-d773`) zat er verder naast (6,3 en 2,7) en is daarom
   alleen gebruikt om de uitvoering voor te stellen (`matchEv`). De 85% is een aanname en staat als
   zodanig op het scherm; kiezen kan ook zonder kenteken via merk, model en uitvoering.
+- **De aanname verdwijnt in de eerste beurt** (2026-10-06): een auto met alleen een schatting (of
+  niets) leert zijn snelheid van de eerste tussentijdse aflezing, mits >= 30 min en >= 2 procentpunt
+  uit elkaar (`measureRate`, omgerekend naar 16 A) — `learnRate` in `main.ts`. Nooit over een
+  waarde die de eigenaar invulde of eerder mat. Het bereik blijft een schatting, of onbekend (`kmPerPp`
+  0). Staat een auto niet in de tabel: de dialoog neemt ook alleen een accu in kWh (verbruik 17 kWh/100 km
+  is dan de aanname), en een bestaande auto is aan te passen ("huidige auto aanpassen") zonder zijn logboek kwijt te raken.
 - **Het kenteken blijft op de telefoon** en gaat alleen bij "Zoek" in de URL naar RDW. Het staat niet
   in de agenda-afspraak en niet in een export: `log.md` staat in een publieke repo.
 - **UI**: een vaste regel van 44 px vervangt de titel; de keuze staat in een `<dialog>` (bovenlaag),

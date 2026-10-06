@@ -83,6 +83,18 @@ export function estimateStart(ev: Ev): Start {
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
+/** Verbruik van een gemiddelde elektrische auto (kWh/100 km), voor wie alleen zijn accu kent. */
+export const DEFAULT_CONSUMPTION = 17;
+
+/**
+ * Een schatting voor een auto die niet in de tabel staat, uit alleen de bruikbare accu in kWh. Het
+ * verbruik is dan ook een aanname (`DEFAULT_CONSUMPTION`), dus het bereik is grover dan bij een
+ * uitvoering uit de tabel; de snelheid hangt alleen van de accu af.
+ */
+export function estimateFromKwh(kwh: number): Start {
+  return estimateStart({ id: "", brand: "", model: "", variant: "", year: null, kwh, consumption: DEFAULT_CONSUMPTION, acKw: null });
+}
+
 const simple = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** De getallen in een tekst vóór "kwh" ("LEAF 40KWH" geeft 40). */

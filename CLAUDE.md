@@ -34,7 +34,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   doel en laadstand zijn globaal. De Leaf-startwaarden gelden alleen voor de Leaf (`Start | null`:
   een andere auto heeft er geen tot hij eigen beurten heeft, of een *gemarkeerde schatting* uit
   accugrootte: `core/evest.ts`, tabel `evtable.ts` uit open-ev-data, ververs met `scripts/ev-data.mjs`;
-  `Start.estimated`, zegt ±25% en vervalt na drie eigen beurten). Het kenteken staat nooit in een export,
+  `Start.estimated`, zegt ±25%; vervalt na drie eigen beurten, en de snelheid wordt al in de eerste
+  beurt gemeten, `measureRate`/`learnRate`). Het kenteken staat nooit in een export,
   want `log.md` is publiek. Zie `design.md`.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je

@@ -18,8 +18,8 @@ import {
   withoutCar,
 } from "../src/core/car.js";
 import { percentAfter, estimate } from "../src/core/charge.js";
-import { brands, estimateStart, evById, matchEv, modelsOf, variantsOf } from "../src/core/evest.js";
-import { LEAF_START, START_KM_PER_PP, START_RATE_PP_PER_H, kmPerPp, ratePerHour, setupAt } from "../src/core/derive.js";
+import { brands, estimateFromKwh, estimateStart, evById, matchEv, modelsOf, variantsOf } from "../src/core/evest.js";
+import { LEAF_START, START_KM_PER_PP, START_RATE_PP_PER_H, kmPerPp, measureRate, ratePerHour, setupAt } from "../src/core/derive.js";
 
 const RDW_ANTWOORD = [
   { kenteken: "GZ123B", voertuigsoort: "Personenauto", merk: "NISSAN", handelsbenaming: "LEAF", uitvoering: "ZE1", datum_eerste_toelating: "20190412" },
@@ -181,6 +181,32 @@ test("een geschatte auto: titel uit de uitvoering, schatting blijft gemarkeerd n
 });
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+test("estimateFromKwh: een auto die niet in de tabel staat, uit alleen zijn accu", () => {
+  const s = estimateFromKwh(26);
+  assert.equal(s.estimated, true);
+  assert.equal(s.ratePpPerHour, round1((3.5 * 0.85 * 100) / 26));
+  assert.equal(s.kmPerPp, round1(26 / 17)); // 17 kWh/100 km is een aanname
+});
+
+test("measureRate: twee aflezingen in één beurt, omgerekend naar 16 A", () => {
+  const min = 60_000;
+  assert.equal(measureRate(120 * min, 40, 60, 16), 10); // 20 pp in 2 uur
+  assert.equal(measureRate(120 * min, 40, 50, 8), 10); // 5 pp/u op 8 A is 10 op 16 A
+  assert.equal(measureRate(29 * min, 40, 60, 16), null); // minder dan een half uur
+  assert.equal(measureRate(120 * min, 40, 41, 16), null); // minder dan twee procentpunt
+  assert.equal(measureRate(120 * min, 40, 99, 16), null); // afgekapt tegen vol
+  assert.equal(measureRate(60 * min, 40, 90, 16), null); // 50 pp/uur kan niet
+  assert.equal(measureRate(120 * min, 60, 40, 16), null); // teruggelopen
+});
+
+test("een gemeten snelheid zonder bekend bereik: bereik blijft onbekend, de snelheid telt", () => {
+  const start = { ratePpPerHour: 9, kmPerPp: 0, measured: true };
+  assert.equal(ratePerHour([], 16, start).value, 9);
+  assert.equal(kmPerPp([], start).source, "onbekend");
+  const [terug] = parseCars(JSON.stringify([{ id: "x", label: "", start }]));
+  assert.deepEqual(terug!.start, start);
+});
 
 test("zonder startwaarden is de snelheid onbekend en rekent niets door", () => {
   assert.deepEqual(ratePerHour([], 16, null), { value: NaN, n: 0, source: "onbekend" });

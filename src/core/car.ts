@@ -129,8 +129,12 @@ function parseStart(v: unknown): Start | null {
   const o = v as Record<string, unknown>;
   const rate = getal(o["ratePpPerHour"]);
   const km = getal(o["kmPerPp"]);
-  if (rate === null || km === null || !(rate > 0) || !(km > 0)) return null;
-  return o["estimated"] === true ? { ratePpPerHour: rate, kmPerPp: km, estimated: true } : { ratePpPerHour: rate, kmPerPp: km };
+  // `km` 0 is toegestaan: de snelheid is gemeten, het bereik nog niet bekend.
+  if (rate === null || km === null || !(rate > 0) || !(km >= 0)) return null;
+  const start: Start = { ratePpPerHour: rate, kmPerPp: km };
+  if (o["estimated"] === true) start.estimated = true;
+  if (o["measured"] === true) start.measured = true;
+  return start;
 }
 
 function parseRdwStored(v: unknown): Rdw | null {

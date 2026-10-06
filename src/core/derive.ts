@@ -40,6 +40,8 @@ export interface Start {
   kmPerPp: number;
   /** `true` als dit uit accugrootte en verbruik is geschat (`evest.ts`) en niet door de eigenaar is gemeten of ingevuld. */
   estimated?: boolean;
+  /** `true` als de snelheid in de eerste beurt van deze auto is gemeten (`measureRate`), en geen schatting meer is. */
+  measured?: boolean;
 }
 
 /** De startwaarden van de Leaf van de eigenaar — de default, zodat scripts en tests ongewijzigd blijven. */
@@ -55,6 +57,25 @@ export const MIN_PAIRS = 3;
 export const WINDOW = 8;
 
 const HOUR_MS = 3_600_000;
+
+/** Eerste meting binnen één beurt: minstens een half uur en twee procentpunt tussen twee aflezingen. */
+export const MEASURE_MIN_MS = 30 * 60_000;
+export const MEASURE_MIN_PP = 2;
+
+/**
+ * De laadsnelheid uit twee aflezingen van het dashboard binnen één beurt, omgerekend naar de hoogste
+ * stand (net als `ratePerHour` een lagere stand schaalt). Alleen voor een auto die nog geen eigen
+ * logboek heeft: een meting van een uur is grover dan de mediaan van drie beurten, maar echter dan
+ * een schatting uit de accugrootte. `null` als de twee aflezingen te dicht bij elkaar liggen, de lader
+ * al bijna klaar was (afgekapt) of de uitkomst onwaarschijnlijk is.
+ */
+export function measureRate(elapsedMs: number, fromPercent: number, toPercent: number, amps: number): number | null {
+  const pp = toPercent - fromPercent;
+  if (elapsedMs < MEASURE_MIN_MS || pp < MEASURE_MIN_PP || toPercent > 98) return null;
+  const rate = pp / (elapsedMs / HOUR_MS);
+  if (!(rate >= 0.5 && rate <= 30)) return null;
+  return Math.round(((rate * RATED_CURRENT_A) / clampCurrent(amps)) * 10) / 10;
+}
 const DAY_MS = 24 * HOUR_MS;
 
 /** Waar een getal vandaan komt: je eigen logboek, een schaling uit de hoogste stand, of een startwaarde. */
@@ -150,7 +171,10 @@ export function kmPerPpPairs(entries: Entry[]): { km: number; pp: number }[] {
 export function kmPerPp(entries: Entry[], start: Start | null = LEAF_START): Value {
   const pairs = kmPerPpPairs(entries);
   if (pairs.length < MIN_PAIRS) {
-    return start === null ? { value: NaN, n: 0, source: "onbekend" } : { value: start.kmPerPp, n: 0, source: "start" };
+    // `kmPerPp` 0 is "onbekend": een snelheid die in de eerste beurt gemeten is, heeft nog geen bereik.
+    return start === null || !(start.kmPerPp > 0)
+      ? { value: NaN, n: 0, source: "onbekend" }
+      : { value: start.kmPerPp, n: 0, source: "start" };
   }
   const km = pairs.reduce((s, p) => s + p.km, 0);
   const pp = pairs.reduce((s, p) => s + p.pp, 0);

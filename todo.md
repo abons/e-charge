@@ -16,10 +16,9 @@ logregel). **Nog niet op een echte telefoon gezien.**
 - **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
   telefoon gezien (75 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
   zin "schatting uit accugrootte" in de ⓘ voor een nieuwe auto. Probeer een tweede auto zonder kenteken.
-  - Niet gebouwd: de snelheid van een nieuwe auto **binnen de lopende sessie meten** (na ⚡ Start en
-    een aflezing van >= 30 min en >= 2 pp); de schatting uit accugrootte (±25%) is de startwaarde tot
-    er drie eigen beurten zijn.
-  - Niet gebouwd: startwaarden of uitvoering van een bestaande auto achteraf wijzigen.
+  - **Het meten in de eerste beurt** (`learnRate`) is unit-getest maar niet in een echte beurt gezien:
+    zet een tweede auto aan de lader, voer na >= 30 min een aflezing in en kijk of de ⓘ
+    "gemeten in de eerste beurt" zegt.
   - De accutabel (`evtable.ts`) heeft 118 uitvoeringen (31 merken, geen Dacia of Toyota): verversen met
     `node scripts/ev-data.mjs`; bron en MIT-licentie: open-ev-data.
   - De klembord-export noemt de auto nog niet in een kopregel; `parseLogMd` moet die dan negeren.

@@ -59,8 +59,6 @@
   .line .info { background: none; color: #7fd4a0; min-height: 0; padding: 0 10px; margin-left: 2px;
                 font: 18px/1 system-ui, sans-serif; border-radius: 50%; vertical-align: baseline; }
   dialog .infotext { font-size: 15px; line-height: 1.5; color: #ddd; margin: 0 0 14px; }
-  #carlinkrow { margin: 2px 0 10px; font-size: 14px; }
-  #carlinkrow input { width: 22px; height: 22px; vertical-align: middle; margin: 0 8px 0 0; accent-color: #7fd4a0; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
   main > .card:not(.about) { flex: 1; display: flex; flex-direction: column; }
 
@@ -373,10 +371,14 @@
 </dialog>
 
 <dialog id="cardlg">
-  <h2>Auto toevoegen</h2>
+  <h2>Auto</h2>
+  <label for="carmode" id="carmoderow">Wat wil je doen?</label>
+  <select id="carmode">
+    <option value="new">Nieuwe auto toevoegen</option>
+    <option value="edit">Huidige auto aanpassen (logboek blijft)</option>
+  </select>
   <label for="plate">Kenteken</label>
   <input type="text" id="plate" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" enterkeyhint="go" placeholder="AB-123-C">
-  <label id="carlinkrow" hidden><input type="checkbox" id="carlink" checked> Dit kenteken hoort bij de huidige auto (logboek blijft)</label>
   <label for="evbrand">Of kies merk en model (voor een schatting zonder logboek)</label>
   <select id="evbrand"><option value="">Merk…</option></select>
   <select id="evmodel" disabled><option value="">Model…</option></select>
@@ -385,7 +387,9 @@
   <input type="text" id="carname" autocomplete="off" maxlength="30">
   <details>
     <summary>Startwaarden (optioneel)</summary>
-    <label for="car-rate">Procentpunt per uur op 16 A</label>
+    <label for="car-kwh">Staat je auto er niet bij? Bruikbare accu in kWh (voor een schatting)</label>
+    <input type="text" id="car-kwh" inputmode="decimal" autocomplete="off">
+    <label for="car-rate">Of zelf: procentpunt per uur op 16 A</label>
     <input type="text" id="car-rate" inputmode="decimal" autocomplete="off">
     <label for="car-km">Kilometers per procentpunt</label>
     <input type="text" id="car-km" inputmode="decimal" autocomplete="off">

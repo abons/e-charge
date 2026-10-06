@@ -25,9 +25,10 @@ import {
   withCar,
   withoutCar,
   type Car,
+  type Rdw,
 } from "./core/car.js";
-import { LEAF_START, kmPerPp, ratePerHour, setupAt, type Source, type Start } from "./core/derive.js";
-import { brands, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
+import { LEAF_START, kmPerPp, measureRate, ratePerHour, setupAt, type Source, type Start } from "./core/derive.js";
+import { brands, estimateFromKwh, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -141,8 +142,9 @@ const carNote = el("carnote");
 const evBrandSelect = el<HTMLSelectElement>("evbrand");
 const evModelSelect = el<HTMLSelectElement>("evmodel");
 const evVariantSelect = el<HTMLSelectElement>("evvariant");
-const carLink = el<HTMLInputElement>("carlink");
-const carLinkRow = el("carlinkrow");
+const carModeSelect = el<HTMLSelectElement>("carmode");
+const carModeRow = el("carmoderow");
+const carKwhInput = el<HTMLInputElement>("car-kwh");
 const carSaveButton = el<HTMLButtonElement>("carsave");
 const carCloseButton = el<HTMLButtonElement>("carclose");
 
@@ -449,7 +451,7 @@ function renderSetup(): void {
         ? `${nl(rate.value)} procentpunt per uur op ${amps} A (geschat uit ${RATED_CURRENT_A} A: je hebt nog niet vaak genoeg op deze stand geladen)`
         : rate.source === "onbekend"
           ? "onbekend (nog te weinig laadbeurten in het logboek van deze auto, en geen startwaarden ingevuld)"
-          : `${nl(rate.value)} procentpunt per uur op ${amps} A (${startTekst()}: nog te weinig laadbeurten in je logboek)`;
+          : `${nl(rate.value)} procentpunt per uur op ${amps} A (${car.start?.measured === true ? "gemeten in de eerste beurt van deze auto" : startTekst()}: nog te weinig laadbeurten in je logboek)`;
   const bereik =
     km.source === "eigen"
       ? `${nl(km.value)} km per procentpunt (uit ${km.n} ritten in je logboek)`
@@ -745,56 +747,72 @@ async function saveCar(): Promise<void> {
   const naam = carNameInput.value.trim();
   const rate = positiefGetal(carRateInput);
   const km = positiefGetal(carKmInput);
+  const kwh = positiefGetal(carKwhInput);
   if ((rate === null) !== (km === null) || (carRateInput.value.trim() !== "" && rate === null) || (carKmInput.value.trim() !== "" && km === null)) {
     carNote.textContent = "Vul beide startwaarden in (positieve getallen), of geen van beide.";
     return;
   }
-  const start = rate !== null && km !== null ? { ratePpPerHour: rate, kmPerPp: km } : null;
-  const gekozen = evById(evVariantSelect.value === "" ? null : evVariantSelect.value);
-  if (plate === "" && naam === "" && gekozen === null) {
-    carNote.textContent = "Vul een kenteken in, of kies merk en model.";
+  if (carKwhInput.value.trim() !== "" && kwh === null) {
+    carNote.textContent = "De accu in kWh is een positief getal.";
     return;
   }
-  // Wat de startwaarden worden, in volgorde: wat je zelf invulde, de uitvoering die je koos, wat de auto
-  // al had (een gemeten of eerder gekozen waarde wint van een gok), en pas dan een automatische RDW-match.
-  const bepaal = (bestaand: Car | null, auto: Ev | null): { start: Start | null; ev: string | null } => {
-    if (start !== null) return { start, ev: gekozen?.id ?? bestaand?.ev ?? null };
-    if (gekozen !== null) return { start: estimateStart(gekozen), ev: gekozen.id };
-    if (bestaand !== null && bestaand.start !== null) return { start: bestaand.start, ev: bestaand.ev };
-    return auto === null ? { start: null, ev: bestaand?.ev ?? null } : { start: estimateStart(auto), ev: auto.id };
-  };
   if (plate !== "" && !isPlate(plate)) {
     carNote.textContent = "Een kenteken heeft 6 letters en cijfers.";
     return;
   }
-  let nieuw: Car;
-  if (plate === "") {
-    // De eerste auto zonder kenteken neemt de naamloze opslag over; een tweede krijgt een eigen sleutel.
-    nieuw =
-      cars.length === 0
-        ? { ...car, label: naam, ...bepaal(car, null) }
-        : { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, ...bepaal(null, null) };
-  } else {
+  const handmatig: Start | null = rate !== null && km !== null ? { ratePpPerHour: rate, kmPerPp: km } : null;
+  const gekozen = evById(evVariantSelect.value === "" ? null : evVariantSelect.value);
+  // Zonder auto's is er niets om naast toe te voegen: dan past dit de naamloze opslag aan.
+  const bewerk = cars.length === 0 || carModeSelect.value === "edit";
+  if (!bewerk && plate === "" && naam === "" && gekozen === null && kwh === null) {
+    carNote.textContent = "Vul een kenteken in, of kies merk en model.";
+    return;
+  }
+  // Wat de startwaarden worden, in volgorde: wat je zelf invulde, de uitvoering die je koos, je accu in kWh,
+  // wat de auto al had (een gemeten of eerder gekozen waarde wint van een gok), en pas dan een automatische
+  // RDW-match.
+  const bepaal = (bestaand: Car | null, auto: Ev | null): { start: Start | null; ev: string | null } => {
+    if (handmatig !== null) return { start: handmatig, ev: gekozen?.id ?? bestaand?.ev ?? null };
+    if (gekozen !== null) return { start: estimateStart(gekozen), ev: gekozen.id };
+    if (kwh !== null) return { start: estimateFromKwh(kwh), ev: null };
+    if (bestaand !== null && bestaand.start !== null) return { start: bestaand.start, ev: bestaand.ev };
+    return auto === null ? { start: null, ev: bestaand?.ev ?? null } : { start: estimateStart(auto), ev: auto.id };
+  };
+  const oud = plate === "" ? undefined : cars.find((c) => c.id === plate);
+  if (bewerk && oud !== undefined && oud.id !== car.id) {
+    carNote.textContent = "Dit kenteken staat al bij een andere auto.";
+    return;
+  }
+  let rdw: Rdw | null = null;
+  if (plate !== "") {
     carSaveButton.disabled = true;
     carNote.textContent = "Zoeken bij RDW…";
     const gevonden = await lookupPlate(plate);
     carSaveButton.disabled = false;
-    if (gevonden.kind !== "gevonden" && naam === "") {
+    if (gevonden.kind !== "gevonden" && naam === "" && !bewerk) {
       carNote.textContent =
         gevonden.kind === "mislukt"
           ? "Geen verbinding met RDW. Geef de auto een eigen naam om hem toch te bewaren."
           : "RDW kent dit kenteken niet. Geef de auto een eigen naam om hem toch te bewaren.";
       return;
     }
-    const oud = cars.find((c) => c.id === plate);
-    const rdw = gevonden.kind === "gevonden" ? gevonden.rdw : (oud?.rdw ?? null);
-    // Koppelen: de huidige auto zonder kenteken (de Leaf van vóór de autokeuze) krijgt het kenteken en
-    // houdt zijn id, dus zijn logboek en sessie. Anders wordt het kenteken een nieuwe, lege auto.
-    const auto = matchEv(rdw)[0] ?? null;
-    nieuw =
-      (cars.length === 0 || (!carLinkRow.hidden && carLink.checked)) && car.plate === null && oud === undefined
-        ? { ...car, plate, rdw, label: naam === "" ? car.label : naam, ...bepaal(car, auto) }
-        : { ...carFromPlate(plate, rdw, naam), ...bepaal(oud ?? null, auto) };
+    rdw = gevonden.kind === "gevonden" ? gevonden.rdw : null;
+  }
+  let nieuw: Car;
+  if (bewerk) {
+    // Dezelfde auto, dus hetzelfde id en dezelfde opslag: logboek en sessie blijven staan.
+    const metRdw = rdw ?? car.rdw;
+    nieuw = {
+      ...car,
+      plate: plate === "" ? car.plate : plate,
+      rdw: metRdw,
+      label: naam === "" ? car.label : naam,
+      ...bepaal(car, matchEv(metRdw)[0] ?? null),
+    };
+  } else if (plate === "") {
+    nieuw = { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, ...bepaal(null, null) };
+  } else {
+    nieuw = { ...carFromPlate(plate, rdw ?? oud?.rdw ?? null, naam), ...bepaal(oud ?? null, matchEv(rdw ?? oud?.rdw ?? null)[0] ?? null) };
   }
   writeCars(withCar(cars, nieuw));
   if (switchCar(nieuw.id)) {
@@ -829,9 +847,29 @@ function openCarDialog(): void {
   carKmInput.value = "";
   carNote.textContent = "";
   fillBrands();
-  carLinkRow.hidden = car.plate !== null || cars.length === 0;
-  carLink.checked = true;
+  // Zonder auto's is er niets om naast toe te voegen; met een auto kies je. Standaard: toevoegen.
+  carModeSelect.hidden = carModeRow.hidden = cars.length === 0;
+  carModeSelect.value = "new";
+  carKwhInput.value = "";
   carDialog.showModal();
+}
+
+/**
+ * Een auto die nog geen eigen logboek heeft en alleen een schatting (of niets) kent, leert zijn snelheid
+ * van de eerste tussentijdse aflezing: twee echte aflezingen van het dashboard, minstens een half uur en
+ * twee procentpunt uit elkaar (`measureRate`). Dat vervangt de aanname achter de schatting door een
+ * meting; het bereik blijft wat het was (een schatting, of onbekend). ⚠️ Nooit over iets wat de eigenaar
+ * zelf invulde of eerder mat: alleen over een schatting of een lege start.
+ */
+function learnRate(s: Session, reading: number): void {
+  if (car.start !== null && car.start.estimated !== true) return;
+  const rate = measureRate(Date.now() - s.startMs, s.from, reading, s.amps);
+  if (rate === null) return;
+  const start: Start = { ratePpPerHour: rate, kmPerPp: car.start?.kmPerPp ?? 0, measured: true };
+  if (car.start?.estimated === true) start.estimated = true;
+  car = { ...car, start };
+  writeCars(withCar(cars, car));
+  renderSetup();
 }
 
 /** ⚡ Start laden / ⏹ Stop: het enige wat de app van "plannen" naar "bezig" brengt en terug. */
@@ -1229,6 +1267,7 @@ for (const input of [currentInput, targetInput]) {
       // dan onze schatting. De sessie begint daarom opnieuw vanaf nu: de aftelling klopt weer, en
       // het verschil met wat er stond is precies de fout in `USABLE_CAPACITY_KWH` × `EFFICIENCY`.
       // `logStartMs`/`logFrom` blijven staan — de laadbeurt begon bij het insteken, niet nu.
+      learnRate(session, value);
       writeSession({ ...session, startMs: Date.now(), from: value });
     }
     render();
