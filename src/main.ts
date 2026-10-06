@@ -642,7 +642,14 @@ function renderCarButton(): void {
  * logboek ontkoppeld; de melding staat in de dialoog, want die staat dan open.
  */
 function switchCar(id: string): boolean {
-  if (id === car.id) return true;
+  if (id === car.id) {
+    // Dezelfde auto, maar zijn gegevens kunnen net veranderd zijn (kenteken gekoppeld, startwaarden).
+    car = cars.find((c) => c.id === id) ?? car;
+    renderCarButton();
+    renderSetup();
+    render();
+    return true;
+  }
   if (session !== null) {
     carNote.textContent = "Er loopt een laadbeurt: sluit die eerst af (⏹ Stop) voor je van auto wisselt.";
     return false;
