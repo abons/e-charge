@@ -428,4 +428,8 @@ test("logbook: achteraf invoeren weigert toekomst en meer dan 12 uur", () => {
   assert.equal(typeof manualEntry({ ...basis, date: "2999-01-01", from: "11:00", to: "15:00" }), "string");
   assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "11:00", to: "11:00" }), "string"); // 24 uur
   assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "11:00", to: "15:00" }), "object");
+  // De grens: precies 12 uur mag, 13 niet. En een datum die niet bestaat rolt niet stil door naar maart.
+  assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "08:00", to: "20:00" }), "object");
+  assert.equal(typeof manualEntry({ ...basis, date: "2026-10-02", from: "08:00", to: "21:00" }), "string");
+  assert.equal(typeof manualEntry({ ...basis, date: "2026-02-30", from: "08:00", to: "10:00" }), "string");
 });

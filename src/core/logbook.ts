@@ -155,6 +155,10 @@ export function manualEntry(input: ManualInput): Entry | string {
   let endMs = at(tot);
   if (endMs <= startMs) endMs = at(tot, 1);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return "Die datum of tijd bestaat niet.";
+  // `new Date(2026, 1, 30)` rolt stil door naar maart: terugrekenen vangt een onmogelijke datum.
+  const check = new Date(startMs);
+  if (check.getFullYear() !== Number(d[1]) || check.getMonth() !== Number(d[2]) - 1 || check.getDate() !== Number(d[3]))
+    return "Die datum bestaat niet.";
   const geldig = (p: number) => Number.isFinite(p) && p >= 0 && p <= 100;
   if (!geldig(input.fromPercent)) return "Vul Start% in (0–100).";
   if (!geldig(input.toPercent)) return "Vul Afgelezen (het eind%) hierboven in (0–100).";

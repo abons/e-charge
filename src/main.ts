@@ -581,7 +581,10 @@ function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: n
  */
 function bijwerkbaar(): Finished | null {
   if (finished === null) return null;
-  return new Date(finished.endMs).toDateString() === new Date().toDateString() ? finished : null;
+  // Vandaag afgekoppeld, óf minder dan 12 uur geleden: wie om 23:00 stopt en 's ochtends de aflezing
+  // erbij zet, werkt dezelfde beurt bij. Een beurt van dagen terug nooit.
+  const recent = Date.now() - finished.endMs < 12 * 3_600_000;
+  return recent || new Date(finished.endMs).toDateString() === new Date().toDateString() ? finished : null;
 }
 
 /** Datum van vandaag en de klok van nu in het blok "achteraf invoeren", alleen waar het veld leeg is. */
@@ -679,24 +682,29 @@ function saveEntry(): void {
   if (typeof handmatig === "string") return toonLogMelding(handmatig);
   const beurt = handmatig ?? huidigeLaadbeurt(true);
   if (beurt === null) return;
-  const bestond = handmatig !== null && logbook.some((e) => e.startMs === handmatig.startMs);
+  // Een handmatige beurt is altijd nieuw: dezelfde starttijd als een bestaande regel zou die stil
+  // overschrijven en haar km/amps erven. Dus weigeren, met de uitweg erbij.
+  if (handmatig !== null && logbook.some((e) => e.startMs === handmatig.startMs)) {
+    return toonLogMelding("Er staat al een beurt met precies deze starttijd — wis die eerst (×) of kies een andere tijd.");
+  }
   logNote.hidden = true;
   writeLogbook(withEntry(logbook, beurt));
   if (handmatig !== null) {
-    // De velden worden leeg gemaakt en het blok klapt dicht; zeg dus wat er bewaard is, en als het een
-    // bestaande regel met dezelfde starttijd was die nu is bijgewerkt.
+    // De velden worden leeg gemaakt en het blok klapt dicht; zeg dus wat er bewaard is.
     const dag = new Date(handmatig.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+    const bron = manualBron(handmatig);
     toonLogMelding(
       `Bewaard: ${dag} ${clock(handmatig.startMs)}–${clock(handmatig.endMs)}, ` +
         `${handmatig.fromPercent} → ${handmatig.toPercent}%` +
-        (bestond ? " (er stond al een beurt met deze starttijd; die is bijgewerkt)." : "."),
+        (handmatig.eur === null ? ". Bedrag volgt zodra er prijzen zijn (anders: npm run kosten)." : "."),
     );
-    // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag aan.
-    const bron = manualBron(handmatig);
+    // Een beurt van dagen terug ligt buiten de prijzen die er bekend zijn; haal ze op en vul het bedrag
+    // aan — alleen als de regel er dan nog is (je kunt hem intussen gewist hebben), en alleen het bedrag.
     prices.ensure(bron.startMs, bron.endMs, () => {
       const eur = beurtKosten(bron);
-      if (eur !== null) {
-        writeLogbook(withEntry(logbook, { ...handmatig, eur }));
+      const huidig = logbook.find((e) => e.startMs === bron.startMs);
+      if (eur !== null && huidig !== undefined && huidig.eur === null) {
+        writeLogbook(withEntry(logbook, { ...huidig, eur }));
         renderLogbook();
       }
     });
