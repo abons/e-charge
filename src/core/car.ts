@@ -1,4 +1,5 @@
 import { LEAF_START, type Start } from "./derive.js";
+import { evById } from "./evest.js";
 
 /**
  * De auto's op deze telefoon. Puur: opslag en netwerk zitten in `main.ts` en `car.ts` (de map erboven).
@@ -28,6 +29,8 @@ export interface Car {
   rdw: Rdw | null;
   /** Startwaarden die de eigenaar zelf invulde; `null` = onbekend tot er eigen beurten zijn. */
   start: Start | null;
+  /** De uitvoering uit de tabel (`evest.ts`) waar de schatting op rust; `null` als er geen is gekozen. */
+  ev: string | null;
 }
 
 /** De auto van vóór de autokeuze: de Leaf van de eigenaar, met zijn startwaarden uit `log.md`. */
@@ -105,7 +108,16 @@ export function parseRdw(json: unknown): Rdw | null {
 
 /** De tekst voor de autoregel: `Nissan Leaf · AB-123-C`; zonder RDW-gegevens het eigen label. */
 export function carTitle(car: Car): string {
-  const naam = car.rdw === null ? car.label : `${car.rdw.merk} ${car.rdw.model}`.trim();
+  const ev = evById(car.ev);
+  // RDW weet het beste hoe de auto heet; zonder kenteken is dat de gekozen uitvoering, en anders de eigen naam.
+  const naam =
+    car.label !== "" && car.rdw === null
+      ? car.label
+      : car.rdw !== null
+        ? `${car.rdw.merk} ${car.rdw.model}`.trim()
+        : ev !== null
+          ? `${ev.brand} ${ev.model}`
+          : car.label;
   const kenteken = car.plate === null ? "" : ` · ${formatPlate(car.plate)}`;
   return (naam === "" ? "Auto" : naam) + kenteken;
 }
@@ -117,7 +129,8 @@ function parseStart(v: unknown): Start | null {
   const o = v as Record<string, unknown>;
   const rate = getal(o["ratePpPerHour"]);
   const km = getal(o["kmPerPp"]);
-  return rate !== null && km !== null && rate > 0 && km > 0 ? { ratePpPerHour: rate, kmPerPp: km } : null;
+  if (rate === null || km === null || !(rate > 0) || !(km > 0)) return null;
+  return o["estimated"] === true ? { ratePpPerHour: rate, kmPerPp: km, estimated: true } : { ratePpPerHour: rate, kmPerPp: km };
 }
 
 function parseRdwStored(v: unknown): Rdw | null {
@@ -154,6 +167,7 @@ export function parseCars(raw: string | null): Car[] {
       plate: isPlate(plate) ? plate : null,
       rdw: parseRdwStored(o["rdw"]),
       start: parseStart(o["start"]),
+      ev: tekst(o["ev"]) === "" ? null : tekst(o["ev"]),
     });
   }
   return cars;
@@ -171,7 +185,7 @@ export function carKey(kind: "logbook" | "session" | "finished", carId: string):
 
 /** Een nieuwe auto van een kenteken (en wat RDW erover zei). Dezelfde plaat twee keer is dezelfde auto. */
 export function carFromPlate(plate: string, rdw: Rdw | null, label: string): Car {
-  return { id: plate, label: label.trim(), plate, rdw, start: null };
+  return { id: plate, label: label.trim(), plate, rdw, start: null, ev: null };
 }
 
 /** Voeg toe of vervang op `id`; de volgorde blijft zoals ze was. */
@@ -196,7 +210,7 @@ export function adoptLegacy(cars: Car[], migrated: boolean, hasLegacyData: boole
   // staat. Een verse browser heeft nog geen auto: die kiest hij zelf, en tot dan is de snelheid onbekend.
   if (migrated || cars.length > 0 || !hasLegacyData) return { cars, changed: false };
   return {
-    cars: [{ id: FIRST_CAR_ID, label: "Nissan Leaf", plate: null, rdw: null, start: { ...LEAF_START } }],
+    cars: [{ id: FIRST_CAR_ID, label: "Nissan Leaf", plate: null, rdw: null, start: { ...LEAF_START }, ev: null }],
     changed: true,
   };
 }

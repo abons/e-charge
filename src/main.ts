@@ -26,7 +26,8 @@ import {
   withoutCar,
   type Car,
 } from "./core/car.js";
-import { LEAF_START, kmPerPp, ratePerHour, setupAt, type Source } from "./core/derive.js";
+import { LEAF_START, kmPerPp, ratePerHour, setupAt, type Source, type Start } from "./core/derive.js";
+import { brands, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -137,6 +138,9 @@ const carNameInput = el<HTMLInputElement>("carname");
 const carRateInput = el<HTMLInputElement>("car-rate");
 const carKmInput = el<HTMLInputElement>("car-km");
 const carNote = el("carnote");
+const evBrandSelect = el<HTMLSelectElement>("evbrand");
+const evModelSelect = el<HTMLSelectElement>("evmodel");
+const evVariantSelect = el<HTMLSelectElement>("evvariant");
 const carLink = el<HTMLInputElement>("carlink");
 const carLinkRow = el("carlinkrow");
 const carSaveButton = el<HTMLButtonElement>("carsave");
@@ -148,7 +152,7 @@ const carCloseButton = el<HTMLButtonElement>("carclose");
  * vóór de autokeuze houdt de oude sleutels, dus er wordt bij het overstappen niets gekopieerd.
  */
 let cars: Car[] = [];
-let car: Car = { id: FIRST_CAR_ID, label: "", plate: null, rdw: null, start: null };
+let car: Car = { id: FIRST_CAR_ID, label: "", plate: null, rdw: null, start: null, ev: null };
 
 /**
  * Een lopende laadsessie: het moment en het percentage waarop de berekening staat, en het doel.
@@ -345,7 +349,7 @@ function sourceTag(): string {
   const bovenste = rate.source === "schaling" ? ratePerHour(logbook, RATED_CURRENT_A, car.start) : rate;
   const tags: string[] = [];
   if (rate.source === "schaling") tags.push(`geschat uit ${RATED_CURRENT_A} A`);
-  if (bovenste.source === "start" || kmPerPp(logbook, car.start).source === "start") tags.push("startwaarde");
+  if (bovenste.source === "start" || kmPerPp(logbook, car.start).source === "start") tags.push(car.start?.estimated === true ? "schatting" : "startwaarde");
   if (kmPerPp(logbook, car.start).source === "onbekend") tags.push("km per % onbekend");
   return tags.length === 0 ? "" : ` · ${tags.join(", ")}`;
 }
@@ -419,6 +423,10 @@ function carName(): string {
 
 /** `startwaarde uit log.md` is waar alleen voor de Leaf; een andere auto heeft de startwaarden van de eigenaar. */
 function startTekst(): string {
+  if (car.start?.estimated === true) {
+    const ev = evById(car.ev);
+    return ev === null ? "schatting uit accugrootte" : `schatting uit accugrootte van de ${ev.brand} ${ev.model} ${evLabel(ev)}, ±25%`;
+  }
   return car.start?.ratePpPerHour === LEAF_START.ratePpPerHour ? "startwaarde uit log.md" : "startwaarde van jou";
 }
 
@@ -742,10 +750,19 @@ async function saveCar(): Promise<void> {
     return;
   }
   const start = rate !== null && km !== null ? { ratePpPerHour: rate, kmPerPp: km } : null;
-  if (plate === "" && naam === "") {
-    carNote.textContent = "Vul een kenteken of een naam in.";
+  const gekozen = evById(evVariantSelect.value === "" ? null : evVariantSelect.value);
+  if (plate === "" && naam === "" && gekozen === null) {
+    carNote.textContent = "Vul een kenteken in, of kies merk en model.";
     return;
   }
+  // Wat de startwaarden worden, in volgorde: wat je zelf invulde, de uitvoering die je koos, wat de auto
+  // al had (een gemeten of eerder gekozen waarde wint van een gok), en pas dan een automatische RDW-match.
+  const bepaal = (bestaand: Car | null, auto: Ev | null): { start: Start | null; ev: string | null } => {
+    if (start !== null) return { start, ev: gekozen?.id ?? bestaand?.ev ?? null };
+    if (gekozen !== null) return { start: estimateStart(gekozen), ev: gekozen.id };
+    if (bestaand !== null && bestaand.start !== null) return { start: bestaand.start, ev: bestaand.ev };
+    return auto === null ? { start: null, ev: bestaand?.ev ?? null } : { start: estimateStart(auto), ev: auto.id };
+  };
   if (plate !== "" && !isPlate(plate)) {
     carNote.textContent = "Een kenteken heeft 6 letters en cijfers.";
     return;
@@ -755,8 +772,8 @@ async function saveCar(): Promise<void> {
     // De eerste auto zonder kenteken neemt de naamloze opslag over; een tweede krijgt een eigen sleutel.
     nieuw =
       cars.length === 0
-        ? { ...car, label: naam, start }
-        : { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, start };
+        ? { ...car, label: naam, ...bepaal(car, null) }
+        : { id: `auto-${Date.now().toString(36)}`, label: naam, plate: null, rdw: null, ...bepaal(null, null) };
   } else {
     carSaveButton.disabled = true;
     carNote.textContent = "Zoeken bij RDW…";
@@ -773,10 +790,11 @@ async function saveCar(): Promise<void> {
     const rdw = gevonden.kind === "gevonden" ? gevonden.rdw : (oud?.rdw ?? null);
     // Koppelen: de huidige auto zonder kenteken (de Leaf van vóór de autokeuze) krijgt het kenteken en
     // houdt zijn id, dus zijn logboek en sessie. Anders wordt het kenteken een nieuwe, lege auto.
+    const auto = matchEv(rdw)[0] ?? null;
     nieuw =
       (cars.length === 0 || (!carLinkRow.hidden && carLink.checked)) && car.plate === null && oud === undefined
-        ? { ...car, plate, rdw, label: naam === "" ? car.label : naam, start: start ?? car.start }
-        : { ...carFromPlate(plate, rdw, naam), start: start ?? oud?.start ?? null };
+        ? { ...car, plate, rdw, label: naam === "" ? car.label : naam, ...bepaal(car, auto) }
+        : { ...carFromPlate(plate, rdw, naam), ...bepaal(oud ?? null, auto) };
   }
   writeCars(withCar(cars, nieuw));
   if (switchCar(nieuw.id)) {
@@ -788,6 +806,20 @@ async function saveCar(): Promise<void> {
   renderCarButton();
 }
 
+/** De keuzelijsten merk, model en uitvoering uit de meegebundelde tabel (`evest.ts`). */
+function setOptions(select: HTMLSelectElement, placeholder: string, values: { value: string; text: string }[]): void {
+  select.replaceChildren(new Option(placeholder, ""));
+  for (const v of values) select.append(new Option(v.text, v.value));
+  select.disabled = values.length === 0;
+  select.value = "";
+}
+
+function fillBrands(): void {
+  setOptions(evBrandSelect, "Merk…", brands().map((b) => ({ value: b, text: b })));
+  setOptions(evModelSelect, "Model…", []);
+  setOptions(evVariantSelect, "Uitvoering…", []);
+}
+
 function openCarDialog(): void {
   teVerwijderen = null;
   renderCarList();
@@ -796,6 +828,7 @@ function openCarDialog(): void {
   carRateInput.value = "";
   carKmInput.value = "";
   carNote.textContent = "";
+  fillBrands();
   carLinkRow.hidden = car.plate !== null || cars.length === 0;
   carLink.checked = true;
   carDialog.showModal();
@@ -1244,6 +1277,16 @@ infoDialog.addEventListener("click", (e) => {
   if (e.target === infoDialog) infoDialog.close();
 });
 carSaveButton.addEventListener("click", () => void saveCar());
+evBrandSelect.addEventListener("change", () => {
+  setOptions(evModelSelect, "Model…", modelsOf(evBrandSelect.value).map((m) => ({ value: m, text: m })));
+  setOptions(evVariantSelect, "Uitvoering…", []);
+});
+evModelSelect.addEventListener("change", () => {
+  const lijst = variantsOf(evBrandSelect.value, evModelSelect.value);
+  setOptions(evVariantSelect, "Uitvoering…", lijst.map((e) => ({ value: e.id, text: evLabel(e) })));
+  // Eén uitvoering is geen keuze: meteen kiezen.
+  if (lijst.length === 1) evVariantSelect.value = lijst[0]!.id;
+});
 // Enter op het toetsenbord bewaart ook: op de telefoon is dat de knop die er al onder je duim zit.
 for (const input of [plateInput, carNameInput]) {
   input.addEventListener("keydown", (e) => {

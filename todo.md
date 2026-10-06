@@ -13,14 +13,15 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
-- **De autokeuze op de telefoon bekijken** (2026-10-06): de regel bovenin (vervangt de titel), de
-  dialoog met kenteken, de RDW-opzoeking vanaf de echte site, en wisselen tussen twee auto's. Gebouwd
-  en unit-getest (67 tests), **niet in een browser gezien**: de Chrome-extensie was niet verbonden.
+- **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
+  telefoon gezien (75 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
+  zin "schatting uit accugrootte" in de ⓘ voor een nieuwe auto. Probeer een tweede auto zonder kenteken.
   - Niet gebouwd: de snelheid van een nieuwe auto **binnen de lopende sessie meten** (na ⚡ Start en
-    een aflezing van >= 30 min en >= 2 pp); nu is hij onbekend tot er eigen beurten zijn of
-    startwaarden zijn ingevuld.
-  - Niet gebouwd: een kenteken **koppelen aan de bestaande Leaf** (nu wordt dat een nieuwe auto met
-    een leeg logboek) en startwaarden achteraf wijzigen.
+    een aflezing van >= 30 min en >= 2 pp); de schatting uit accugrootte (±25%) is de startwaarde tot
+    er drie eigen beurten zijn.
+  - Niet gebouwd: startwaarden of uitvoering van een bestaande auto achteraf wijzigen.
+  - De accutabel (`evtable.ts`) heeft 118 uitvoeringen (31 merken, geen Dacia of Toyota): verversen met
+    `node scripts/ev-data.mjs`; bron en MIT-licentie: open-ev-data.
   - De klembord-export noemt de auto nog niet in een kopregel; `parseLogMd` moet die dan negeren.
   - Brandstofdataset `8ys7-d773` om een niet-elektrische auto te waarschuwen.
 

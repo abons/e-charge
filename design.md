@@ -344,6 +344,13 @@ een review door drie agents — architectuur, UX, netwerk/privacy):
 - **Startwaarden zijn van een auto, niet van "een" auto**: `Start | null` in `derive.ts`; zonder
   startwaarden en met te weinig eigen beurten is de snelheid `onbekend` en zegt het scherm dat, in
   plaats van met de Leaf te rekenen. De eigenaar kan ze bij een nieuwe auto zelf invullen.
+- **Startschatting voor een auto zonder logboek** (2026-10-06): uit bruikbare accu en praktijkverbruik
+  (open-ev-data, MIT, 118 uitvoeringen, meegebundeld in `evtable.ts`, geen netwerk): snelheid =
+  3,5 kW × 85% ÷ accu × 100, bereik = accu ÷ verbruik. Gemeten tegen de Leaf van de eigenaar: 7,8
+  tegen 10,2 procentpunt per uur (−23%, veilige kant), 2,3 tegen 2,0 km per procentpunt (+16%). RDW zelf
+  (WLTP-actieradius en -verbruik, dataset `8ys7-d773`) zat er verder naast (6,3 en 2,7) en is daarom
+  alleen gebruikt om de uitvoering voor te stellen (`matchEv`). De 85% is een aanname en staat als
+  zodanig op het scherm; kiezen kan ook zonder kenteken via merk, model en uitvoering.
 - **Het kenteken blijft op de telefoon** en gaat alleen bij "Zoek" in de URL naar RDW. Het staat niet
   in de agenda-afspraak en niet in een export: `log.md` staat in een publieke repo.
 - **UI**: een vaste regel van 44 px vervangt de titel; de keuze staat in een `<dialog>` (bovenlaag),

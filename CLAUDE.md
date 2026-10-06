@@ -32,7 +32,9 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   "Zoek", open data, merk/model om te *tonen*, nooit om mee te rekenen). Logboek, sessie en laatst
   afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de eerste auto (`FIRST_CAR_ID`) houdt de oude sleutels,
   doel en laadstand zijn globaal. De Leaf-startwaarden gelden alleen voor de Leaf (`Start | null`:
-  een andere auto heeft er geen tot hij eigen beurten heeft). Het kenteken staat nooit in een export,
+  een andere auto heeft er geen tot hij eigen beurten heeft, of een *gemarkeerde schatting* uit
+  accugrootte: `core/evest.ts`, tabel `evtable.ts` uit open-ev-data, ververs met `scripts/ev-data.mjs`;
+  `Start.estimated`, zegt ±25% en vervalt na drie eigen beurten). Het kenteken staat nooit in een export,
   want `log.md` is publiek. Zie `design.md`.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je

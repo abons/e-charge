@@ -18,6 +18,7 @@ import {
   withoutCar,
 } from "../src/core/car.js";
 import { percentAfter, estimate } from "../src/core/charge.js";
+import { brands, estimateStart, evById, matchEv, modelsOf, variantsOf } from "../src/core/evest.js";
 import { LEAF_START, START_KM_PER_PP, START_RATE_PP_PER_H, kmPerPp, ratePerHour, setupAt } from "../src/core/derive.js";
 
 const RDW_ANTWOORD = [
@@ -65,7 +66,7 @@ test("carTitle: RDW-naam met kenteken, of het eigen label", () => {
   const met = carFromPlate("GZ123B", parseRdw(RDW_ANTWOORD), "");
   assert.equal(carTitle(met), "Nissan Leaf · GZ-123-B");
   assert.equal(carTitle({ ...met, rdw: null, label: "Oma's auto" }), "Oma's auto · GZ-123-B");
-  assert.equal(carTitle({ id: "x", label: "", plate: null, rdw: null, start: null }), "Auto");
+  assert.equal(carTitle({ id: "x", label: "", plate: null, rdw: null, start: null, ev: null }), "Auto");
 });
 
 test("carKey: de Leaf houdt de oude sleutels, de rest krijgt een achtervoegsel", () => {
@@ -132,6 +133,54 @@ test("adoptLegacy: eerste start maakt de Leaf, daarna nooit meer", () => {
 test("adoptLegacy: een verse browser krijgt geen Leaf met de startwaarden van de eigenaar", () => {
   assert.deepEqual(adoptLegacy([], false, false), { cars: [], changed: false });
 });
+
+const LEAF_RDW = { merk: "Nissan", model: "Leaf 40KWH", uitvoering: "", jaar: 2019, voertuigsoort: "Personenauto" };
+
+test("matchEv: een RDW-antwoord vindt de uitvoering met de juiste accu eerst", () => {
+  const lijst = matchEv(LEAF_RDW);
+  assert.ok(lijst.length >= 2); // meerdere Leafs in de tabel
+  assert.equal(lijst[0]!.kwh, 38);
+  assert.equal(lijst[0]!.model, "Leaf");
+  assert.deepEqual(matchEv({ ...LEAF_RDW, merk: "Onbekendmerk" }), []);
+  assert.deepEqual(matchEv(null), []);
+  assert.deepEqual(matchEv({ ...LEAF_RDW, model: "Onbekendmodel" }), []);
+});
+
+test("estimateStart: Leaf 40 komt in de buurt van het logboek, aan de veilige kant, en is gemarkeerd", () => {
+  const start = estimateStart(matchEv(LEAF_RDW)[0]!);
+  assert.equal(start.estimated, true);
+  assert.equal(start.ratePpPerHour, 7.8); // 3,5 kW x 85% / 38 kWh; gemeten 10,2 -> te langzaam, dus ruim gepland
+  assert.equal(start.kmPerPp, 2.3); // 38 kWh / 16,4 kWh per 100 km; gemeten 2,0
+});
+
+test("estimateStart: een boordlader onder het stopcontactvermogen is de beperking", () => {
+  const ev = { id: "x", brand: "A", model: "B", variant: "", year: null, kwh: 30, consumption: 15, acKw: 2 };
+  assert.equal(estimateStart(ev).ratePpPerHour, round1((2 * 0.85 * 100) / 30));
+});
+
+test("merk, model en uitvoering: de keuzelijsten volgen elkaar", () => {
+  assert.ok(brands().includes("Nissan"));
+  assert.ok(modelsOf("Nissan").includes("Leaf"));
+  const v = variantsOf("Nissan", "Leaf");
+  assert.ok(v.length >= 3);
+  assert.ok(v[0]!.year! >= v[v.length - 1]!.year!); // nieuwste eerst
+  assert.equal(evById(v[0]!.id), v[0]);
+  assert.equal(evById("bestaat-niet"), null);
+});
+
+test("een geschatte auto: titel uit de uitvoering, schatting blijft gemarkeerd na opslaan en lezen", () => {
+  const ev = matchEv(LEAF_RDW)[0]!;
+  const auto = { id: "x", label: "", plate: null, rdw: null, start: estimateStart(ev), ev: ev.id };
+  assert.equal(carTitle(auto), "Nissan Leaf");
+  const [terug] = parseCars(JSON.stringify([auto]));
+  assert.equal(terug!.start?.estimated, true);
+  assert.equal(terug!.ev, ev.id);
+  // een door jou ingevulde waarde is geen schatting
+  const [zelf] = parseCars(JSON.stringify([{ ...auto, start: { ratePpPerHour: 9, kmPerPp: 2 } }]));
+  assert.equal(zelf!.start?.estimated, undefined);
+});
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 test("zonder startwaarden is de snelheid onbekend en rekent niets door", () => {
   assert.deepEqual(ratePerHour([], 16, null), { value: NaN, n: 0, source: "onbekend" });

@@ -38,6 +38,8 @@ export interface Start {
   ratePpPerHour: number;
   /** Kilometers per procentpunt. */
   kmPerPp: number;
+  /** `true` als dit uit accugrootte en verbruik is geschat (`evest.ts`) en niet door de eigenaar is gemeten of ingevuld. */
+  estimated?: boolean;
 }
 
 /** De startwaarden van de Leaf van de eigenaar — de default, zodat scripts en tests ongewijzigd blijven. */

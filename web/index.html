@@ -44,6 +44,9 @@
   dialog h2 { font-size: 16px; margin: 0 0 10px; }
   dialog input[type=text] { width: 100%; min-height: 44px; background: #121213; color: #eee;
             border: 1px solid #3a3a3c; border-radius: 10px; padding: 8px 12px; font: 600 18px system-ui, sans-serif; margin: 4px 0 8px; }
+  dialog select { width: 100%; min-height: 44px; background: #121213; color: #eee; border: 1px solid #3a3a3c;
+                  border-radius: 10px; padding: 8px 12px; font: 600 16px system-ui, sans-serif; margin: 4px 0 4px; }
+  dialog select:disabled { opacity: .5; }
   dialog .row { display: flex; gap: 8px; }
   dialog .row > * { flex: 1; }
   dialog .carlist { list-style: none; margin: 8px 0; padding: 0; }
@@ -374,6 +377,10 @@
   <label for="plate">Kenteken</label>
   <input type="text" id="plate" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="12" enterkeyhint="go" placeholder="AB-123-C">
   <label id="carlinkrow" hidden><input type="checkbox" id="carlink" checked> Dit kenteken hoort bij de huidige auto (logboek blijft)</label>
+  <label for="evbrand">Of kies merk en model (voor een schatting zonder logboek)</label>
+  <select id="evbrand"><option value="">Merk…</option></select>
+  <select id="evmodel" disabled><option value="">Model…</option></select>
+  <select id="evvariant" disabled><option value="">Uitvoering…</option></select>
   <label for="carname">Eigen naam (als RDW niets vindt)</label>
   <input type="text" id="carname" autocomplete="off" maxlength="30">
   <details>
