@@ -786,6 +786,9 @@ function removeEntry(startMs: number): void {
 /** De lijst met bewaarde laadbeurten, nieuwste bovenaan. */
 function renderLogbook(): void {
   renderSaveTarget();
+  // De voetregel zegt hoeveel beurten de snelheid en het bereik dragen: dat verandert met elke regel
+  // die erbij komt of af gaat, en bij het laden pas zodra het logboek is ingelezen.
+  renderSetup();
   logList.textContent = "";
   for (const e of [...logbook].reverse()) {
     const li = document.createElement("li");
