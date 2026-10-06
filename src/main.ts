@@ -97,6 +97,8 @@ const manualFrom = el<HTMLInputElement>("m-from");
 const manualTo = el<HTMLInputElement>("m-to");
 const manualPctFrom = el<HTMLInputElement>("m-pct-from");
 const manualBlock = el<HTMLDetailsElement>("manual");
+const logBook = el<HTMLDetailsElement>("logbook");
+const logCount = el("logcount");
 const logLineOut = el("logline");
 const logList = el("loglist");
 const logActions = el("logactions");
@@ -299,7 +301,7 @@ function showCost(cost: Cost | null, expected = false): void {
   // Per kilometer bij de gemiddelde prijs van deze beurt en het verbruik uit `charge.ts` — dezelfde
   // aanname als "Bereik", dus de twee regels kunnen elkaar niet tegenspreken.
   const perKm = eurPerKm(cost.avgEurPerKwh, DEFAULT_SETUP.consumptionKwhPer100Km, DEFAULT_SETUP.efficiency);
-  costKmOut.textContent = perKm === null ? "–" : `${nl(perKm * 100)} ct`;
+  costKmOut.textContent = perKm === null ? "–" : `${nl(perKm * 100)} ct/km`;
 }
 
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
@@ -488,6 +490,8 @@ function toggleCharging(): void {
     // tussentijdse aflezing — zodat de logregel klopt met wat er werkelijk aan de muur hing.
     writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom, amps: session.amps });
     writeSession(null);
+    // Afkoppelen is het moment van de aflezing: het logboek klapt open (hier, nooit in `render()`).
+    logBook.open = true;
     render();
     return;
   }
@@ -663,6 +667,8 @@ function manualBron(beurt: Entry): { startMs: number; endMs: number; from: numbe
 function toonLogMelding(tekst: string): void {
   logNote.textContent = tekst;
   logNote.hidden = false;
+  // Een melding in een dicht blok leest niemand.
+  logBook.open = true;
 }
 
 function copyLogRow(): void {
@@ -756,6 +762,7 @@ function renderLogbook(): void {
     li.append(datum, pct, rest, wis);
     logList.append(li);
   }
+  logCount.textContent = logbook.length === 0 ? "" : ` (${logbook.length})`;
   logActions.hidden = logbook.length === 0;
   logHint.hidden = logbook.length === 0;
   logHint.textContent =
@@ -806,10 +813,13 @@ if (verhuisd > 0) {
     `${verhuisd} bewaarde laadbeurt${verhuisd === 1 ? "" : "en"} had een meterstand die geen kWh ` +
     "kan zijn — die is als afgelezen percentage in eind% gezet. Kijk de lijst hieronder even na.";
   logNote.hidden = false;
+  logBook.open = true;
 } else {
   logbook = gelezenLogboek;
 }
 renderLogbook();
+// Standaard dicht, behalve waar de aflezing nog moet: tijdens het laden en na het afkoppelen.
+if (session !== null || bijwerkbaar() !== null) logBook.open = true;
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {

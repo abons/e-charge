@@ -95,6 +95,13 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   `localStorage`; vanaf dan telt de app af en loopt "Nu ongeveer" gerékend op. Een percentage dat je
   tijdens het laden intypt is een *aflezing van de auto* en verankert de sessie opnieuw vanaf nu —
   meteen de manier om `USABLE_CAPACITY_KWH` en `EFFICIENCY` te controleren.
+- ⚠️ **Het logboek is een `<details id="logbook">` onder de knoppen, standaard dicht (2026-10-06).**
+  `main.ts` opent het bij laden als er een sessie loopt of een beurt `bijwerkbaar()` is, bij ⏹ Stop
+  en bij elke `toonLogMelding` — **nooit in `render()`** (dat tikt elke 15 s en zou een handmatig
+  dichtklappen terugdraaien). `km`, `logpct`, 💾, `lognote` en `savetarget` zitten erin, dus een
+  nieuwe melding in dat blok moet het ook openen. Alle ids blijven bestaan: `main.ts` pakt ze zonder
+  null-check, een weggehaald element is een crash bij laden. Bereik, laadvermogen en kosten per km
+  staan sindsdien samen in één grijze `.sub`-regel (`nowrap`, dus geen hoogtesprong).
 - ⚠️ **Niets boven de knoppen mag van hoogte veranderen.** De meldingsregel staat ónder `.actions`
   omdat een `change` bij het verlaten van een invoerveld de melding kan tonen of verbergen terwijl
   je een knop indrukt; alles eronder verschuift dan tussen aanraken en loslaten, en je tik landt
