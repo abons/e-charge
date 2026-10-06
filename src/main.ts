@@ -1234,6 +1234,15 @@ manualBlock.addEventListener("toggle", () => {
 });
 calendarButton.addEventListener("click", addToCalendar);
 carButton.addEventListener("click", openCarDialog);
+// De herkomst van de laadsnelheid en het bereik: een modal achter ⓘ, geen voetregel meer. De tekst
+// staat er al (`renderSetup` schrijft hem bij elke wijziging van stand of logboek).
+const infoDialog = el<HTMLDialogElement>("infodlg");
+el("infobtn").addEventListener("click", () => infoDialog.showModal());
+el("infoclose").addEventListener("click", () => infoDialog.close());
+// Een tik naast het venster (op de achtergrond) sluit hem ook.
+infoDialog.addEventListener("click", (e) => {
+  if (e.target === infoDialog) infoDialog.close();
+});
 carSaveButton.addEventListener("click", () => void saveCar());
 // Enter op het toetsenbord bewaart ook: op de telefoon is dat de knop die er al onder je duim zit.
 for (const input of [plateInput, carNameInput]) {

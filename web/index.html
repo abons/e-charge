@@ -52,6 +52,10 @@
   dialog .carlist li.on button:first-child { outline: 2px solid #7fd4a0; }
   dialog .carnote { color: #b5b5b5; font-size: 13px; min-height: 36px; margin: 4px 0 8px; }
   dialog label { font-size: 13px; color: #b5b5b5; display: block; }
+  /* ⓘ naast "Geschatte laadtijd": klein in de regel, maar met ruim aanraakvlak via padding. */
+  .line .info { background: none; color: #7fd4a0; min-height: 0; padding: 0 10px; margin-left: 2px;
+                font: 18px/1 system-ui, sans-serif; border-radius: 50%; vertical-align: baseline; }
+  dialog .infotext { font-size: 15px; line-height: 1.5; color: #ddd; margin: 0 0 14px; }
   #carlinkrow { margin: 2px 0 10px; font-size: 14px; }
   #carlinkrow input { width: 22px; height: 22px; vertical-align: middle; margin: 0 8px 0 0; accent-color: #7fd4a0; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
@@ -218,7 +222,7 @@
       <div class="line" id="nowline" hidden><span class="k">Nu ongeveer</span>
         <span><span class="v" id="nowpct">–</span><span class="day" id="nowkm"></span></span></div>
       <div class="line"><span class="k" id="startlabel">Start</span><span class="v" id="start">--:--</span></div>
-      <div class="line"><span class="k" id="durationlabel">Geschatte laadtijd</span><span class="v" id="duration">–</span></div>
+      <div class="line"><span class="k"><span id="durationlabel">Geschatte laadtijd</span><button class="info" id="infobtn" type="button" aria-label="Waar komt de laadtijd vandaan?">ⓘ</button></span><span class="v" id="duration">–</span></div>
       <div class="line hero"><span class="k">Klaar rond</span>
         <span><span class="v" id="ready">–</span><span class="day" id="readyday"></span></span></div>
       <!--
@@ -354,11 +358,16 @@
       <p class="loghint" id="loghint" hidden></p>
     </details>
 
-    <footer id="setup"></footer>
     <footer id="tariff"></footer>
   </div>
 
 </main>
+
+<dialog id="infodlg">
+  <h2>Waar komt de laadtijd vandaan?</h2>
+  <p class="infotext" id="setup"></p>
+  <div class="row"><button type="button" id="infoclose">Sluiten</button></div>
+</dialog>
 
 <dialog id="cardlg">
   <h2>Auto toevoegen</h2>
