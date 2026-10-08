@@ -135,6 +135,19 @@ export function ensure(fromMs: number, toMs: number, onUpdate: () => void): void
     });
 }
 
+/** Rond dit uur verschijnen de prijzen van morgen; daarvóór valt er niets op te halen. */
+const TOMORROW_HOUR = 13;
+
+/**
+ * Voor het startadvies: de prijzen tot het eind van vandaag, en vanaf 13:00 tot het eind van morgen.
+ * Vóór 13:00 is morgen nog niet gepubliceerd, en dan zou elk kwartier een vergeefse aanroep zijn.
+ * Eén ms vóór middernacht en niet middernacht zelf: anders vraagt `ensure` er een dag bij.
+ */
+export function ensureAhead(nowMs: number, onUpdate: () => void): void {
+  const days = new Date(nowMs).getHours() >= TOMORROW_HOUR ? 2 : 1;
+  ensure(nowMs, localDay(nowMs, days) - 1, onUpdate);
+}
+
 async function fetchQuarters(days: number[]): Promise<Quarter[]> {
   let all: Quarter[] = [];
   for (const day of days) {

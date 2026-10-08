@@ -93,6 +93,28 @@ in `calibrate`: wat er sinds de vorige beurt uit de accu ging kwam bij díe beur
 de gemiddelde prijs van díe beurt, over de gereden kilometers. Dat is dezelfde "twee regels na
 elkaar"-som als het verbruik, en hij slaat dezelfde regels over (`elders geladen`).
 
+## Startadvies en prijsgrafiek — 2026-10-08
+
+De eigenaar keek nog steeds in de Zonneplan-app naar de grafiek om een starttijd te kiezen. Nu staat
+er een regel **Goedkoopste start** (tijd en "−€ x" tegen nu), en een tik opent een modal met de
+kwartierprijzen in dezelfde vorm. `core/advice.ts` schuift de beurt van nu (zelfde duur, zelfde
+vermogen, `chargingCost`) over de kwartiergrenzen en neemt de goedkoopste.
+
+- **Alleen vensters met elk kwartier geprijsd.** De kostenregel schat het onbekende stuk op het
+  gemiddelde; voor een advies zou dat het venster naar het onbekende trekken.
+- **Een grens: "Auto klaar vóór"** (een heel uur, in `localStorage`), standaard een etmaal na nu.
+  Zonder grens wees het advies 's avonds naar de zonnige middag van morgen, als de auto al weg is.
+  Haalt zelfs nu starten de grens niet, dan is het advies nu (`tooLate`).
+- **Onder 5 cent verschil is het advies nu**, en bij gelijke prijs de vroegste: wachten voor een cent
+  is geen advies. De besparing is het verschil van de twee bedragen in hele centen, zodat de zin klopt.
+- **De prijzen van morgen worden na 13:00 opgehaald** als ze ontbreken (`ensureAhead`), niet alleen
+  als de beurt erin valt — anders ziet het advies morgenochtend nooit. Vóór 13:00 niet: dan bestaan ze
+  nog niet. Zelfde bron, zelfde één-poging-per-kwartier.
+- **Tijdens het laden geen advies** ("laden loopt"); de grafiek toont dan de lopende beurt.
+- **De grafiek is een SVG-string uit `core/chart.ts`**, geen bibliotheek: één reeks (de all-in prijs
+  als trap), banden voor nu en advies, labels alleen op laagste en hoogste prijs binnen de grens, en
+  een vinger op de grafiek leest één kwartier uit.
+
 ## Lineair rekenen, geen laadcurve — 2026-09-11
 
 Een laadcurve hoort bij snelladen: daar knijpt de auto af zodra de cellen het vermogen niet meer

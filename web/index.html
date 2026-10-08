@@ -59,6 +59,18 @@
   .line .info { background: none; color: #7fd4a0; min-height: 0; padding: 0 10px; margin-left: 2px;
                 font: 18px/1 system-ui, sans-serif; border-radius: 50%; vertical-align: baseline; }
   dialog .infotext { font-size: 15px; line-height: 1.5; color: #ddd; margin: 0 0 14px; }
+  /* De prijsgrafiek: uitlezing boven de grafiek (vaste hoogte, dus slepen verschuift niets). */
+  dialog .readout { font-size: 14px; color: #c9c9c9; margin: 10px 0 4px; min-height: 20px;
+                    font-variant-numeric: tabular-nums; }
+  dialog .legend { font-size: 13px; color: #b5b5b5; margin: 8px 0 4px; display: flex; align-items: center; gap: 6px; }
+  dialog .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  dialog .legend .sw.advies { background: rgba(127,212,160,.45); margin-left: 10px; }
+  dialog .legend .sw.nu { background: rgba(154,154,154,.35); }
+  /* Een regel in de uitkomst die een knop is: het pijltje zegt dat er meer achter zit. */
+  .line.tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .line.tap:active { background: #242426; }
+  .line.tap:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
+  .line .chev { color: #7fd4a0; font-size: 20px; font-weight: 700; padding-left: 8px; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
   main > .card:not(.about) { flex: 1; display: flex; flex-direction: column; }
 
@@ -233,6 +245,12 @@
       -->
       <div class="line"><span class="k">Kosten</span>
         <span><span class="v" id="cost">–</span><span class="day" id="costnote"></span></span></div>
+      <!--
+        Het startadvies: wanneer dezelfde beurt het goedkoopst begint (`core/advice.ts`). De hele
+        regel is een knop naar de prijsgrafiek. Staat er altijd, ook als streepje — vaste hoogte.
+      -->
+      <div class="line tap" id="adviceline" role="button" tabindex="0" aria-haspopup="dialog"><span class="k">Goedkoopste start</span>
+        <span><span class="v" id="advice">–</span><span class="day" id="advicenote"></span><span class="chev" aria-hidden="true">›</span></span></div>
       <div class="sub"><span id="rangelabel">Bereik</span> <span id="range">–</span> ·
         <span id="costkm">–</span><span id="power"></span></div>
     </div>
@@ -368,6 +386,21 @@
   <h2>Waar komt de laadtijd vandaan?</h2>
   <p class="infotext" id="setup"></p>
   <div class="row"><button type="button" id="infoclose">Sluiten</button></div>
+</dialog>
+
+<dialog id="pricedlg">
+  <h2>Wanneer laden?</h2>
+  <p class="infotext" id="advicetext"></p>
+  <div id="readybyrow">
+    <label for="readyby">Auto klaar vóór</label>
+    <select id="readyby"></select>
+  </div>
+  <p class="readout" id="readout">&nbsp;</p>
+  <div id="chart"></div>
+  <p class="legend" id="legend"></p>
+  <p class="carnote">Prijs per kWh per kwartier, met opslag, energiebelasting en btw. De prijzen van
+    morgen verschijnen rond 13:00. Sleep over de grafiek voor een kwartier.</p>
+  <div class="row"><button type="button" id="priceclose">Sluiten</button></div>
 </dialog>
 
 <dialog id="cardlg">

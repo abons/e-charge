@@ -31,6 +31,10 @@ rond 13:00, en tot die tijd zegt de regel "deels geschat". Daaronder staat wat e
 bij die prijs, en het logboek bewaart de kosten van elke beurt in een `€`-kolom — `npm run
 calibrate` rekent daar de gemeten kosten per km uit, over de kilometers tussen twee beurten.
 
+Sinds 2026-10-08 zegt de regel **Goedkoopste start** wanneer dezelfde beurt het minst kost, en wat
+dat scheelt met nu insteken. Een tik erop opent de kwartierprijzen als grafiek, met de beurt van nu
+en die van het advies erin, en een keuze **Auto klaar vóór** (standaard: binnen een etmaal).
+
 ## Een auto kiezen
 
 De regel bovenin is de auto (*Kies je auto* als er nog geen is). Tik erop voor een venster waarin je:
@@ -125,13 +129,14 @@ die vreemd voelt te herleiden is.
 - `src/core/` — de pure stukken, één bestand elk: `charge` (de rekenkern), `derive` (wat het
   logboek zegt: laadsnelheid en km per procentpunt), `logmd` (leest `log.md`, alleen voor scripts en
   tests), `time` (klok, duur, "morgen"), `ics` (de agenda-afspraak), `price` (de tariefopbouw en de
-  kostensom per kwartier), `car` (kenteken, RDW-antwoord, de lijst auto's en hun opslagsleutels),
+  kostensom per kwartier), `advice` (het goedkoopste startmoment), `chart` (de prijsgrafiek als
+  SVG), `car` (kenteken, RDW-antwoord, de lijst auto's en hun opslagsleutels),
   `evest` (de schatting uit accugrootte en het koppelen van een RDW-antwoord aan een uitvoering),
   `evtable` (gegenereerd uit open-ev-data) en `evextra` (Dacia en Toyota, met de hand).
 - `src/prices.ts` — het ophalen en bewaren van de kwartierprijzen; netwerkplek 1.
 - `src/car.ts` — het opzoeken van een kenteken bij RDW; netwerkplek 2, alleen op "Zoek".
 - `src/main.ts` + `web/` — het enige scherm, de PWA-manifest en de service worker.
-- `test/charge.test.ts`, `test/price.test.ts`, `test/car.test.ts` — de tests.
+- `test/charge.test.ts`, `test/price.test.ts`, `test/car.test.ts`, `test/advice.test.ts` — de tests.
 - `scripts/build.mjs` — bundel en dev-server; `scripts/ev-data.mjs` — ververst de accutabel.
 
 Openstaand werk staat in `todo.md`, keuzes in `design.md`, regels voor een volgende sessie in

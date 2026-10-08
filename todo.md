@@ -13,6 +13,12 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
+- **Startadvies en prijsgrafiek op de telefoon bekijken** (2026-10-08). Gezien in headless Chrome
+  (412 px) met nagemaakte prijzen: de regel, de modal, de grens 07:00, de sessie-stand. **Niet
+  gezien**: echte EnergyZero-prijzen, of morgen na 13:00 vanzelf binnenkomt (`ensureAhead`), slepen
+  met een vinger (alleen muis getest), de Android-kiezer van "Auto klaar vóór". Leg één advies naast
+  de Zonneplan-grafiek: de tijden moeten kloppen, de bedragen wijken af met de opslag.
+
 - **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
   telefoon gezien (79 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
   zin "schatting uit accugrootte" in de ⓘ voor een nieuwe auto. Probeer een tweede auto zonder kenteken.

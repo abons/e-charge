@@ -29,6 +29,8 @@ import {
 } from "./core/car.js";
 import { LEAF_START, kmPerPp, measureRate, ratePerHour, setupAt, type Source, type Start } from "./core/derive.js";
 import { brands, estimateFromKwh, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
+import { cheapestStart, readyBy, type Advice } from "./core/advice.js";
+import { CHART_W, priceChart, type Band } from "./core/chart.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -68,6 +70,7 @@ import * as prices from "./prices.js";
 
 const TARGET_KEY = "e-charge.target";
 const AMPS_KEY = "e-charge.amps";
+const READY_BY_KEY = "e-charge.readyby";
 const DEFAULT_TARGET = 90;
 /** De sleutels van sessie, laatst afgesloten beurt en logboek horen bij de actieve auto (`carKey`). */
 const sessionKey = (): string => carKey("session", car.id);
@@ -107,6 +110,15 @@ const powerOut = el("power");
 const costOut = el("cost");
 const costNote = el("costnote");
 const costKmOut = el("costkm");
+const adviceLine = el("adviceline");
+const adviceOut = el("advice");
+const adviceNote = el("advicenote");
+const priceDialog = el<HTMLDialogElement>("pricedlg");
+const adviceText = el("advicetext");
+const readoutOut = el("readout");
+const chartBox = el("chart");
+const legendOut = el("legend");
+const readyBySelect = el<HTMLSelectElement>("readyby");
 const tariffOut = el("tariff");
 const noteOut = el("note");
 const setupOut = el("setup");
@@ -196,6 +208,13 @@ let ready: {
   cost: Cost | null;
 } | null = null;
 
+/**
+ * Wat het startadvies en de prijsgrafiek nodig hebben uit de laatste render: hoe lang de beurt duurt
+ * en met welk vermogen, en — tijdens het laden — het venster van de lopende beurt. `null` zolang er
+ * niets te laden valt.
+ */
+let plan: { durationMs: number; powerKw: number; lopend: { startMs: number; endMs: number } | null } | null = null;
+
 /** De laadstand die op het scherm gekozen is; de `<select>` kent alleen standen uit `charge.ts`. */
 function currentAmps(): number {
   return clampCurrent(Number(ampsSelect.value));
@@ -223,9 +242,20 @@ function percentOf(input: HTMLInputElement): number | null {
   return Number.isFinite(value) ? clampPercent(value) : null;
 }
 
+/** Het scherm, en de prijsgrafiek als die openstaat — die tikt mee met de klok. */
 function render(): void {
+  renderMain();
+  if (priceDialog.open) renderPriceDialog();
+}
+
+function renderMain(): void {
   renderSaveTarget();
   const now = Date.now();
+  // Voor het startadvies: de prijzen van vandaag, en na 13:00 die van morgen (zie `prices.ts`).
+  prices.ensureAhead(now, () => {
+    renderTariff();
+    render();
+  });
   const to = percentOf(targetInput) ?? DEFAULT_TARGET;
   // In de bezig-stand telt het percentage waarop de sessie begon, niet wat er nu in het veld staat:
   // het veld is dan het aflezen van zojuist, en dat hoort de sessie opnieuw te verankeren (zie de
@@ -246,6 +276,8 @@ function render(): void {
   // deze regel anders staan met een getal dat niet meer meetikt.
   nowLine.hidden = true;
   ready = null;
+  plan = null;
+  showAdvice(null, now);
 
   if (from === null) {
     rangeLabel.textContent = `Bereik bij ${to}%`;
@@ -305,6 +337,15 @@ function render(): void {
     render();
   });
   showCost(cost, true);
+  plan = {
+    durationMs: readyMs - shownStartMs,
+    powerKw: opzet.powerKw,
+    lopend: session ? { startMs: shownStartMs, endMs: readyMs } : null,
+  };
+  showAdvice(
+    session ? null : cheapestStart(now, result.minutes * 60_000, opzet.powerKw, prices.known(), readyBy(now, readyByHour())),
+    now,
+  );
 
   if (session) {
     const soc = Math.floor(percentAfter(session.from, to, now - session.startMs, opzet));
@@ -395,6 +436,123 @@ function showCost(cost: Cost | null, expected = false): void {
   // aanname als "Bereik", dus de twee regels kunnen elkaar niet tegenspreken.
   const perKm = eurPerKm(cost.avgEurPerKwh, setup());
   costKmOut.textContent = perKm === null ? "–" : `${nl(perKm * 100)} ct/km`;
+}
+
+/**
+ * De regel "Goedkoopste start": het tijdstip en wat het scheelt met nu. Tijdens het laden valt er
+ * niets meer te kiezen; de grafiek erachter laat dan de lopende beurt zien.
+ */
+function showAdvice(advice: Advice | null, now: number): void {
+  if (advice === null) {
+    adviceOut.textContent = "–";
+    adviceNote.textContent =
+      plan === null ? "" : plan.lopend !== null ? "laden loopt" : prices.status() === "ophalen" ? "prijzen ophalen…" : "te weinig prijzen";
+    return;
+  }
+  if (advice.startMs === now) {
+    adviceOut.textContent = "nu";
+    adviceNote.textContent = advice.tooLate ? `haalt ${clock(readyBy(now, readyByHour()))} niet` : "al goedkoopst";
+    return;
+  }
+  adviceOut.textContent = clock(advice.startMs);
+  const dag = dayLabel(now, advice.startMs);
+  adviceNote.textContent = `${dag === null ? "" : `${dag} · `}−€ ${nl(advice.savingEur, 2)}`;
+}
+
+/**
+ * De modal achter "Goedkoopste start": het advies in woorden en de kwartierprijzen als grafiek, met
+ * de beurt van nu en die van het advies als banden. Rekent opnieuw met de klok van nu, zodat hij
+ * klopt met wat er net op het scherm stond.
+ */
+let grafiek: ReturnType<typeof priceChart> = null;
+function renderPriceDialog(): void {
+  const now = Date.now();
+  const known = prices.known();
+  const p = plan;
+  const uur = readyByHour();
+  const deadline = readyBy(now, uur);
+  const advice = p === null || p.lopend !== null ? null : cheapestStart(now, p.durationMs, p.powerKw, known, deadline);
+  const bands: Band[] = [];
+  let legend = "";
+  const laden = (ms: number) => duration(ms / 60_000);
+  if (p === null) {
+    adviceText.textContent = "Vul je huidige percentage in, dan zoekt de app het goedkoopste moment om te beginnen.";
+  } else if (p.lopend !== null) {
+    bands.push({ ...p.lopend, kind: "nu" });
+    legend = `<span class="sw nu"></span>deze laadbeurt`;
+    adviceText.textContent =
+      `Je laadt sinds ${clock(p.lopend.startMs)}, klaar rond ${clock(p.lopend.endMs)}` +
+      `${ready?.cost ? `: € ${nl(ready.cost.eur, 2)}` : ""}.`;
+  } else if (advice === null) {
+    bands.push({ startMs: now, endMs: now + p.durationMs, kind: "nu" });
+    legend = `<span class="sw nu"></span>nu starten`;
+    adviceText.textContent =
+      `De bekende prijzen reiken niet ver genoeg voor ${laden(p.durationMs)} laden. ` +
+      "De prijzen van morgen verschijnen rond 13:00.";
+  } else if (advice.startMs === now) {
+    bands.push({ startMs: advice.startMs, endMs: advice.endMs, kind: "advies" });
+    legend = `<span class="sw advies"></span>nu starten`;
+    adviceText.textContent = advice.tooLate
+      ? `Om ${clock(deadline)} klaar lukt niet meer: ${laden(p.durationMs)} laden is pas rond ` +
+        `${clock(advice.endMs)} klaar. Nu starten is het vroegst (€ ${nl(advice.eur, 2)}).`
+      : `Nu starten is het goedkoopst: € ${nl(advice.eur, 2)} voor ${laden(p.durationMs)} laden, ` +
+        `klaar rond ${clock(advice.endMs)}.`;
+  } else {
+    bands.push({ startMs: now, endMs: now + p.durationMs, kind: "nu" });
+    bands.push({ startMs: advice.startMs, endMs: advice.endMs, kind: "advies" });
+    legend = `<span class="sw nu"></span>nu starten <span class="sw advies"></span>goedkoopste start`;
+    const dag = dayLabel(now, advice.startMs);
+    const eindDag = dayLabel(now, advice.endMs);
+    adviceText.textContent =
+      `Start om ${clock(advice.startMs)}${dag === null ? "" : ` ${dag}`}, klaar rond ${clock(advice.endMs)}` +
+      `${eindDag === null || eindDag === dag ? "" : ` ${eindDag}`}: € ${nl(advice.eur, 2)}. ` +
+      `Nu starten kost € ${nl(advice.nowEur, 2)}, dus je bespaart € ${nl(advice.savingEur, 2)}.`;
+  }
+  // Tijdens het laden valt er niets meer te kiezen.
+  el("readybyrow").hidden = p?.lopend != null;
+  legendOut.innerHTML = legend;
+  legendOut.hidden = legend === "";
+  // Tot de deadline (zonder keuze een etmaal), maar nooit korter dan de beurt die erin getekend staat.
+  const totMs = Math.max(deadline, ...bands.map((b) => b.endMs));
+  grafiek = priceChart(known, now, bands, totMs, uur === null || p?.lopend ? null : deadline);
+  // Alleen eigen getallen en vaste tekst in de SVG, dus `innerHTML` is hier veilig.
+  chartBox.innerHTML = grafiek === null ? "" : grafiek.svg;
+  if (grafiek === null) {
+    readoutOut.textContent = prices.status() === "ophalen" ? "Prijzen ophalen…" : "Nog geen prijzen.";
+    return;
+  }
+  const q = grafiek.quarterAt(now);
+  readoutOut.textContent =
+    q === null ? " " : `Nu (${clock(q.startMs)}–${clock(q.endMs)}): ${Math.round(q.eurPerKwh * 100)} ct/kWh`;
+}
+
+/** De vinger op de grafiek: kruisdraad, stip en de prijs van dat kwartier in de regel erboven. */
+function wijsAan(e: PointerEvent): void {
+  const svg = chartBox.querySelector("svg");
+  if (grafiek === null || svg === null) return;
+  const rect = svg.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const ms = grafiek.msAt(((e.clientX - rect.left) * CHART_W) / rect.width);
+  const q = grafiek.quarterAt(ms);
+  const cross = svg.querySelector("#pc-cross");
+  const dot = svg.querySelector("#pc-dot");
+  if (q === null || cross === null || dot === null) return;
+  const xx = String(grafiek.x(ms));
+  cross.setAttribute("x1", xx);
+  cross.setAttribute("x2", xx);
+  cross.setAttribute("visibility", "visible");
+  dot.setAttribute("cx", xx);
+  dot.setAttribute("cy", String(grafiek.y(q.eurPerKwh)));
+  dot.setAttribute("visibility", "visible");
+  const dag = dayLabel(Date.now(), q.startMs);
+  readoutOut.textContent =
+    `${dag === null ? "" : `${dag[0]!.toUpperCase()}${dag.slice(1)} `}${clock(q.startMs)}–${clock(q.endMs)}: ` +
+    `${Math.round(q.eurPerKwh * 100)} ct/kWh`;
+}
+
+function openPriceDialog(): void {
+  renderPriceDialog();
+  priceDialog.showModal();
 }
 
 function note(text: string | null, kind: "ok" | "info" = "ok"): void {
@@ -514,6 +672,28 @@ function readAmps(): number {
   } catch {
     return RATED_CURRENT_A;
   }
+}
+
+/** "Auto klaar vóór": een heel uur, of `null` voor geen grens. Een voorkeur, net als het doel. */
+function readReadyBy(): number | null {
+  try {
+    const raw = localStorage.getItem(READY_BY_KEY);
+    const h = raw === null || raw === "" ? NaN : Number(raw);
+    return Number.isInteger(h) && h >= 0 && h < 24 ? h : null;
+  } catch {
+    return null;
+  }
+}
+function writeReadyBy(value: number | null): void {
+  try {
+    localStorage.setItem(READY_BY_KEY, value === null ? "" : String(value));
+  } catch {
+    /* geen opslag; de keuze geldt deze sessie */
+  }
+}
+/** Wat er nu in de keuzelijst staat. */
+function readyByHour(): number | null {
+  return readyBySelect.value === "" ? null : Number(readyBySelect.value);
 }
 
 function writeAmps(value: number): void {
@@ -1235,6 +1415,22 @@ for (const amps of CHARGE_CURRENTS_A) {
 }
 ampsSelect.value = String(readAmps());
 
+// "Auto klaar vóór" in de prijsgrafiek: geen grens (dan binnen een etmaal), of een heel uur.
+{
+  const geen = document.createElement("option");
+  geen.value = "";
+  geen.textContent = "maakt niet uit (binnen een etmaal)";
+  readyBySelect.append(geen);
+  for (let h = 0; h < 24; h++) {
+    const option = document.createElement("option");
+    option.value = String(h);
+    option.textContent = `${String(h).padStart(2, "0")}:00`;
+    readyBySelect.append(option);
+  }
+  const bewaard = readReadyBy();
+  readyBySelect.value = bewaard === null ? "" : String(bewaard);
+}
+
 // Een sessie die nog loopt hoort het scherm meteen in de bezig-stand te zetten, en het veld op het
 // percentage waarmee hij begon — anders staat er een leeg veld boven een lopende aftelling. En de
 // keuzelijst op de stand van de sessie: dat is de stand waar de aftelling op gerekend is.
@@ -1336,6 +1532,24 @@ el("infoclose").addEventListener("click", () => infoDialog.close());
 infoDialog.addEventListener("click", (e) => {
   if (e.target === infoDialog) infoDialog.close();
 });
+// Het startadvies: de hele regel opent de prijsgrafiek, ook met het toetsenbord.
+adviceLine.addEventListener("click", openPriceDialog);
+adviceLine.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    openPriceDialog();
+  }
+});
+el("priceclose").addEventListener("click", () => priceDialog.close());
+priceDialog.addEventListener("click", (e) => {
+  if (e.target === priceDialog) priceDialog.close();
+});
+readyBySelect.addEventListener("change", () => {
+  writeReadyBy(readyByHour());
+  render();
+});
+chartBox.addEventListener("pointerdown", wijsAan);
+chartBox.addEventListener("pointermove", wijsAan);
 carSaveButton.addEventListener("click", () => void saveCar());
 evBrandSelect.addEventListener("change", () => {
   setOptions(evModelSelect, "Model…", modelsOf(evBrandSelect.value).map((m) => ({ value: m, text: m })));
