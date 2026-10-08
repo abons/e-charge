@@ -242,6 +242,12 @@ function percentOf(input: HTMLInputElement): number | null {
   return Number.isFinite(value) ? clampPercent(value) : null;
 }
 
+/** Nieuwe prijzen binnen: tariefregel en scherm opnieuw. */
+function opnieuw(): void {
+  renderTariff();
+  render();
+}
+
 /** Het scherm, en de prijsgrafiek als die openstaat — die tikt mee met de klok. */
 function render(): void {
   renderMain();
@@ -251,11 +257,6 @@ function render(): void {
 function renderMain(): void {
   renderSaveTarget();
   const now = Date.now();
-  // Voor het startadvies: de prijzen van vandaag, en na 13:00 die van morgen (zie `prices.ts`).
-  prices.ensureAhead(now, () => {
-    renderTariff();
-    render();
-  });
   const to = percentOf(targetInput) ?? DEFAULT_TARGET;
   // In de bezig-stand telt het percentage waarop de sessie begon, niet wat er nu in het veld staat:
   // het veld is dan het aflezen van zojuist, en dat hoort de sessie opnieuw te verankeren (zie de
@@ -332,10 +333,10 @@ function renderMain(): void {
   const cost = chargingCost(shownStartMs, readyMs, opzet.powerKw, prices.known());
   // Eerst `ensure`, dán tonen: anders leest `showCost` de status van vóór het ophalen en staat er
   // op de eerste render een kaal streepje zonder "prijzen ophalen…".
-  prices.ensure(shownStartMs, readyMs, () => {
-    renderTariff();
-    render();
-  });
+  prices.ensure(shownStartMs, readyMs, opnieuw);
+  // Daarna pas het startadvies (vandaag, en na 13:00 morgen): de beurt zelf gaat voor, want beide
+  // delen één poging per kwartier. Tijdens het laden valt er niets te adviseren.
+  if (!session) prices.ensureAhead(now, opnieuw);
   showCost(cost, true);
   plan = {
     durationMs: readyMs - shownStartMs,
@@ -521,10 +522,16 @@ function renderPriceDialog(): void {
     readoutOut.textContent = prices.status() === "ophalen" ? "Prijzen ophalen…" : "Nog geen prijzen.";
     return;
   }
+  // De klok tikt elke 15 s een nieuwe grafiek: zet de vinger terug waar hij stond, anders springt
+  // de uitlezing terug naar "Nu" terwijl je een kwartier van morgen aan het bekijken bent.
+  if (aangewezenMs !== null && toonKwartier(aangewezenMs)) return;
   const q = grafiek.quarterAt(now);
   readoutOut.textContent =
     q === null ? " " : `Nu (${clock(q.startMs)}–${clock(q.endMs)}): ${Math.round(q.eurPerKwh * 100)} ct/kWh`;
 }
+
+/** Het moment waar de vinger het laatst op de grafiek stond; `null` tot je hem aanraakt. */
+let aangewezenMs: number | null = null;
 
 /** De vinger op de grafiek: kruisdraad, stip en de prijs van dat kwartier in de regel erboven. */
 function wijsAan(e: PointerEvent): void {
@@ -533,10 +540,17 @@ function wijsAan(e: PointerEvent): void {
   const rect = svg.getBoundingClientRect();
   if (rect.width === 0) return;
   const ms = grafiek.msAt(((e.clientX - rect.left) * CHART_W) / rect.width);
+  if (toonKwartier(ms)) aangewezenMs = ms;
+}
+
+/** Kruisdraad, stip en uitlezing op [ms]; `false` als daar (nu) geen kwartier in de grafiek is. */
+function toonKwartier(ms: number): boolean {
+  const svg = chartBox.querySelector("svg");
+  if (grafiek === null || svg === null) return false;
   const q = grafiek.quarterAt(ms);
   const cross = svg.querySelector("#pc-cross");
   const dot = svg.querySelector("#pc-dot");
-  if (q === null || cross === null || dot === null) return;
+  if (q === null || cross === null || dot === null) return false;
   const xx = String(grafiek.x(ms));
   cross.setAttribute("x1", xx);
   cross.setAttribute("x2", xx);
@@ -548,9 +562,13 @@ function wijsAan(e: PointerEvent): void {
   readoutOut.textContent =
     `${dag === null ? "" : `${dag[0]!.toUpperCase()}${dag.slice(1)} `}${clock(q.startMs)}–${clock(q.endMs)}: ` +
     `${Math.round(q.eurPerKwh * 100)} ct/kWh`;
+  return true;
 }
 
 function openPriceDialog(): void {
+  aangewezenMs = null;
+  // Wie de grafiek opent wil prijzen zien, ook zonder ingevuld percentage of tijdens het laden.
+  prices.ensureAhead(Date.now(), opnieuw);
   renderPriceDialog();
   priceDialog.showModal();
 }

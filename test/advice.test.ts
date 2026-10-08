@@ -54,12 +54,13 @@ test("cheapestStart: alleen vensters die helemaal geprijsd zijn", () => {
   const a = cheapestStart(T0, 2 * H, 3.5, qs);
   assert.ok(a !== null);
   assert.equal(a.endMs, T0 + 3 * H);
-  // Een gat midden in de prijzen: vensters die het raken vallen af, die erna tellen weer.
-  const gat = dag(Array(24).fill(40)).filter((_, i) => i !== 6);
-  gat.push(...dag(Array(32).fill(0)).slice(24).map((q) => ({ ...q, eurPerKwh: 0.1 })));
+  // Een gat midden in het goedkope stuk: elk venster van een uur dat helemaal in de 5 ct valt, raakt
+  // kwartier 8. Telde een geschat venster mee, dan won start 6 of 7 (gemiddelde 5 ct over het bekende
+  // deel); goed is start 9 (5, 5, 30, 30), het goedkoopste venster zonder gat.
+  const gat = dag([40, 40, 40, 40, 40, 40, 5, 5, 5, 5, 5, 30, 30, 30, 30, 30]).filter((_, i) => i !== 8);
   const b = cheapestStart(T0, H, 3.5, gat);
   assert.ok(b !== null);
-  assert.equal(b.startMs, T0 + 6 * H);
+  assert.equal(b.startMs, T0 + 9 * Q);
 });
 
 test("cheapestStart: zonder volledige prijs voor nu, of zonder duur, geen advies", () => {
@@ -127,6 +128,33 @@ test("priceChart: houdt een uur na de grens op, en noemt alleen een laagste prij
   assert.doesNotMatch(c.svg, />5 ct</);
   assert.match(c.svg, />30 ct</);
   assert.match(c.svg, /vóór /);
+});
+
+test("priceChart: een gat tussen nu en de grens geeft geen labels, en geen fout", () => {
+  // Alleen prijzen ná de grens (binnen het extra uur dat de grafiek toont): niets om een min/max van te nemen.
+  const qs = dag(Array(12).fill(30)).slice(8);
+  const c = priceChart(qs, T0, [], T0 + 2 * H);
+  assert.ok(c !== null);
+  assert.doesNotMatch(c.svg, / ct</);
+});
+
+test("priceChart: de nacht van de wintertijd loopt door het dubbele uur (geen lus die blijft hangen)", () => {
+  // 25 oktober 2026: in Amsterdam komt 02:00–03:00 twee keer. Alleen zinvol in die tijdzone; Node
+  // leest `TZ` opnieuw zodra hij verandert, en de tijdzone gaat na afloop terug.
+  const oud = process.env.TZ;
+  process.env.TZ = "Europe/Amsterdam";
+  try {
+    const nu = Date.parse("2026-10-24T22:00:00Z"); // 00:00 lokaal, nog zomertijd
+    if (new Date(nu).getTimezoneOffset() !== -120) return; // geen tijdzonedata: niets te bewijzen
+    const qs = Array.from({ length: 4 * 26 }, (_, i) => ({ startMs: nu + i * Q, endMs: nu + (i + 1) * Q, eurPerKwh: 0.3 }));
+    const c = priceChart(qs, nu, [], nu + 24 * H);
+    assert.ok(c !== null);
+    // Twee keer "02" op de as zou een tick om de drie uur niet tonen, maar "03" wel precies één keer.
+    assert.equal(c.svg.match(/>03</g)?.length, 1);
+  } finally {
+    if (oud === undefined) delete process.env.TZ;
+    else process.env.TZ = oud;
+  }
 });
 
 test("priceChart: niets te tekenen zonder prijzen na nu", () => {

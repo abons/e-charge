@@ -16,8 +16,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   **enige** plek in de app die `fetch` aanraakt (`scripts/kosten.mjs` doet het ook, maar op jouw
   machine en alleen om oude logregels een bedrag te geven): de publieke prijzen-API van EnergyZero
   (`public.api.energyzero.nl/public/v1/prices`, EPEX per kwartier, zonder sleutel), resultaat in
-  `localStorage`, hooguit één poging per kwartier en alleen als de laadbeurt (of na 13:00 morgen, voor
-  het startadvies: `ensureAhead`) buiten de bekende prijzen valt. Zonder bereik rekent alles door met wat er staat, en de kostenregel zegt "geen
+  `localStorage`, hooguit één poging per kwartier en alleen als de laadbeurt (of voor het startadvies
+  vandaag, na 13:00 ook morgen: `ensureAhead`) buiten de bekende prijzen valt. Zonder bereik rekent alles door met wat er staat, en de kostenregel zegt "geen
   prijzen" in plaats van het scherm mee te slepen. Zonneplan zelf heeft geen open API; zijn prijs
   is EPEX + een vaste opbouw, en die drie getallen staan in `src/core/price.ts` — de
   tarief-tegenhanger van de vier autoconstanten. Wat nog steeds niet mag: een token of sleutel in

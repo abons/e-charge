@@ -14,8 +14,9 @@ import { covered, mergeQuarters, parseEnergyZero, parseQuarters, type Quarter } 
  * en Energy-Charts (Fraunhofer) staat alleen zijn eigen origin toe — precies waarom de eerste
  * versie op de telefoon "geen prijzen" zei.
  *
- * ⚠️ Ophalen is zuinig: alleen als de laadbeurt buiten de bekende prijzen valt, en dan hooguit één
- * keer per kwartier. De prijzen van morgen verschijnen rond 13:00–15:00; een laadbeurt die vanavond
+ * ⚠️ Ophalen is zuinig: alleen als de laadbeurt buiten de bekende prijzen valt — of, voor het
+ * startadvies en de prijsgrafiek (`ensureAhead`), vandaag en na 13:00 morgen ontbreken — en dan hooguit
+ * één keer per kwartier. De prijzen van morgen verschijnen rond 13:00–15:00; een laadbeurt die vanavond
  * over middernacht loopt, krijgt ze dus vanzelf zodra ze er zijn.
  */
 

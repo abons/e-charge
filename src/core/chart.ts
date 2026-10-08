@@ -41,10 +41,19 @@ const ct = (eurPerKwh: number): number => Math.round(eurPerKwh * 100);
 const HALO = `fill="#eee" stroke="#1c1c1d" stroke-width="3" paint-order="stroke"`;
 const f = (n: number): string => n.toFixed(1);
 
-/** Lokaal heel uur op of na [ms] — via de datum, want een uur is in lokale tijd geen vast getal ms. */
-function nextHour(ms: number): number {
+/**
+ * Begin van het lokale uur van [ms]: de minuten en seconden eraf. ⚠️ Niet via
+ * `new Date(j, m, d, uur)`: in het dubbele uur van de wintertijd (02:00–03:00 komt twee keer) kiest
+ * die de *eerste* 02:00, en een lus die zo per uur verder wil, staat dan stil — de tab bevroor.
+ */
+function hourStart(ms: number): number {
   const d = new Date(ms);
-  const h = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
+  return ms - d.getMinutes() * 60_000 - d.getSeconds() * 1000 - d.getMilliseconds();
+}
+
+/** Lokaal heel uur op of na [ms]. */
+function nextHour(ms: number): number {
+  const h = hourStart(ms);
   return h < ms ? h + HOUR_MS : h;
 }
 
@@ -61,8 +70,7 @@ export function priceChart(
   untilMs: number,
   deadlineMs: number | null = null,
 ): PriceChart | null {
-  const d = new Date(nowMs);
-  const fromMs = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
+  const fromMs = hourStart(nowMs);
   const limitMs = nextHour(untilMs) + HOUR_MS;
   const shown = quarters.filter((q) => q.endMs > fromMs && q.startMs < limitMs);
   if (shown.length === 0 || shown[shown.length - 1]!.endMs <= nowMs) return null;
@@ -103,7 +111,8 @@ export function priceChart(
   }
 
   // Middernacht: een stippellijn met het woordje van de dag erna, zoals "morgen".
-  for (let h = nextHour(fromMs); h < toMs; h = nextHour(h + 1)) {
+  // Per uur in ms en niet via de klok: dan gaat de lus ook door het dubbele uur heen (twee keer "02").
+  for (let h = nextHour(fromMs); h < toMs; h += HOUR_MS) {
     const hd = new Date(h);
     const xx = x(h);
     if (hd.getHours() === 0) {
@@ -147,9 +156,14 @@ export function priceChart(
 
   // Laagste en hoogste prijs vanaf nu: twee labels, niet een getal op elk kwartier.
   const ahead = shown.filter((q) => q.endMs > nowMs && q.startMs < Math.max(untilMs, nowMs + 1));
-  const min = ahead.reduce((a, q) => (q.eurPerKwh < a.eurPerKwh ? q : a));
-  const max = ahead.reduce((a, q) => (q.eurPerKwh > a.eurPerKwh ? q : a));
-  for (const q of min === max ? [min] : [min, max]) {
+  // Leeg kan: een gat in de prijzen tussen nu en de grens. Dan geen labels, geen `reduce` op niets.
+  const extremen: Quarter[] = [];
+  if (ahead.length > 0) {
+    const min = ahead.reduce((a, q) => (q.eurPerKwh < a.eurPerKwh ? q : a));
+    const max = ahead.reduce((a, q) => (q.eurPerKwh > a.eurPerKwh ? q : a));
+    extremen.push(...(min === max ? [min] : [min, max]));
+  }
+  for (const q of extremen) {
     const xx = Math.min(CHART_W - PAD_R - 18, Math.max(PAD_L + 18, (x(q.startMs) + x(q.endMs)) / 2));
     parts.push(`<text x="${f(xx)}" y="${f(y(q.eurPerKwh) - 7)}" text-anchor="middle" ${HALO} font-size="12" font-weight="700">${ct(q.eurPerKwh)} ct</text>`);
   }
