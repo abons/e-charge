@@ -1565,6 +1565,8 @@ priceDialog.addEventListener("click", (e) => {
 });
 readyBySelect.addEventListener("change", () => {
   writeReadyBy(readyByHour());
+  // Een kwartier waar de vinger stond is geen advies: bij een andere grens terug naar "Nu".
+  aangewezenMs = null;
   render();
 });
 chartBox.addEventListener("pointerdown", wijsAan);

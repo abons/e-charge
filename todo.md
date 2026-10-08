@@ -13,11 +13,13 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
-- **Startadvies en prijsgrafiek op de telefoon bekijken** (2026-10-08). Gezien in headless Chrome
-  (412 en 320 px) met nagemaakte prijzen: de regel, de modal, de grens 07:00, de sessie-stand. **Niet
-  gezien**: echte EnergyZero-prijzen, of morgen na 13:00 vanzelf binnenkomt (`ensureAhead`), slepen
-  met een vinger (alleen muis getest), de Android-kiezer van "Auto klaar vóór". Leg één advies naast
-  de Zonneplan-grafiek: de tijden moeten kloppen, de bedragen wijken af met de opslag.
+- **Startadvies en prijsgrafiek op de telefoon bekijken** (2026-10-08). Gezien in headless Chrome <!-- claim:a126429b 2026-10-08T13:46:51.0434985+02:00 -->
+  (412 en 320 px) met nagemaakte prijzen. **Gezien op de telefoon 2026-10-08 19:22**: echte prijzen,
+  morgen is binnen, nu 39 ct / piek 42 / dal 18 ct (morgen ~15:00) gelijk aan Zonneplan. Slepen met een
+  vinger werkt (gezien 19:24, "Morgen 03:45–04:00: 22 ct/kWh"). De Android-kiezer van
+  "Auto klaar vóór" opent en kiest (23:00, 03:00 gezien); de grafiek stopt rond 20:00 morgen omdat het
+  venster een etmaal + een uur is (`DEFAULT_HORIZON_MS`), geen datagat. **Open**: de gebruiker meldt
+  dat 03:00 kiezen "niet" werkt, onduidelijk wat; navragen (met ingevuld percentage proberen).
 
 - **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
   telefoon gezien (79 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
