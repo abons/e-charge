@@ -38,7 +38,10 @@ jobs:
           cache: npm
       - run: npm ci
       # De rekentests staan vóór de deploy: een verkeerde laadtijd is het enige wat deze app kan stukmaken.
+      # Met een grens: een lus die niet eindigt (de wintertijdtest in advice.test.ts) blijft anders
+      # zes uur hangen in plaats van rood te worden. De tests duren nu een paar seconden.
       - run: npm test
+        timeout-minutes: 5
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

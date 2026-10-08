@@ -2,8 +2,8 @@
 
 > **Alleen wat nog open is.** Het waarom staat in `design.md`, de regels in `CLAUDE.md`.
 
-**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11; 41/41 tests groen, bundel
-~17 kB (2026-09-27). Pages staat aan en de deploy loopt: workflow-run 13 is groen en zette
+**Stand:** live op <https://abons.github.io/e-charge/> sinds 2026-09-11; 92/92 tests groen
+(2026-10-08). Pages staat aan en de deploy loopt: workflow-run 13 is groen en zette
 `2ca50ed` neer (PR #9, de laadstandkeuze), precies wat er nu op `main` staat. In Chromium op
 telefoonformaat doorlopen: leeg scherm, 43 → 90%, "laden niet nodig", klemmen op 0–100, doel dat een
 reload overleeft, `morgen` over middernacht, de `.ics`-download, offline na een reload, de aftelling
@@ -14,7 +14,7 @@ logregel). **Nog niet op een echte telefoon gezien.**
 ## Hier begint de volgende sessie
 
 - **Startadvies en prijsgrafiek op de telefoon bekijken** (2026-10-08). Gezien in headless Chrome
-  (412 px) met nagemaakte prijzen: de regel, de modal, de grens 07:00, de sessie-stand. **Niet
+  (412 en 320 px) met nagemaakte prijzen: de regel, de modal, de grens 07:00, de sessie-stand. **Niet
   gezien**: echte EnergyZero-prijzen, of morgen na 13:00 vanzelf binnenkomt (`ensureAhead`), slepen
   met een vinger (alleen muis getest), de Android-kiezer van "Auto klaar vóór". Leg één advies naast
   de Zonneplan-grafiek: de tijden moeten kloppen, de bedragen wijken af met de opslag.

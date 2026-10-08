@@ -140,8 +140,10 @@ test("priceChart: een gat tussen nu en de grens geeft geen labels, en geen fout"
 
 test("priceChart: de nacht van de wintertijd loopt door het dubbele uur (geen lus die blijft hangen)", () => {
   // 25 oktober 2026: in Amsterdam komt 02:00–03:00 twee keer. Alleen zinvol in die tijdzone; Node
-  // leest `TZ` opnieuw zodra hij verandert, en de tijdzone gaat na afloop terug.
+  // leest `TZ` opnieuw zodra hij verandert. Terugzetten gaat naar de zone van vóór de test bij naam:
+  // `delete process.env.TZ` zet hem op Windows niet terug (gemeten, Node 22).
   const oud = process.env.TZ;
+  const oudeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   process.env.TZ = "Europe/Amsterdam";
   try {
     const nu = Date.parse("2026-10-24T22:00:00Z"); // 00:00 lokaal, nog zomertijd
@@ -152,8 +154,7 @@ test("priceChart: de nacht van de wintertijd loopt door het dubbele uur (geen lu
     // Twee keer "02" op de as zou een tick om de drie uur niet tonen, maar "03" wel precies één keer.
     assert.equal(c.svg.match(/>03</g)?.length, 1);
   } finally {
-    if (oud === undefined) delete process.env.TZ;
-    else process.env.TZ = oud;
+    process.env.TZ = oud ?? oudeZone;
   }
 });
 

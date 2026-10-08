@@ -468,6 +468,9 @@ function showAdvice(advice: Advice | null, now: number): void {
 let grafiek: ReturnType<typeof priceChart> = null;
 function renderPriceDialog(): void {
   const now = Date.now();
+  // Wie de grafiek open heeft wil prijzen zien, ook zonder percentage of tijdens het laden — en ook
+  // als 13:00 verstrijkt terwijl hij openstaat: daarom hier, bij elke tik, en niet alleen bij openen.
+  prices.ensureAhead(now, opnieuw);
   const known = prices.known();
   const p = plan;
   const uur = readyByHour();
@@ -567,8 +570,6 @@ function toonKwartier(ms: number): boolean {
 
 function openPriceDialog(): void {
   aangewezenMs = null;
-  // Wie de grafiek opent wil prijzen zien, ook zonder ingevuld percentage of tijdens het laden.
-  prices.ensureAhead(Date.now(), opnieuw);
   renderPriceDialog();
   priceDialog.showModal();
 }

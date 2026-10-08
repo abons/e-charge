@@ -70,7 +70,11 @@
   .line.tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .line.tap:active { background: #242426; }
   .line.tap:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
-  .line .chev { color: #7fd4a0; font-size: 20px; font-weight: 700; padding-left: 8px; }
+  .line .chev { color: #7fd4a0; font-size: 20px; font-weight: 700; padding-left: 8px; flex: none; }
+  /* Op een smal scherm kort de notitie in, niet het pijltje: dat zegt dat de regel een knop is. */
+  #adviceline > span:last-child { display: flex; align-items: baseline; min-width: 0; }
+  #adviceline .v { flex: none; }
+  #adviceline .day { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .card { background: #1c1c1d; border: 1px solid #2c2c2e; border-radius: 12px; padding: 12px 14px; }
   main > .card:not(.about) { flex: 1; display: flex; flex-direction: column; }
 
