@@ -176,3 +176,23 @@ test("mergeSnapshot: een lege telefoon die er nieuw bijkomt wist een lopende ses
   assert.deepEqual(mergeSnapshot(lopend, leeg), lopend);
   assert.deepEqual(mergeSnapshot(leeg, lopend), lopend);
 });
+
+test("mergeLogbook: regels van vóór het delen (savedAt 0) blijven staan zonder wisbewijs", () => {
+  const oud = [entry(1000), entry(2000)];
+  assert.equal(mergeLogbook(oud, [], {}, {}).logbook.length, 2);
+  assert.equal(mergeLogbook([], oud, {}, {}).logbook.length, 2);
+  // Mét wisbewijs blijft een ongestempelde regel weg.
+  assert.equal(mergeLogbook(oud, [], { "1000": 5 }, {}).logbook.length, 1);
+});
+
+test("syncOnce: een telefoon met oude beurten verliest ze niet als er al een leeg document staat", () =>
+  met(async () => {
+    const store = fakeFirestore();
+    const leeg = telefoon("AB123C", stand([], 0));
+    const vol = telefoon("AB123C", stand([entry(1000), entry(2000)], 0));
+    await syncOnce(leeg.host, store.fetchFn);
+    await syncOnce(vol.host, store.fetchFn);
+    assert.equal(vol.get().logbook.length, 2);
+    await syncOnce(leeg.host, store.fetchFn);
+    assert.equal(leeg.get().logbook.length, 2);
+  }));

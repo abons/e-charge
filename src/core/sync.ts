@@ -56,7 +56,13 @@ export function mergeLogbook(a: Entry[], b: Entry[], goneA: Record<string, numbe
     if (oud !== undefined && same(oud, e)) continue;
     samen = withEntry(samen, e);
   }
-  const zichtbaar = samen.filter((e) => (e.savedAt ?? 0) > (gone[String(e.startMs)] ?? 0));
+  // ⚠️ Alleen een regel met een wisbewijs kan verborgen worden. Een regel van vóór het delen heeft
+  // `savedAt` 0, en `0 > (gone ?? 0)` was onwaar: elke samenvoeging met een bestaand document wiste
+  // zo het hele logboek van een telefoon die al beurten had.
+  const zichtbaar = samen.filter((e) => {
+    const weg = gone[String(e.startMs)];
+    return weg === undefined || (e.savedAt ?? 0) > weg;
+  });
   return { logbook: zichtbaar, gone };
 }
 
