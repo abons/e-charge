@@ -83,6 +83,8 @@ verwijderen (×) en opnieuw te bewaren — een leeg veld overschrijft niets.
 | 2026-09-26 | 97191 | 34 | 64 | 13:13 | 15:56 |  | 1,60 |  |
 | 2026-09-27 | 97195 | 65 | 85 | 10:31 | 12:48 |  | 1,06 | 16 A; eind% en km geschat (overschreven, hersteld 2026-10-06) |
 | 2026-10-02 | 97280 | 60 | 100 | 11:00 | 15:00 |  | 4,32 | 16 A; start% geschat, tijden bij benadering |
+| 2026-10-08 |  | 47 | 80 | 09:57 | 15:11 |  | 2,85 | 10 A; geschat (eind% herleid uit de app, km onbekend; hersteld 2026-10-10) |
+| 2026-10-10 | 97485 | 66 | 90 | 11:54 | 15:43 |  | 1,06 | 10 A |
 
 De eerste drie beurten gaven de eerste fit van de laadsnelheid (2026-09-20, zie `design.md`): samen
 102 procentpunt in 10u07 (10,08 %/uur) en 158 km voor 78 procentpunt. De twee regels met `geschat`
