@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>e-charge — opslag bekijken</title>
+<style>
+  body { font: 15px/1.4 system-ui, sans-serif; margin: 0; padding: 16px; background: #111; color: #eee; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p { color: #b5b5b5; margin: 4px 0 12px; }
+  section { border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 0 0 12px; }
+  b { word-break: break-all; }
+  .hit { border-color: #4caf50; }
+  textarea { width: 100%; box-sizing: border-box; height: 90px; background: #1b1b1b; color: #ddd; border: 1px solid #333; border-radius: 6px; font: 12px/1.3 monospace; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 0; background: #2d6cdf; color: #fff; margin: 6px 6px 0 0; }
+</style>
+</head>
+<body>
+<h1>Wat staat er op deze telefoon?</h1>
+<p>Alleen lezen: deze pagina wijzigt niets. Alles hieronder komt uit <code id="origin"></code>. Kopieer wat er staat en plak het in een bericht.</p>
+<div id="out"></div>
+<button id="copyall" type="button">📋 Kopieer alles</button>
+<script>
+document.getElementById("origin").textContent = location.origin;
+const out = document.getElementById("out");
+const all = {};
+let keys = [];
+try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) { out.textContent = "Opslag niet te lezen: " + e; }
+keys.sort();
+for (const k of keys) {
+  let v = "";
+  try { v = localStorage.getItem(k) ?? ""; } catch (e) { v = "(onleesbaar)"; }
+  all[k] = v;
+  let note = v.length + " tekens";
+  try {
+    const p = JSON.parse(v);
+    if (Array.isArray(p)) note = p.length + " regels";
+    else if (p && typeof p === "object") note = "object";
+  } catch (e) {}
+  const s = document.createElement("section");
+  if (/logbook/.test(k)) s.className = "hit";
+  const h = document.createElement("div");
+  const b = document.createElement("b");
+  b.textContent = k;
+  h.append(b, " — " + note);
+  const t = document.createElement("textarea");
+  t.readOnly = true;
+  t.value = v;
+  const c = document.createElement("button");
+  c.type = "button";
+  c.textContent = "📋 Kopieer";
+  c.onclick = () => { t.select(); navigator.clipboard?.writeText(v).catch(() => document.execCommand("copy")); c.textContent = "Gekopieerd"; };
+  s.append(h, t, c);
+  out.append(s);
+}
+if (keys.length === 0 && !out.textContent) out.textContent = "Geen enkele sleutel in deze opslag.";
+document.getElementById("copyall").onclick = (e) => {
+  const text = JSON.stringify(all, null, 1);
+  navigator.clipboard?.writeText(text).catch(() => {});
+  e.target.textContent = "Gekopieerd";
+};
+</script>
+</body>
+</html>
