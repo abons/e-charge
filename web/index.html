@@ -142,6 +142,13 @@
      verslaat de regel hierboven. Controleer dus `visibility`, niet `display`. */
   #nowline[hidden] { display: flex !important; visibility: hidden; }
   .out #nowline { flex: none; padding: 6px 0; }
+  /* Toetsenbord open (een veld in .pair heeft focus): het viewport is dan zo kort dat de knoppen eronder
+     verdwijnen. Het toetsenbord is al open, dus er verspringt niets onder je vinger: de gereserveerde
+     lege "Nu ongeveer"-strook valt weg en de resultaatregels worden iets krapper. Verschijnt de
+     regel écht (sessie loopt), dan blijft hij gewoon staan. */
+  body:has(.pair input:focus) #nowline[hidden] { display: none !important; }
+  body:has(.pair input:focus) .out .line:not(#nowline) { padding: 3px 0; }
+  body:has(.pair input:focus) .out { margin-bottom: 6px; }
   .line .k { font-size: 14px; color: #9a9a9a; }
   .line .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .line.hero .v { font-size: 28px; color: #7fd4a0; }
