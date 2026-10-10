@@ -383,3 +383,32 @@ een review door drie agents — architectuur, UX, netwerk/privacy):
   in de agenda-afspraak en niet in een export: `log.md` staat in een publieke repo.
 - **UI**: een vaste regel van 44 px vervangt de titel; de keuze staat in een `<dialog>` (bovenlaag),
   omdat een blok in de flow de knoppen zou verschuiven (zie `CLAUDE.md`, lay-out).
+
+## Delen met een partner: Firestore, het kenteken als sleutel — 2026-10-10
+
+De eigenaar wilde met zijn partner sessie en logboek delen, zodat ze allebei kunnen starten en loggen.
+Gekozen (uit: eigen Worker, Firebase, handmatig delen via link, WebRTC): **Firebase/Firestore, zonder
+inlog, met alleen het kenteken als sleutel.** Dat is de derde uitzondering op "geen backend" (naast de
+prijzen en RDW), en de eerste die *schrijft*.
+
+- **Eén document per auto**: `echarge/<sha256("e-charge:" + kenteken)>`. Een auto zonder kenteken wordt
+  niet gedeeld; een bestaande auto krijgt er via "Huidige auto aanpassen" één. De partner voegt dezelfde
+  auto toe met hetzelfde kenteken (de lokale `car.id` mag verschillen, de sleutel komt van `car.plate`).
+- ⚠️ **Het kenteken is geen geheim.** Wie het kent (of raadt) kan het logboek van die auto lezen en
+  schrijven. Dat is de keuze van de eigenaar; de hash houdt het kenteken alleen uit leesbare URL's. Er
+  staat dus niets in dat niet ook op `log.md` zou mogen. De Firestore-regels staan **alleen `get`,
+  `create` en `update`** toe (geen `list`, geen `delete`: de documenten zijn niet te doorzoeken), zie README.
+- **Gedeeld**: logboek, lopende sessie en laatst afgesloten beurt. Niet: doel, laadstand, prijzen, auto-lijst.
+- **Samenvoegen** (`core/sync.ts`, puur en getest): per `startMs` wint de regel met de hoogste
+  `savedAt` (nieuw veld op `Entry`, gezet in `writeLogbook`), lege velden worden aangevuld (de een
+  voegt km toe, de ander het bedrag); wissen is een wisbewijs `gone[startMs]` dat een oudere regel
+  verbergt maar een daarna opnieuw bewaarde laat staan; sessie + afgesloten zijn **één** momentopname
+  met `at`, nieuwste wint (niet per veld: ⏹ zet beide). Beide kanten rekenen hetzelfde uit, anders
+  zouden ze elkaar blijven bijwerken.
+- **Netwerk** (`src/sync.ts`): REST met `fetch`, geen SDK. Ronde = GET, samenvoegen, lokaal toepassen,
+  PATCH met voorwaarde op `updateTime` (bij weigering opnieuw lezen, 4 pogingen). Triggers: laden, terug in
+  beeld, `online`, elke minuut zolang de app open is, en 0,8 s na elke lokale wijziging. Zonder
+  `src/sync-config.ts` (project-id en webkey leeg) of zonder kenteken doet de app niets extra.
+- **Wat het niet doet**: geen live meekijken (poll van een minuut), en het scherm van de partner
+  volgt een gestarte sessie pas bij de volgende ronde. Een sessie die twee mensen tegelijk starten:
+  de laatste wint.

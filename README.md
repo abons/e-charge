@@ -70,6 +70,34 @@ de hele app-shell in de cache.
 Geen APK, anders dan bij de zusters: deze app doet niets waarvoor je Android zelf nodig hebt, dus is
 de PWA de hele app. `.github/workflows/pages.yml` bouwt en publiceert bij elke push naar `main`.
 
+## Delen met een partner
+
+Optioneel. Zonder dit blijft alles op de telefoon. Zie `design.md` ("Delen met een partner") voor wat er
+gedeeld wordt en waarom het kenteken de enige sleutel is.
+
+1. Maak in de [Firebase-console](https://console.firebase.google.com/) een project, zet **Firestore** aan
+   (productiemodus) en registreer een **webapp**.
+2. Zet in `src/sync-config.ts` het `projectId` en de `apiKey` van die webapp. Beperk de sleutel in
+   Google Cloud → API's en services → Inloggegevens tot HTTP-referrer `https://abons.github.io/*` en tot de
+   Cloud Firestore API.
+3. Firestore-regels:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /echarge/{id} {
+      allow get: if id.matches('[0-9a-f]{64}');
+      allow create, update: if id.matches('[0-9a-f]{64}')
+        && request.resource.data.keys().hasOnly(['logbook', 'gone', 'session', 'finished', 'stateAt']);
+    }
+  }
+}
+```
+
+4. Zet bij beide telefoons hetzelfde kenteken bij de auto ("Huidige auto aanpassen" of nieuwe auto). Onder
+   in de autodialoog staat wanneer het delen voor het laatst lukte.
+
 ## Build / test
 
 - `npm install` — alleen dev-dependencies (TypeScript + esbuild).

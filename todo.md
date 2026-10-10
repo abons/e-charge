@@ -51,6 +51,14 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Openstaand
 
+- **Delen met een partner aanzetten en op twee telefoons proberen** (2026-10-10). Code en tests staan
+  (104 tests, nagebootste Firestore), maar er is geen Firebase-project: maak het (README, "Delen met een
+  partner"), vul `src/sync-config.ts`, zet de regels, en probeer: A start, B ziet het binnen een minuut
+  en kan ⏹ en 💾; wissen op A verdwijnt op B. **Niet gezien**: CORS van `firestore.googleapis.com` vanaf
+  `abons.github.io` (REST met `Content-Type: application/json` geeft een preflight) en of de
+  referrer-beperking van de sleutel dat toelaat. Daarna: dezelfde auto bij de partner toevoegen met
+  hetzelfde kenteken.
+
 - **De laadstand op de telefoon bekijken** (2026-09-27). De keuzelijst is een gewone `<select>`
   met een eigen pijltje; Android opent daar zijn eigen kiezer voor, en of die vier regels
   (`10 A · 2,2 kW`) leesbaar zijn en de knop niet verspringt, is in Chromium niet te zien. Zet hem

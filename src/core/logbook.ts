@@ -34,6 +34,12 @@ export interface Entry {
    * telt niet mee voor de laadsnelheid en het bereik (`derive.ts`). Ontbreekt in oudere opslag: dan niet.
    */
   estimated?: boolean;
+  /**
+   * Wanneer deze regel voor het laatst is gewijzigd (`writeLogbook` in `main.ts` zet hem). Alleen het
+   * delen met een partner gebruikt hem (`core/sync.ts`): het nieuwste woord wint, en een wisbewijs
+   * verliest van een regel die daarna weer bewaard is. Ontbreekt in oudere opslag: 0.
+   */
+  savedAt?: number;
 }
 
 const getal = (v: unknown): number | null =>
@@ -62,6 +68,7 @@ function parseEntry(value: unknown): Entry | null {
     // zou anders als `12.5 A` in de regel komen en in de scripts als een onbekende stand.
     amps: o["amps"] === null || o["amps"] === undefined ? null : clampCurrent(o["amps"]),
     estimated: o["estimated"] === true,
+    savedAt: getal(o["savedAt"]) ?? 0,
   };
 }
 

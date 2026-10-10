@@ -37,6 +37,9 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   `Start.estimated`, zegt ±25%; vervalt na drie eigen beurten, en de snelheid wordt al in de eerste
   beurt gemeten, `measureRate`/`learnRate`). Het kenteken staat nooit in een export,
   want `log.md` is publiek. Zie `design.md`.
+- ⚠️ **Derde uitzondering, sinds 2026-10-10: delen met een partner** via Firestore (REST, `src/sync.ts`,
+  puur in `core/sync.ts`), sleutel = hash van het kenteken, geen inlog. Uit zolang `src/sync-config.ts`
+  leeg is. Gedeeld: logboek, sessie, laatst afgesloten. Zie `design.md`; regels in `README.md`.
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
   klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon

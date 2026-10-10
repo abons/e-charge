@@ -44,6 +44,8 @@ import {
 import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 import * as prices from "./prices.js";
+import { parseGone, stampChanges, type Shared } from "./core/sync.js";
+import { delenAan, requestSync, startSync, syncStatus } from "./sync.js";
 
 /**
  * Het enige scherm. Plain DOM, geen framework: de opmaak staat in `web/index.html` en dit bestand
@@ -151,6 +153,7 @@ const carNameInput = el<HTMLInputElement>("carname");
 const carRateInput = el<HTMLInputElement>("car-rate");
 const carKmInput = el<HTMLInputElement>("car-km");
 const carNote = el("carnote");
+const syncNote = el("syncnote");
 const evBrandSelect = el<HTMLSelectElement>("evbrand");
 const evModelSelect = el<HTMLSelectElement>("evmodel");
 const evVariantSelect = el<HTMLSelectElement>("evvariant");
@@ -730,7 +733,14 @@ function writeAmps(value: number): void {
  */
 function readSession(): Session | null {
   try {
-    const raw = localStorage.getItem(sessionKey());
+    return parseSession(localStorage.getItem(sessionKey()));
+  } catch {
+    return null;
+  }
+}
+
+function parseSession(raw: string | null): Session | null {
+  try {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -753,7 +763,7 @@ function readSession(): Session | null {
   }
 }
 
-function writeSession(value: Session | null): void {
+function writeSession(value: Session | null, lokaal = true): void {
   session = value;
   try {
     if (value === null) localStorage.removeItem(sessionKey());
@@ -761,6 +771,7 @@ function writeSession(value: Session | null): void {
   } catch {
     /* zonder opslag werkt de aftelling wel, maar overleeft hij het sluiten van de app niet */
   }
+  if (lokaal) stateChanged();
 }
 
 function readLogbook(): Entry[] {
@@ -771,18 +782,32 @@ function readLogbook(): Entry[] {
   }
 }
 
-function writeLogbook(value: Entry[]): void {
+function writeLogbook(value: Entry[], lokaal = true): void {
+  if (lokaal) {
+    const gestempeld = stampChanges(logbook, value, syncMeta.gone, Date.now());
+    value = gestempeld.logbook;
+    syncMeta = { ...syncMeta, gone: gestempeld.gone };
+    saveSyncMeta();
+  }
   logbook = value;
   try {
     localStorage.setItem(logbookKey(), JSON.stringify(value));
   } catch {
     /* zonder opslag blijft het logboek deze sessie staan; kopiëren werkt gewoon */
   }
+  if (lokaal) requestSync();
 }
 
 function readFinished(): Finished | null {
   try {
-    const raw = localStorage.getItem(finishedKey());
+    return parseFinished(localStorage.getItem(finishedKey()));
+  } catch {
+    return null;
+  }
+}
+
+function parseFinished(raw: string | null): Finished | null {
+  try {
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -802,6 +827,82 @@ function writeFinished(value: Finished): void {
   } catch {
     /* dan is de logregel alleen kopieerbaar zolang deze pagina open blijft */
   }
+  stateChanged();
+}
+
+/**
+ * Delen met een partner (`src/sync.ts`, `core/sync.ts`). Wat per auto gedeeld wordt: logboek, sessie en
+ * laatst afgesloten beurt. De bijhouder (`syncMeta`) is per auto en lokaal: de wisbewijzen en het moment
+ * waarop sessie/afgesloten voor het laatst lokaal veranderden.
+ */
+let syncMeta: { gone: Record<string, number>; stateAt: number } = { gone: {}, stateAt: 0 };
+
+function readSyncMeta(): void {
+  syncMeta = { gone: {}, stateAt: 0 };
+  try {
+    const raw = localStorage.getItem(carKey("sync", car.id));
+    if (raw === null) return;
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    syncMeta = { gone: parseGone(o["gone"]), stateAt: typeof o["stateAt"] === "number" ? o["stateAt"] : 0 };
+  } catch {
+    /* kapotte bijhouder: opnieuw beginnen is veilig, de eerstvolgende ronde voegt samen */
+  }
+}
+
+function saveSyncMeta(): void {
+  try {
+    localStorage.setItem(carKey("sync", car.id), JSON.stringify(syncMeta));
+  } catch {
+    /* zonder opslag blijft de bijhouder deze sessie staan */
+  }
+}
+
+/** Een lokale wijziging aan sessie of afgesloten beurt: nieuwste woord, en de partner moet het horen. */
+function stateChanged(): void {
+  syncMeta = { ...syncMeta, stateAt: Date.now() };
+  saveSyncMeta();
+  requestSync();
+}
+
+const sessionJson = (): string | null => (session === null ? null : JSON.stringify(session));
+const finishedJson = (): string | null => (finished === null ? null : JSON.stringify(finished));
+
+/** De stand die de partner ook ziet; wat de ronde leest en vergelijkt. */
+function sharedNow(): Shared {
+  return { logbook, gone: syncMeta.gone, state: { at: syncMeta.stateAt, session: sessionJson(), finished: finishedJson() } };
+}
+
+/** De samengevoegde stand van een ronde lokaal toepassen — zonder dat dat zelf weer een ronde aanvraagt. */
+function applyShared(merged: Shared): void {
+  const sessieVerandert = merged.state.session !== sessionJson();
+  const afgeslotenVerandert = merged.state.finished !== finishedJson();
+  syncMeta = { gone: merged.gone, stateAt: merged.state.at };
+  saveSyncMeta();
+  if (JSON.stringify(merged.logbook) !== JSON.stringify(logbook)) writeLogbook(merged.logbook, false);
+  if (afgeslotenVerandert) {
+    finished = parseFinished(merged.state.finished);
+    try {
+      if (finished === null) localStorage.removeItem(finishedKey());
+      else localStorage.setItem(finishedKey(), JSON.stringify(finished));
+    } catch {
+      /* zie writeFinished */
+    }
+  }
+  if (sessieVerandert) {
+    writeSession(parseSession(merged.state.session), false);
+    // De partner startte of stopte: het scherm volgt, net als na een herstart met een lopende sessie.
+    huidigIsSchatting = false;
+    if (session !== null) {
+      ampsSelect.value = String(session.amps);
+      currentInput.value = String(session.from);
+    } else {
+      currentInput.value = "";
+    }
+  }
+  renderSetup();
+  renderLogbook();
+  logBook.open = logBook.open || session !== null || bijwerkbaar() !== null;
+  render();
 }
 
 function readCars(): Car[] {
@@ -874,6 +975,8 @@ function switchCar(id: string): boolean {
   if (id === car.id) {
     // Dezelfde auto, maar zijn gegevens kunnen net veranderd zijn (kenteken gekoppeld, startwaarden).
     car = cars.find((c) => c.id === id) ?? car;
+    requestSync(0);
+    renderSyncNote();
     renderCarButton();
     renderSetup();
     render();
@@ -890,6 +993,9 @@ function switchCar(id: string): boolean {
   session = readSession();
   finished = readFinished();
   logbook = readLogbook();
+  readSyncMeta();
+  requestSync(0);
+  renderSyncNote();
   huidigIsSchatting = false;
   currentInput.value = "";
   renderCarButton();
@@ -940,7 +1046,7 @@ function deleteCar(id: string): void {
     return;
   }
   try {
-    for (const kind of ["logbook", "session", "finished"] as const) localStorage.removeItem(carKey(kind, id));
+    for (const kind of ["logbook", "session", "finished", "sync"] as const) localStorage.removeItem(carKey(kind, id));
   } catch {
     /* de lijst is wat telt; weesgegevens in opslag doen niets */
   }
@@ -1063,6 +1169,7 @@ function openCarDialog(): void {
   carRateInput.value = "";
   carKmInput.value = "";
   carNote.textContent = "";
+  renderSyncNote();
   fillBrands();
   // Zonder auto's is er niets om naast toe te voegen; met een auto kies je. Standaard: toevoegen.
   carModeSelect.hidden = carModeRow.hidden = cars.length === 0;
@@ -1457,6 +1564,7 @@ initCars();
 renderCarButton();
 session = readSession();
 finished = readFinished();
+readSyncMeta();
 if (session !== null) ampsSelect.value = String(session.amps);
 renderSetup();
 
@@ -1468,6 +1576,7 @@ const gelezenLogboek = readLogbook();
 const verhuisdLogboek = withMeterAsPercent(gelezenLogboek);
 const verhuisd = verhuisdLogboek.filter((e, i) => e.kwh !== gelezenLogboek[i]?.kwh).length;
 if (verhuisd > 0) {
+  logbook = gelezenLogboek;
   writeLogbook(verhuisdLogboek);
   logNote.textContent =
     `${verhuisd} bewaarde laadbeurt${verhuisd === 1 ? "" : "en"} had een meterstand die geen kWh ` +
@@ -1589,6 +1698,16 @@ for (const input of [plateInput, carNameInput]) {
   });
 }
 carCloseButton.addEventListener("click", () => carDialog.close());
+
+/** De regel in de autodialoog over het delen: wat er mis is, of wanneer het voor het laatst lukte. */
+function renderSyncNote(): void {
+  syncNote.textContent = !delenAan()
+    ? ""
+    : car.plate === null
+      ? "Zet een kenteken bij deze auto (Huidige auto aanpassen) om sessie en logboek met je partner te delen."
+      : syncStatus() || "Delen met je partner via dit kenteken.";
+}
+startSync({ plate: () => car.plate, read: sharedNow, apply: applyShared }, renderSyncNote);
 
 render();
 setInterval(render, TICK_MS);

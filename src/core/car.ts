@@ -185,7 +185,7 @@ export function activeCar(cars: Car[], id: string | null): Car | null {
 }
 
 /** Opslagsleutel van een per-auto-ding. De Leaf-auto houdt de oude sleutels, dus geen kopie bij adoptie. */
-export function carKey(kind: "logbook" | "session" | "finished", carId: string): string {
+export function carKey(kind: "logbook" | "session" | "finished" | "sync", carId: string): string {
   return carId === FIRST_CAR_ID ? `e-charge.${kind}` : `e-charge.${kind}.${carId}`;
 }
 
