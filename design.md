@@ -409,6 +409,14 @@ prijzen en RDW), en de eerste die *schrijft*.
   PATCH met voorwaarde op `updateTime` (bij weigering opnieuw lezen, 4 pogingen). Triggers: laden, terug in
   beeld, `online`, elke minuut zolang de app open is, en 0,8 s na elke lokale wijziging. Zonder
   `src/sync-config.ts` (project-id en webkey leeg) of zonder kenteken doet de app niets extra.
+- **Vangnet** (2026-10-10, nadat het eerste delen een logboek wiste: regels zonder `savedAt` werden
+  weggefilterd, nergens een tweede kopie): (1) in Firestore, `echarge/<id>/history/<ms>`, een regel met de
+  *oude* stand van het document vlak voordat een samenvoeging een regel eruit haalt, en verder hooguit
+  één per etmaal per telefoon; de regels staan alleen aanmaken en lezen toe, dus een fout in de app kan
+  geschiedenis niet overschrijven; (2) op de telefoon `core/backup.ts`: acht opnamen (voor elke × of
+  samenvoeging die een regel laat verdwijnen, en één per etmaal), aangevuld met de geschiedenis uit
+  Firestore; onder het logboek staat "Back-up van … heeft N beurten die hier ontbreken — Zet terug"
+  (voegt toe wat ontbreekt, laat de rest staan). Een mislukte geschiedenisregel blokkeert het delen niet.
 - **Wat het niet doet**: geen live meekijken (poll van een minuut), en het scherm van de partner
   volgt een gestarte sessie pas bij de volgende ronde. Een sessie die twee mensen tegelijk starten:
   de laatste wint.

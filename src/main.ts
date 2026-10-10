@@ -44,6 +44,7 @@ import {
 import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 import * as prices from "./prices.js";
+import { dailyDue, parseBackups, restorable, restoreMissing, shrinks, withBackup, type Backup } from "./core/backup.js";
 import { parseGone, stampChanges, type Shared } from "./core/sync.js";
 import { delenAan, requestSync, startSync, syncStatus } from "./sync.js";
 
@@ -142,6 +143,7 @@ const logLineOut = el("logline");
 const logList = el("loglist");
 const logActions = el("logactions");
 const logHint = el("loghint");
+const backupLine = el("backupline");
 const chargeButton = el<HTMLButtonElement>("start-charging");
 const calendarButton = el<HTMLButtonElement>("calendar");
 const installButton = el<HTMLButtonElement>("install");
@@ -782,7 +784,55 @@ function readLogbook(): Entry[] {
   }
 }
 
+/** Het vangnet (`core/backup.ts`): een paar momentopnamen van het logboek van deze auto, op deze telefoon. */
+function readBackups(): Backup[] {
+  try {
+    return parseBackups(localStorage.getItem(carKey("backup", car.id)));
+  } catch {
+    return [];
+  }
+}
+
+function pushBackup(entries: Entry[]): void {
+  try {
+    localStorage.setItem(carKey("backup", car.id), JSON.stringify(withBackup(readBackups(), entries, Date.now())));
+  } catch {
+    /* zonder opslag is er ook geen logboek dat het vangnet nodig heeft */
+  }
+}
+
+/** Geschiedenisregels uit Firestore bij de lokale back-ups, oudste eerst. */
+function addBackups(extra: Backup[]): void {
+  if (extra.length === 0) return;
+  try {
+    let lijst = readBackups();
+    for (const b of extra) lijst = withBackup(lijst, b.logbook, b.at);
+    localStorage.setItem(carKey("backup", car.id), JSON.stringify(lijst));
+  } catch {
+    /* zonder opslag blijft het bij wat Firestore zelf bewaart */
+  }
+  renderBackup();
+}
+
+const HISTORY_KEY = "e-charge.historyat";
+const historyAt = (): number => {
+  try {
+    return Number(localStorage.getItem(HISTORY_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+};
+const markHistory = (ms: number): void => {
+  try {
+    localStorage.setItem(HISTORY_KEY, String(ms));
+  } catch {
+    /* dan schrijft de volgende ronde er weer één: te veel is veiliger dan te weinig */
+  }
+};
+
 function writeLogbook(value: Entry[], lokaal = true): void {
+  // Vlak voordat een regel verdwijnt (een ×, een samenvoeging met de partner) een opname van wat er nu staat.
+  if (shrinks(logbook, value)) pushBackup(logbook);
   if (lokaal) {
     const gestempeld = stampChanges(logbook, value, syncMeta.gone, Date.now());
     value = gestempeld.logbook;
@@ -1046,7 +1096,7 @@ function deleteCar(id: string): void {
     return;
   }
   try {
-    for (const kind of ["logbook", "session", "finished", "sync"] as const) localStorage.removeItem(carKey(kind, id));
+    for (const kind of ["logbook", "session", "finished", "sync", "backup"] as const) localStorage.removeItem(carKey(kind, id));
   } catch {
     /* de lijst is wat telt; weesgegevens in opslag doen niets */
   }
@@ -1480,6 +1530,27 @@ function removeEntry(startMs: number): void {
 }
 
 /** De lijst met bewaarde laadbeurten, nieuwste bovenaan. */
+/** De regel onder het logboek: een opname heeft beurten die hier ontbreken, met een knop om ze terug te zetten. */
+function renderBackup(): void {
+  const kans = restorable(readBackups(), logbook);
+  backupLine.hidden = kans === null;
+  backupLine.textContent = "";
+  if (kans === null) return;
+  const dag = new Date(kans.backup.at).toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const tekst = document.createElement("span");
+  tekst.textContent = `Back-up van ${dag} heeft ${kans.missing.length} beurt${kans.missing.length === 1 ? "" : "en"} die hier ontbreken. `;
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.className = "wis";
+  knop.textContent = "Zet terug";
+  knop.addEventListener("click", () => {
+    writeLogbook(restoreMissing(logbook, kans.missing));
+    renderLogbook();
+    render();
+  });
+  backupLine.append(tekst, knop);
+}
+
 function renderLogbook(): void {
   renderSaveTarget();
   // De voetregel zegt hoeveel beurten de snelheid en het bereik dragen: dat verandert met elke regel
@@ -1511,6 +1582,7 @@ function renderLogbook(): void {
     li.append(datum, pct, rest, wis);
     logList.append(li);
   }
+  renderBackup();
   logCount.textContent = logbook.length === 0 ? "" : ` (${logbook.length})`;
   logActions.hidden = logbook.length === 0;
   logHint.hidden = logbook.length === 0;
@@ -1586,6 +1658,8 @@ if (verhuisd > 0) {
 } else {
   logbook = gelezenLogboek;
 }
+// Hooguit één opname per etmaal, bij het openen (`core/backup.ts`).
+if (logbook.length > 0 && dailyDue(readBackups(), Date.now())) pushBackup(logbook);
 renderLogbook();
 // Standaard dicht, behalve waar de aflezing nog moet: tijdens het laden en na het afkoppelen.
 if (session !== null || bijwerkbaar() !== null) logBook.open = true;
@@ -1707,7 +1781,7 @@ function renderSyncNote(): void {
       ? "Zet een kenteken bij deze auto (Huidige auto aanpassen) om sessie en logboek met je partner te delen."
       : syncStatus() || "Delen met je partner via dit kenteken.";
 }
-startSync({ plate: () => car.plate, read: sharedNow, apply: applyShared }, renderSyncNote);
+startSync({ plate: () => car.plate, read: sharedNow, apply: applyShared, historyAt, markHistory, addBackups }, renderSyncNote);
 
 render();
 setInterval(render, TICK_MS);

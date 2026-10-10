@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { parseEntries, type Entry } from "../src/core/logbook.js";
 import { EMPTY_SHARED, fromFields, mergeLogbook, mergeShared, mergeSnapshot, plateDocId, stampChanges, toFields, type Shared } from "../src/core/sync.js";
-import { syncOnce, syncStatus, type FetchFn, type Host } from "../src/sync.js";
+import { fetchHistory, syncOnce, syncStatus, type FetchFn, type Host } from "../src/sync.js";
 import { FIREBASE } from "../src/sync-config.js";
 
 const entry = (startMs: number, extra: Partial<Entry> = {}): Entry => ({
@@ -88,8 +88,17 @@ function fakeFirestore(tussendoor?: () => Promise<void>) {
   let doc: { fields: unknown; updateTime: string } | null = null;
   let version = 0;
   let pogingen = 0;
+  const history: { id: string; fields: unknown }[] = [];
   const fetchFn: FetchFn = async (url, init) => {
     const u = new URL(url);
+    if (u.pathname.endsWith("/history")) {
+      if (init?.method === "POST") {
+        history.push({ id: u.searchParams.get("documentId") ?? "", fields: (JSON.parse(init.body ?? "{}") as { fields: unknown }).fields });
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      const documents = [...history].sort((a, b) => b.id.localeCompare(a.id)).map((d) => ({ name: `x/history/${d.id}`, fields: d.fields }));
+      return { ok: true, status: 200, json: async () => ({ documents }) };
+    }
     if (init?.method !== "PATCH") {
       return doc === null
         ? { ok: false, status: 404, json: async () => ({}) }
@@ -105,7 +114,7 @@ function fakeFirestore(tussendoor?: () => Promise<void>) {
     doc = { fields: (JSON.parse(init.body ?? "{}") as { fields: unknown }).fields, updateTime: `t${++version}` };
     return { ok: true, status: 200, json: async () => ({}) };
   };
-  return { fetchFn };
+  return { fetchFn, history };
 }
 
 function telefoon(plate: string | null, start: Shared = EMPTY_SHARED) {
@@ -195,4 +204,69 @@ test("syncOnce: een telefoon met oude beurten verliest ze niet als er al een lee
     assert.equal(vol.get().logbook.length, 2);
     await syncOnce(leeg.host, store.fetchFn);
     assert.equal(leeg.get().logbook.length, 2);
+  }));
+
+import { dailyDue, parseBackups, restorable, restoreMissing, shrinks, withBackup, MAX_BACKUPS } from "../src/core/backup.js";
+
+test("backup: een opname voor een regel verdwijnt, niet bij toevoegen of leeg", () => {
+  const a = [entry(1), entry(2)];
+  assert.equal(shrinks(a, [entry(1)]), true);
+  assert.equal(shrinks(a, [...a, entry(3)]), false);
+  assert.deepEqual(withBackup([], [], 5), []);
+  const een = withBackup([], a, 5);
+  assert.equal(een.length, 1);
+  assert.equal(withBackup(een, a, 9).length, 1, "gelijk aan de nieuwste: geen dubbele");
+  let veel = een;
+  for (let i = 0; i < 20; i++) veel = withBackup(veel, [entry(100 + i)], 10 + i);
+  assert.equal(veel.length, MAX_BACKUPS);
+});
+
+test("backup: terugzetten voegt toe wat ontbreekt en laat de rest staan", () => {
+  const opname = withBackup([], [entry(1, { km: 5 }), entry(2), entry(3)], 5);
+  const nu = [entry(2, { km: 99 })];
+  const kans = restorable(opname, nu)!;
+  assert.deepEqual(kans.missing.map((e) => e.startMs), [1, 3]);
+  const terug = restoreMissing(nu, kans.missing);
+  assert.deepEqual(terug.map((e) => e.startMs), [1, 2, 3]);
+  assert.equal(terug.find((e) => e.startMs === 2)!.km, 99);
+  assert.equal(restorable(opname, terug), null);
+});
+
+test("backup: dagelijks en parseren", () => {
+  assert.equal(dailyDue([], 1), true);
+  const o = withBackup([], [entry(1)], 1000);
+  assert.equal(dailyDue(o, 1000 + 3_600_000), false);
+  assert.equal(dailyDue(o, 1000 + 25 * 3_600_000), true);
+  assert.deepEqual(parseBackups(JSON.stringify(o)).map((b) => b.logbook.length), [1]);
+  assert.deepEqual(parseBackups("onzin"), []);
+});
+
+test("geschiedenis: een samenvoeging die een regel uit het document haalt schrijft eerst de oude stand weg", () =>
+  met(async () => {
+    const store = fakeFirestore();
+    const a = telefoon("AB123C", stand([entry(1000, { savedAt: 5 }), entry(2000, { savedAt: 5 })], 0));
+    await syncOnce(a.host, store.fetchFn);
+    assert.equal(store.history.length, 0, "eerste schrijf: nog niets te bewaren");
+    // De partner wist beurt 1000 (wisbewijs) en synchroniseert.
+    const b = telefoon("AB123C", { logbook: [entry(2000, { savedAt: 5 })], gone: { "1000": 99 }, state: { at: 0, session: null, finished: null } });
+    let bewaard = 0;
+    await syncOnce({ ...b.host, markHistory: (ms) => (bewaard = ms) }, store.fetchFn);
+    assert.equal(store.history.length, 1);
+    assert.ok(bewaard > 0);
+    const oud = await fetchHistory("AB123C", store.fetchFn);
+    assert.equal(oud.length, 1);
+    assert.deepEqual(oud[0]!.logbook.map((e) => e.startMs), [1000, 2000]);
+  }));
+
+test("geschiedenis: hooguit één per etmaal als er niets verdwijnt", () =>
+  met(async () => {
+    const store = fakeFirestore();
+    const a = telefoon("AB123C", stand([entry(1000, { savedAt: 5 })], 0));
+    await syncOnce(a.host, store.fetchFn);
+    let laatst = 0;
+    const host: Host = { ...a.host, historyAt: () => laatst, markHistory: (ms) => (laatst = ms) };
+    a.host.apply(stand([entry(1000, { savedAt: 5 }), entry(3000, { savedAt: 6 })], 0));
+    await syncOnce(host, store.fetchFn);
+    await syncOnce({ ...host, read: () => stand([entry(1000, { savedAt: 5 }), entry(3000, { savedAt: 6 }), entry(4000, { savedAt: 7 })], 0) }, store.fetchFn);
+    assert.equal(store.history.length, 1);
   }));

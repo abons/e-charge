@@ -1,3 +1,4 @@
+import { shrinks, type Backup } from "./core/backup.js";
 import { parseEntries } from "./core/logbook.js";
 import { EMPTY_SHARED, fromFields, mergeShared, plateDocId, sharedEqual, toFields, type Shared } from "./core/sync.js";
 import { FIREBASE } from "./sync-config.js";
@@ -18,7 +19,16 @@ export interface Host {
   read(): Shared;
   /** Past de samengevoegde stand lokaal toe zonder dat dat zelf weer een ronde aanvraagt. */
   apply(merged: Shared): void;
+  /** Wanneer deze telefoon voor het laatst een geschiedenisregel schreef (ms); 0 = nooit. */
+  historyAt?(): number;
+  markHistory?(ms: number): void;
+  /** De geschiedenis uit Firestore, om de lokale back-ups mee aan te vullen. */
+  addBackups?(backups: Backup[]): void;
 }
+
+/** Een geschiedenisregel per etmaal, en altijd vlak voordat een samenvoeging een regel uit het document haalt. */
+const HISTORY_EVERY_MS = 24 * 3_600_000;
+const HISTORY_PAGE = 8;
 
 export type FetchFn = (url: string, init?: { method?: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal }) => Promise<{
   ok: boolean;
@@ -91,6 +101,26 @@ export async function syncOnce(h: Host, fetchFn: FetchFn = fetch as unknown as F
         zet(`Gedeeld ✓ ${klok()}`);
         return true;
       }
+      // Het vangnet: de oude stand van het document als aparte, onveranderlijke regel (de regels staan
+      // alleen aanmaken toe, geen bijwerken of wissen). Mislukt dat, dan gaat het delen gewoon door.
+      if (remote !== null && remote.logbook.length > 0) {
+        const nu = Date.now();
+        const laatste = h.historyAt?.() ?? 0;
+        if (shrinks(remote.logbook, merged.logbook) || nu - laatste >= HISTORY_EVERY_MS) {
+          const id = String(nu).padStart(15, "0");
+          try {
+            const hist = await fetchFn(`${base}/history?${key}&documentId=${id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ fields: toFields(remote) }),
+              signal: AbortSignal.timeout(TIMEOUT_MS),
+            });
+            if (hist.ok) h.markHistory?.(nu);
+          } catch {
+            /* geen bereik: de schrijfpoging hieronder merkt dat ook */
+          }
+        }
+      }
       const precondition = remote === null || updateTime === "" ? "currentDocument.exists=false" : `currentDocument.updateTime=${encodeURIComponent(updateTime)}`;
       const mask = FIELD_PATHS.map((p) => `updateMask.fieldPaths=${p}`).join("&");
       const put = await fetchFn(`${base}?${key}&${mask}&${precondition}`, {
@@ -116,6 +146,29 @@ export async function syncOnce(h: Host, fetchFn: FetchFn = fetch as unknown as F
   }
 }
 
+/** De laatste geschiedenisregels van deze auto, nieuwste eerst; `[]` bij elke fout. */
+export async function fetchHistory(plate: string, fetchFn: FetchFn = fetch as unknown as FetchFn, subtle?: SubtleCrypto): Promise<Backup[]> {
+  if (!delenAan()) return [];
+  try {
+    const id = await plateDocId(plate, subtle);
+    const base = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/echarge/${id}/history`;
+    const got = await fetchFn(`${base}?key=${encodeURIComponent(FIREBASE.apiKey)}&pageSize=${HISTORY_PAGE}&orderBy=__name__%20desc`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (!got.ok) return [];
+    const body = (await got.json()) as { documents?: { name?: unknown; fields?: unknown }[] };
+    const uit: Backup[] = [];
+    for (const d of body.documents ?? []) {
+      const at = Number(String(d.name ?? "").split("/").pop());
+      const logbook = fromFields(d.fields, parseEntries).logbook;
+      if (Number.isFinite(at) && logbook.length > 0) uit.push({ at, logbook });
+    }
+    return uit.sort((a, b) => a.at - b.at);
+  } catch {
+    return [];
+  }
+}
+
+let historyFetched = false;
+
 async function ronde(): Promise<void> {
   if (host === null) return;
   if (busy) {
@@ -124,7 +177,14 @@ async function ronde(): Promise<void> {
   }
   busy = true;
   try {
-    await syncOnce(host);
+    const ok = await syncOnce(host);
+    // Eén keer per sessie de geschiedenis erbij halen: dan bieden de lokale back-ups ook wat de partner of een eerdere
+    // telefoon weet ("Zet terug" onder het logboek).
+    const plate = host.plate();
+    if (ok && !historyFetched && plate !== null && host.addBackups !== undefined) {
+      historyFetched = true;
+      host.addBackups(await fetchHistory(plate));
+    }
   } finally {
     busy = false;
   }

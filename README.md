@@ -90,6 +90,12 @@ service cloud.firestore {
       allow get: if id.matches('[0-9a-f]{64}');
       allow create, update: if id.matches('[0-9a-f]{64}')
         && request.resource.data.keys().hasOnly(['logbook', 'gone', 'session', 'finished', 'stateAt']);
+      // De geschiedenis: alleen aanmaken en lezen, nooit bijwerken of wissen.
+      match /history/{h} {
+        allow get, list: if id.matches('[0-9a-f]{64}');
+        allow create: if id.matches('[0-9a-f]{64}')
+          && request.resource.data.keys().hasOnly(['logbook', 'gone', 'session', 'finished', 'stateAt']);
+      }
     }
   }
 }
