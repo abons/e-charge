@@ -26,6 +26,14 @@ export interface Host {
   addBackups?(backups: Backup[]): void;
 }
 
+/**
+ * De id van een geschiedenisregel is een *omgekeerde* tijd: Firestore sorteert een lijst op naam oplopend,
+ * en aflopend sorteren vraagt een index die in de console aangemaakt moet worden. Zo staat de nieuwste vooraan.
+ */
+const HISTORY_EPOCH = 1e15;
+export const historyId = (ms: number): string => String(HISTORY_EPOCH - ms).padStart(16, "0");
+const historyMs = (id: string): number => HISTORY_EPOCH - Number(id);
+
 /** Een geschiedenisregel per etmaal, en altijd vlak voordat een samenvoeging een regel uit het document haalt. */
 const HISTORY_EVERY_MS = 24 * 3_600_000;
 const HISTORY_PAGE = 8;
@@ -107,7 +115,7 @@ export async function syncOnce(h: Host, fetchFn: FetchFn = fetch as unknown as F
         const nu = Date.now();
         const laatste = h.historyAt?.() ?? 0;
         if (shrinks(remote.logbook, merged.logbook) || nu - laatste >= HISTORY_EVERY_MS) {
-          const id = String(nu).padStart(15, "0");
+          const id = historyId(nu);
           try {
             const hist = await fetchFn(`${base}/history?${key}&documentId=${id}`, {
               method: "POST",
@@ -152,12 +160,12 @@ export async function fetchHistory(plate: string, fetchFn: FetchFn = fetch as un
   try {
     const id = await plateDocId(plate, subtle);
     const base = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/echarge/${id}/history`;
-    const got = await fetchFn(`${base}?key=${encodeURIComponent(FIREBASE.apiKey)}&pageSize=${HISTORY_PAGE}&orderBy=__name__%20desc`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const got = await fetchFn(`${base}?key=${encodeURIComponent(FIREBASE.apiKey)}&pageSize=${HISTORY_PAGE}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!got.ok) return [];
     const body = (await got.json()) as { documents?: { name?: unknown; fields?: unknown }[] };
     const uit: Backup[] = [];
     for (const d of body.documents ?? []) {
-      const at = Number(String(d.name ?? "").split("/").pop());
+      const at = historyMs(String(d.name ?? "").split("/").pop() ?? "");
       const logbook = fromFields(d.fields, parseEntries).logbook;
       if (Number.isFinite(at) && logbook.length > 0) uit.push({ at, logbook });
     }

@@ -96,7 +96,7 @@ function fakeFirestore(tussendoor?: () => Promise<void>) {
         history.push({ id: u.searchParams.get("documentId") ?? "", fields: (JSON.parse(init.body ?? "{}") as { fields: unknown }).fields });
         return { ok: true, status: 200, json: async () => ({}) };
       }
-      const documents = [...history].sort((a, b) => b.id.localeCompare(a.id)).map((d) => ({ name: `x/history/${d.id}`, fields: d.fields }));
+      const documents = [...history].sort((a, b) => a.id.localeCompare(b.id)).map((d) => ({ name: `x/history/${d.id}`, fields: d.fields }));
       return { ok: true, status: 200, json: async () => ({ documents }) };
     }
     if (init?.method !== "PATCH") {
@@ -270,3 +270,9 @@ test("geschiedenis: hooguit één per etmaal als er niets verdwijnt", () =>
     await syncOnce({ ...host, read: () => stand([entry(1000, { savedAt: 5 }), entry(3000, { savedAt: 6 }), entry(4000, { savedAt: 7 })], 0) }, store.fetchFn);
     assert.equal(store.history.length, 1);
   }));
+
+test("historyId: nieuwste sorteert eerst en de tijd is terug te rekenen", async () => {
+  const { historyId } = await import("../src/sync.js");
+  assert.ok(historyId(2_000_000) < historyId(1_000_000));
+  assert.equal(historyId(1_791_000_000_000).length, 16);
+});
