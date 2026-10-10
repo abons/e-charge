@@ -7,6 +7,6 @@
  * van de sleutel, niet in het geheimhouden ervan. Een token of service-account hoort hier nooit.
  */
 export const FIREBASE = {
-  projectId: "",
-  apiKey: "",
+  projectId: "hrbons-echarge",
+  apiKey: "AIzaSyDOM9QTIVn1PexIXxQmG_QVq2eDtEAoSr0",
 };

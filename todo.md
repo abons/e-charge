@@ -51,7 +51,7 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Openstaand
 
-- **Delen met een partner aanzetten en op twee telefoons proberen** (2026-10-10). Code en tests staan
+- **Delen met een partner op twee telefoons proberen** (2026-10-10). Firebase-project `hrbons-echarge` staat (Firestore eur3, regels gepubliceerd, sleutel beperkt tot `https://abons.github.io/*`, GET gemeten: 404 zonder fout). Code en tests staan
   (104 tests, nagebootste Firestore), maar er is geen Firebase-project: maak het (README, "Delen met een
   partner"), vul `src/sync-config.ts`, zet de regels, en probeer: A start, B ziet het binnen een minuut
   en kan ⏹ en 💾; wissen op A verdwijnt op B. **Niet gezien**: CORS van `firestore.googleapis.com` vanaf
