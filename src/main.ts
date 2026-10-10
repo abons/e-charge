@@ -31,7 +31,7 @@ import { LEAF_START, kmPerPp, measureRate, ratePerHour, setupAt, type Source, ty
 import { brands, estimateFromKwh, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
 import { cheapestStart, readyBy, type Advice } from "./core/advice.js";
 import { CHART_W, priceChart, type Band } from "./core/chart.js";
-import { usageChart, type UsageChart } from "./core/usagechart.js";
+import { usageChart, usageSkipNote, type UsageChart } from "./core/usagechart.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -1902,7 +1902,7 @@ function openUsageDialog(): void {
     usageBox.innerHTML = "";
     text.textContent =
       "Nog geen rit om te tonen: er zijn twee opeenvolgende beurten met een afgelezen eind% en een " +
-      "km-stand nodig, minstens 10 km en 10 procentpunt uit elkaar.";
+      "km-stand nodig, minstens 10 km en 10 procentpunt uit elkaar. " + usageSkipNote(logbook);
   } else {
     // Alleen eigen getallen en vaste tekst in de SVG, dus `innerHTML` is hier veilig.
     usageBox.innerHTML = verbruik.svg;
@@ -1910,6 +1910,7 @@ function openUsageDialog(): void {
       verbruik.mean === null
         ? "Geen rit telt mee voor het bereik."
         : `Gemiddeld ${nl(verbruik.mean, 2)} km per procentpunt, dat is ${nl(100 / verbruik.mean)} procentpunt per 100 km.`;
+    text.textContent += ` ${usageSkipNote(logbook)}`;
   }
   usageDialog.showModal();
 }

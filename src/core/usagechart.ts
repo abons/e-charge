@@ -1,4 +1,4 @@
-import { kmPerPpIntervals, kmPerPpPairs, type Interval } from "./derive.js";
+import { kmPerPpIntervals, kmPerPpPairs, skippedAndIntervals, type Interval, type SkipReason } from "./derive.js";
 import type { Entry } from "./logbook.js";
 
 /**
@@ -43,6 +43,23 @@ export function usageBars(entries: Entry[]): UsageBar[] {
   return kmPerPpIntervals(entries)
     .slice(-MAX_BARS)
     .map((i) => ({ ...i, kmPerPp: i.km / i.pp, counted: counted.has(i.fromMs) }));
+}
+
+/** Hoeveel ritten er tussen de beurten zijn en waarom sommige ontbreken, in woorden voor de modal. */
+export function usageSkipNote(entries: Entry[]): string {
+  const { intervals, skipped } = skippedAndIntervals(entries);
+  const totaal = intervals.length + Object.values(skipped).reduce((s, n) => s + n, 0);
+  const uitleg: [SkipReason, string][] = [
+    ["geen km", "zonder km-stand"],
+    ["geschat", "met een geschat eind%"],
+    ["te kort", "onder 10 km of 10 procentpunt"],
+    ["te lang", "meer dan een week ertussen"],
+  ];
+  const redenen = uitleg.filter(([r]) => skipped[r] > 0).map(([r, t]) => `${skipped[r]} ${t}`);
+  const hidden = Math.max(0, intervals.length - MAX_BARS);
+  const extra = hidden > 0 ? `${hidden} oudere niet getoond` : "";
+  const alle = [...redenen, extra].filter((s) => s !== "");
+  return `${intervals.length} van ${totaal} ritten getoond${alle.length > 0 ? `; afgevallen: ${alle.join(", ")}` : ""}.`;
 }
 
 /** `null` zonder één geldige rit: dan valt er niets te tekenen. */
