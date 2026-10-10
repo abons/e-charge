@@ -664,3 +664,18 @@ test("usageChart: een rit met een geschatte beurt staat er grijs in en telt niet
   assert.deepEqual(c.bars.map((b) => b.counted), [true, false, false]);
   assert.equal(kmPerPpPairs(lijst).length, 1);
 });
+
+test("usageChart: een beurt zonder km-stand wordt overbrugd, de procentpunten zijn de som", () => {
+  const lijst: Entry[] = [
+    sessie(1, 50, 100, 4, { km: 1000 }),
+    sessie(3, 47, 80, 4, { km: null, estimated: true }), // 53 pp verbruikt tot hier
+    sessie(5, 66, 90, 4, { km: 1205 }), // 14 pp verbruikt tot hier
+  ];
+  const c = usageChart(lijst);
+  assert.ok(c !== null);
+  assert.equal(c.bars.length, 1);
+  assert.equal(c.bars[0]!.km, 205);
+  assert.equal(c.bars[0]!.pp, 67);
+  assert.equal(c.bars[0]!.estimated, true);
+  assert.equal(c.bars[0]!.counted, false);
+});

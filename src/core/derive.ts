@@ -159,14 +159,24 @@ export interface Interval {
 export type SkipReason = "geen km" | "te kort" | "te lang";
 
 /** Eén rit tussen twee regels: de rit zelf, of waarom die niet telt. */
-function intervalOf(a: Entry, b: Entry): Interval | SkipReason {
+/**
+ * Eén rit over een reeks regels: de eerste en de laatste hebben een km-stand, de regels ertussen
+ * (zonder km-stand) zijn bijladen onderweg. De procentpunten zijn dan de som van wat er tussen elke twee
+ * opeenvolgende regels is verbruikt, en de week-grens geldt per stuk. Een reeks van twee is een gewone rit.
+ */
+function intervalOf(chain: Entry[]): Interval | SkipReason {
+  const a = chain[0]!;
+  const b = chain[chain.length - 1]!;
   if (a.km === null || b.km === null) return "geen km";
+  let pp = 0;
+  for (let i = 0; i + 1 < chain.length; i++) {
+    const gap = chain[i + 1]!.startMs - chain[i]!.endMs;
+    if (gap < 0 || gap > 7 * DAY_MS) return "te lang";
+    pp += chain[i]!.toPercent - chain[i + 1]!.fromPercent;
+  }
   const km = b.km - a.km;
-  const pp = a.toPercent - b.fromPercent;
-  const gap = b.startMs - a.endMs;
-  if (gap < 0 || gap > 7 * DAY_MS) return "te lang";
   if (km < 10 || pp < 10) return "te kort";
-  return { km, pp, fromMs: a.endMs, toMs: b.startMs, estimated: a.estimated === true || b.estimated === true };
+  return { km, pp, fromMs: a.endMs, toMs: b.startMs, estimated: chain.some((e) => e.estimated === true) };
 }
 
 /** Alle geldige ritten met afgelezen getallen, oudste eerst, nog zonder venster en zonder uitschieters. */
@@ -182,8 +192,11 @@ export function skippedAndIntervals(entries: Entry[]): { intervals: Interval[]; 
   const sorted = [...entries].sort((a, b) => a.startMs - b.startMs);
   const intervals: Interval[] = [];
   const skipped: Record<SkipReason, number> = { "geen km": 0, "te kort": 0, "te lang": 0 };
-  for (let i = 0; i + 1 < sorted.length; i++) {
-    const r = intervalOf(sorted[i]!, sorted[i + 1]!);
+  // Regels zonder km-stand voor de eerste en na de laatste met km hebben niets om een rit mee te rekenen.
+  const ankers = sorted.flatMap((e, i) => (e.km === null ? [] : [i]));
+  skipped["geen km"] += ankers.length === 0 ? Math.max(0, sorted.length - 1) : ankers[0]! + (sorted.length - 1 - ankers[ankers.length - 1]!);
+  for (let k = 0; k + 1 < ankers.length; k++) {
+    const r = intervalOf(sorted.slice(ankers[k]!, ankers[k + 1]! + 1));
     if (typeof r === "string") skipped[r]++;
     else intervals.push(r);
   }
