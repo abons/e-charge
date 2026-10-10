@@ -38,6 +38,11 @@ logregel). **Nog niet op een echte telefoon gezien.**
   Gezien in een headless Chrome (foutmelding, bewaren, bedrag, oude beurt ongemoeid), niet op de
   telefoon: de regel onder de knoppen, de groene rand van het open blok, de date/time-kiezers van
   Android, en of het bedrag achteraf verschijnt voor een beurt van dagen terug.
+  Sinds 2026-10-10 (118 tests groen, **niet in een browser of op de telefoon gezien**): Loggen heeft het
+  formulier onderaan, de laatste 3 beurten eronder (`LOG_LATEST`) en de rest in `<details>`; 💾 vult
+  alleen een nog geschatte beurt aan (`updatableFinished`, `core/logbook.ts`), dus na een echte aflezing
+  staan 💾 en 📋 uit en zegt de regel "Geen beurt om te bewaren". Kijk of de drie beurten onder het
+  formulier goed vallen, en of "Afgelezen bij afkoppelen" op één regel past.
 - **Echte waarden in de geschatte logregels** (2026-10-06): 27 sep eind% 85 en km 97195, 2 okt
   start% 60 — in de app (× en opnieuw invoeren) én in `log.md`. De app slaat die regels sinds
   2026-10-06 zelf over (`geschat` in `opm`), dus er is geen vals getal meer; met echte waarden telt
