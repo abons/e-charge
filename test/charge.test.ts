@@ -616,12 +616,17 @@ test("updatableFinished: alleen een nog geschatte, recent afgekoppelde beurt", (
   assert.equal(updatableFinished(net, [], nu), net);
   assert.equal(updatableFinished(net, [regel(net, true)], nu), net);
   assert.equal(updatableFinished(net, [regel(net, false)], nu), null);
-  const gisteren11 = { startMs: nu - 14 * uur, endMs: nu - 11 * uur };
-  assert.equal(updatableFinished(gisteren11, [], nu), gisteren11);
+  const vanochtend11 = { startMs: nu - 14 * uur, endMs: nu - 11 * uur };
+  assert.equal(updatableFinished(vanochtend11, [], nu), vanochtend11);
   const gisteren13 = { startMs: nu - 22 * uur, endMs: nu - 19 * uur }; // gisteren 23:00, 19 u geleden
   assert.equal(updatableFinished(gisteren13, [], nu), null);
   const vanochtend = { startMs: nu - 15 * uur, endMs: nu - 13 * uur }; // 05:00 vandaag: >12 u geleden maar vandaag
   assert.equal(updatableFinished(vanochtend, [], nu), vanochtend);
+  // De <12 u-tak apart: het is 06:00, de beurt eindigde gisteren 23:00 (7 u geleden) en niet "vandaag".
+  const ochtend = new Date(2026, 9, 10, 6, 0).getTime();
+  const laatAvond = { startMs: ochtend - 10 * uur, endMs: ochtend - 7 * uur };
+  assert.equal(updatableFinished(laatAvond, [], ochtend), laatAvond);
+  assert.equal(updatableFinished(laatAvond, [], ochtend + 6 * uur), null); // 13 u geleden, andere dag
   const drieDagen = klaar(72 * uur);
   assert.equal(updatableFinished(drieDagen, [], nu), null);
 });
