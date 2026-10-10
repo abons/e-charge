@@ -135,6 +135,24 @@ export function withMeterAsPercent(entries: Entry[]): Entry[] {
   });
 }
 
+/**
+ * De afgesloten beurt die 💾 nog mag aanvullen, of `null`. Twee eisen: vandaag afgekoppeld, óf minder
+ * dan 12 uur geleden (wie om 23:00 stopt en 's ochtends afleest, vult dezelfde beurt aan), én de
+ * bewaarde regel is nog een schatting. ⚠️ Een echte aflezing wordt nooit meer overschreven: dat maakte
+ * op 2026-10-10 de beurt van vanmiddag kapot (op 3 okt die van 27 sep).
+ */
+export function updatableFinished<T extends { startMs: number; endMs: number }>(
+  finished: T | null,
+  entries: Entry[],
+  now: number,
+): T | null {
+  if (finished === null) return null;
+  const recent = now - finished.endMs < 12 * 3_600_000;
+  if (!recent && new Date(finished.endMs).toDateString() !== new Date(now).toDateString()) return null;
+  const bewaard = entries.find((e) => e.startMs === finished.startMs);
+  return bewaard === undefined || bewaard.estimated === true ? finished : null;
+}
+
 export function withoutEntry(entries: Entry[], startMs: number): Entry[] {
   return entries.filter((e) => e.startMs !== startMs);
 }

@@ -59,12 +59,12 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   *aflezing* (`eind%`); de `kWh`-kolom blijft in `log.md` en in het kolomcontract staan en vul je met
   de hand. `maxMeterKwh()` in `charge.ts` is daarmee geen invoerzeef meer maar de grens waarmee
   `withMeterAsPercent()` al bewaarde kWh-waarden alsnog als aflezing leest.
-- ⚠️ **💾 vult alleen een afgesloten beurt aan die nog een schatting is (2026-10-10) en *vandaag* is afgekoppeld** (`bijwerkbaar()` in `main.ts`,
+- ⚠️ **💾 vult alleen een afgesloten beurt aan die nog een schatting is en vandaag of <12 u geleden is afgekoppeld** (`bijwerkbaar()` in `main.ts`,
   2026-10-06). `finished` blijft in `localStorage` staan tot de volgende start, en een aflezing
   zonder lopende sessie overschreef daardoor ongemerkt de beurt van 27 sep (gelijke `startMs` is de
   sleutel van `withEntry`). Een vergeten beurt gaat via het klapblok "achteraf invoeren"
   (`manualEntry` in `logbook.ts`): altijd een eigen regel, nooit een aanvulling. Dat blok deelt
-  *Afgelezen* en *Km-stand* met het gewone formulier en staat standaard dicht.
+  *Afgelezen bij afkoppelen* en *Km-stand* met het gewone formulier en staat standaard dicht.
 - ⚠️ **Een komma past niet in `<input type="number">`** (de browser maakt er stil een lege waarde van).
   Een veld met een decimaal getal is `type="text"` met `inputmode="decimal"`; `optioneelGetal()` neemt
   komma én punt aan.

@@ -34,6 +34,7 @@ import {
   manualEntry,
   parseEntries,
   toMarkdown,
+  updatableFinished,
   withEntry,
   withMeterAsPercent,
   withoutEntry,
@@ -601,4 +602,26 @@ test("logbook: een geschatte beurt blijft staan maar telt niet, en een latere af
   // En een regel van achteraf invoeren is altijd gemeten: eind% is daar verplicht.
   const achteraf = manualEntry({ date: "2026-09-01", from: "10:00", to: "14:00", fromPercent: 40, toPercent: 85, km: null, amps: 16 });
   assert.equal(typeof achteraf === "string" ? null : achteraf.estimated, false);
+});
+
+test("updatableFinished: alleen een nog geschatte, recent afgekoppelde beurt", () => {
+  const nu = new Date(2026, 9, 10, 18, 0).getTime();
+  const uur = 3_600_000;
+  const klaar = (geleden: number) => ({ startMs: nu - geleden - 2 * uur, endMs: nu - geleden });
+  const regel = (f: { startMs: number; endMs: number }, estimated: boolean): Entry => ({
+    ...beurt(12), startMs: f.startMs, endMs: f.endMs, estimated,
+  });
+  assert.equal(updatableFinished(null, [], nu), null);
+  const net = klaar(0.1 * uur);
+  assert.equal(updatableFinished(net, [], nu), net);
+  assert.equal(updatableFinished(net, [regel(net, true)], nu), net);
+  assert.equal(updatableFinished(net, [regel(net, false)], nu), null);
+  const gisteren11 = { startMs: nu - 14 * uur, endMs: nu - 11 * uur };
+  assert.equal(updatableFinished(gisteren11, [], nu), gisteren11);
+  const gisteren13 = { startMs: nu - 22 * uur, endMs: nu - 19 * uur }; // gisteren 23:00, 19 u geleden
+  assert.equal(updatableFinished(gisteren13, [], nu), null);
+  const vanochtend = { startMs: nu - 15 * uur, endMs: nu - 13 * uur }; // 05:00 vandaag: >12 u geleden maar vandaag
+  assert.equal(updatableFinished(vanochtend, [], nu), vanochtend);
+  const drieDagen = klaar(72 * uur);
+  assert.equal(updatableFinished(drieDagen, [], nu), null);
 });

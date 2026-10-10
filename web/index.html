@@ -181,10 +181,11 @@
   #calendar:disabled, #copylog:disabled, #copyall:disabled { background: #3a3a3c; color: #9a9a9a; box-shadow: none; cursor: default; }
   /* Het logboek is het tabpaneel Loggen; `toonTab()` in main.ts wisselt (⏹ Stop, melding) — nooit in render(). */
   .logblock { margin-top: 0; display: flex; flex-direction: column; flex: 1; }
-  /* Lijst bovenaan, invoer en knoppen onderaan binnen duimbereik. */
+  /* Formulier, laatste beurten en het ingeklapte blok staan samen onderaan, binnen duimbereik. */
   .logform { margin-top: auto; padding-top: 12px; }
   .logold { margin-top: 6px; }
   .logblock .loglist { margin: 8px 0 0; }
+  .logold summary:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
   .logold summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px; padding: 12px 0; }
   /* Twee tabs onderaan: Laden (resultaten, invoer, knoppen) en Loggen (het logboek). `main.ts` zet
      `data-tab` op <main>; verborgen is `display: none`, dus alleen het ene paneel telt voor de hoogte. */
@@ -221,7 +222,7 @@
   .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px;
                     padding: 12px 8px; margin: 0 -8px; border-radius: 10px; }
   .manual summary:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
-  #savetarget { color: #9a9a9a; font-size: 13px; min-height: 2.8em; }
+  #savetarget { color: #9a9a9a; font-size: 13px; min-height: 3em; }
   .manual .field { margin: 8px 0; }
   .manual .entry input { width: 132px; font-size: 18px; padding: 10px 12px; }
   .fieldhint { color: #8a8a8a; font-size: 12px; line-height: 1.4; margin: -2px 0 8px; }
@@ -400,14 +401,14 @@
       <code class="logline" id="logline" hidden></code>
       </div>
       <ul class="loglist" id="loglist"></ul>
-      <details class="logold" id="logold">
+      <p class="loghint" id="backupline" hidden></p>
+      <details class="logold">
         <summary id="logoldsum">Eerdere beurten</summary>
         <ul class="loglist" id="logrest"></ul>
       <div class="actions" id="logactions" hidden>
         <button id="copyall" type="button">📋 Kopieer hele logboek</button>
       </div>
       <p class="loghint" id="loghint" hidden></p>
-      <p class="loghint" id="backupline" hidden></p>
       </details>
     </div>
 

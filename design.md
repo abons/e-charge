@@ -420,3 +420,14 @@ prijzen en RDW), en de eerste die *schrijft*.
 - **Wat het niet doet**: geen live meekijken (poll van een minuut), en het scherm van de partner
   volgt een gestarte sessie pas bij de volgende ronde. Een sessie die twee mensen tegelijk starten:
   de laatste wint.
+
+## Loggen-tab: indeling en bijwerken (2026-10-10)
+
+- **Indeling**: formulier (`.logform`, `margin-top:auto`) onderaan in de duimzone, daaronder de laatste 3
+  beurten (`LOG_LATEST`, `#loglist`), de rest plus "Kopieer hele logboek" in het ingeklapte blok
+  "Eerdere beurten en kopiëren (n)" (`#logrest`). De back-upregel staat buiten dat blok: hij verschijnt
+  precies als er beurten ontbreken en mag niet dichtzitten. Lijst boven het formulier is geprobeerd en
+  afgewezen: het formulier viel onder de vouw.
+- **💾 vult alleen aan wat nog een schatting is** (`updatableFinished` in `core/logbook.ts`, getest): een
+  echte aflezing wordt nooit overschreven. Gevolg: km of een correctie achteraf op een afgelezen beurt
+  kan niet via 💾; wis de regel (×) en voer hem achteraf in.

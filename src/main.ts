@@ -40,6 +40,7 @@ import {
   withMeterAsPercent,
   withoutEntry,
   type Entry,
+  updatableFinished,
 } from "./core/logbook.js";
 import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
 import { parseGetal } from "./core/parse.js";
@@ -1320,6 +1321,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // meterstand aan te vullen) een goede 90 met een zinloze 43: een laadbeurt van nul procentpunten,
   // die `calibrate` als 0,00 kW meerekent. Is er niets bekend, dan valt er ook niets te loggen.
   const afgelopen = bijwerkbaar();
+  // (Alleen een nog geschatte regel is bijwerkbaar, dus `bewaard` is nooit een echte aflezing.)
   const bewaard = afgelopen === null ? undefined : logbook.find((e) => e.startMs === afgelopen.startMs);
   // Het logboek heeft zijn eigen percentageveld, en dat wint: het is wat je van het dashboard hebt
   // gelezen, en het hoeft het plan-scherm niet te verzetten om in de regel te komen.
@@ -1329,13 +1331,11 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
   // bewaard: de regel blijft (km en tijden zijn echt) maar telt niet mee voor snelheid en bereik.
   //   1. Afgelezen (het logboekveld);
   //   2. Huidig, als jij dat zelf hebt ingetikt — niet de schatting die ⏹ erin zette;
-  //   3. wat al bewaard is, als dat een aflezing was (een tweede druk op 💾 mag die niet vervangen);
-  //   4. de schatting: Huidig na ⏹, of de gerekende stand tijdens het laden.
+  //   3. de schatting: Huidig na ⏹, of de gerekende stand tijdens het laden.
   let eind: number | null;
   let geschat = false;
   if (afgelezen !== null) eind = afgelezen;
   else if (!session && huidig !== null && !huidigIsSchatting) eind = huidig;
-  else if (!session && bewaard !== undefined && bewaard.estimated !== true) eind = bewaard.toPercent;
   else {
     eind = !session ? (huidig ?? bewaard?.toPercent ?? null) : null;
     geschat = true;
@@ -1387,20 +1387,12 @@ function beurtKosten(bron: { startMs: number; endMs: number; from: number; to: n
 }
 
 /**
- * De afgesloten beurt die 💾 mag bijwerken: alleen als hij vandaag is afgekoppeld. Een oudere beurt
- * blijft staan zoals hij is — een aflezing van 3 okt overschreef zo de beurt van 27 sep. Wie een
- * oudere beurt wil aanvullen, wist hem (×) en voert hem opnieuw in.
+ * De afgesloten beurt die 💾 mag aanvullen (regels in `updatableFinished`): nog een schatting en
+ * vandaag of <12 u geleden afgekoppeld. Wie iets anders wil aanvullen, wist de regel (×) en voert
+ * hem opnieuw in.
  */
 function bijwerkbaar(): Finished | null {
-  if (finished === null) return null;
-  // Vandaag afgekoppeld, óf minder dan 12 uur geleden: wie om 23:00 stopt en 's ochtends de aflezing
-  // erbij zet, werkt dezelfde beurt bij. Een beurt van dagen terug nooit.
-  const recent = Date.now() - finished.endMs < 12 * 3_600_000;
-  if (!recent && new Date(finished.endMs).toDateString() !== new Date().toDateString()) return null;
-  // ⚠️ Alleen zolang de regel nog een schatting is (⏹ zonder aflezing): een echte aflezing wordt nooit
-  // meer overschreven — dat maakte de beurt van vanmiddag kapot (2026-10-10).
-  const bewaard = logbook.find((e) => e.startMs === finished!.startMs);
-  return bewaard === undefined || bewaard.estimated === true ? finished : null;
+  return updatableFinished(finished, logbook, Date.now());
 }
 
 /** Datum van vandaag en de klok van nu in het blok "achteraf invoeren", alleen waar het veld leeg is. */
