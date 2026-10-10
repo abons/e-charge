@@ -153,6 +153,9 @@ toonTab("laden");
 const logCount = el("logcount");
 const logLineOut = el("logline");
 const logList = el("loglist");
+const logRest = el("logrest");
+const logOldSum = el("logoldsum");
+const LOG_LATEST = 3;
 const logActions = el("logactions");
 const logHint = el("loghint");
 const backupLine = el("backupline");
@@ -1568,7 +1571,8 @@ function renderLogbook(): void {
   // die erbij komt of af gaat, en bij het laden pas zodra het logboek is ingelezen.
   renderSetup();
   logList.textContent = "";
-  for (const e of [...logbook].reverse()) {
+  logRest.textContent = "";
+  [...logbook].reverse().forEach((e, i) => {
     const li = document.createElement("li");
     const datum = document.createElement("span");
     datum.className = "datum";
@@ -1591,8 +1595,9 @@ function renderLogbook(): void {
     wis.title = "Verwijder deze laadbeurt";
     wis.addEventListener("click", () => removeEntry(e.startMs));
     li.append(datum, pct, rest, wis);
-    logList.append(li);
-  }
+    (i < LOG_LATEST ? logList : logRest).append(li);
+  });
+  logOldSum.textContent = logbook.length > LOG_LATEST ? `Eerdere beurten en kopiëren (${logbook.length - LOG_LATEST})` : "Kopiëren en back-up";
   renderBackup();
   logCount.textContent = logbook.length === 0 ? "" : ` (${logbook.length})`;
   logActions.hidden = logbook.length === 0;
