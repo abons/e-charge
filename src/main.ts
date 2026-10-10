@@ -31,6 +31,7 @@ import { LEAF_START, kmPerPp, measureRate, ratePerHour, setupAt, type Source, ty
 import { brands, estimateFromKwh, estimateStart, evById, evLabel, matchEv, modelsOf, variantsOf, type Ev } from "./core/evest.js";
 import { cheapestStart, readyBy, type Advice } from "./core/advice.js";
 import { CHART_W, priceChart, type Band } from "./core/chart.js";
+import { usageChart, type UsageChart } from "./core/usagechart.js";
 import { calendar } from "./core/ics.js";
 import {
   manualEntry,
@@ -158,6 +159,7 @@ const logRest = el("logrest");
 const logOldSum = el("logoldsum");
 const LOG_LATEST = 3;
 const logActions = el("logactions");
+const usageActions = el("usageactions");
 const logHint = el("loghint");
 const backupLine = el("backupline");
 const chargeButton = el<HTMLButtonElement>("start-charging");
@@ -1597,6 +1599,7 @@ function renderLogbook(): void {
   renderBackup();
   logCount.textContent = logbook.length === 0 ? "" : ` (${logbook.length})`;
   logActions.hidden = logbook.length === 0;
+  usageActions.hidden = logbook.length < 2;
   logHint.hidden = logbook.length === 0;
   logHint.textContent =
     logbook.length === 0
@@ -1885,3 +1888,46 @@ if ("serviceWorker" in navigator) {
   });
   void navigator.serviceWorker.register("sw.js");
 }
+
+// Verbruik tussen laadbeurten: een modal op het tabblad Loggen, uit dezelfde ritten als het bereik.
+const usageDialog = el<HTMLDialogElement>("usagedlg");
+const usageBox = el("usagechart");
+const usageReadout = el("usagereadout");
+let verbruik: UsageChart | null = null;
+function openUsageDialog(): void {
+  verbruik = usageChart(logbook);
+  const text = el("usagetext");
+  usageReadout.innerHTML = "&nbsp;";
+  if (verbruik === null) {
+    usageBox.innerHTML = "";
+    text.textContent =
+      "Nog geen rit om te tonen: er zijn twee opeenvolgende beurten met een afgelezen eind% en een " +
+      "km-stand nodig, minstens 10 km en 10 procentpunt uit elkaar.";
+  } else {
+    // Alleen eigen getallen en vaste tekst in de SVG, dus `innerHTML` is hier veilig.
+    usageBox.innerHTML = verbruik.svg;
+    text.textContent =
+      verbruik.mean === null
+        ? "Geen rit telt mee voor het bereik."
+        : `Gemiddeld ${nl(verbruik.mean, 2)} km per procentpunt, dat is ${nl(100 / verbruik.mean)} procentpunt per 100 km.`;
+  }
+  usageDialog.showModal();
+}
+function toonRit(e: PointerEvent): void {
+  const target = (e.target as Element).closest(".ub");
+  if (verbruik === null || target === null) return;
+  const i = Number(target.getAttribute("data-i"));
+  const b = verbruik.bars[i];
+  if (b === undefined) return;
+  verbruik.bars.forEach((_, j) => usageBox.querySelector(`#ub-${j}`)?.setAttribute("stroke", j === i ? "#eee" : "none"));
+  const dag = (ms: number) => new Date(ms).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  usageReadout.textContent =
+    `${dag(b.fromMs)} → ${dag(b.toMs)}: ${nl(b.km, 0)} km op ${nl(b.pp, 0)} procentpunt = ${nl(b.kmPerPp, 2)} km/pp` +
+    `${b.counted ? "" : " (telt niet mee)"}`;
+}
+el("usagebtn").addEventListener("click", openUsageDialog);
+el("usageclose").addEventListener("click", () => usageDialog.close());
+usageDialog.addEventListener("click", (e) => {
+  if (e.target === usageDialog) usageDialog.close();
+});
+usageBox.addEventListener("click", toonRit as (e: Event) => void);

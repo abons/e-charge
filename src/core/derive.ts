@@ -145,10 +145,18 @@ export function ratePerHour(entries: Entry[], amps: number, start: Start | null 
   return { value: (top.value * stand) / RATED_CURRENT_A, n: top.n, source: "schaling" };
 }
 
-/** De geldige paren (km per procentpunt) uit opeenvolgende regels, oudste eerst, de laatste [WINDOW]. */
-export function kmPerPpPairs(entries: Entry[]): { km: number; pp: number }[] {
+/** Eén rit tussen twee opeenvolgende beurten: van afkoppelen (`fromMs`) tot de volgende start (`toMs`). */
+export interface Interval {
+  km: number;
+  pp: number;
+  fromMs: number;
+  toMs: number;
+}
+
+/** Alle geldige ritten tussen opeenvolgende regels, oudste eerst, nog zonder venster en zonder uitschieters. */
+export function kmPerPpIntervals(entries: Entry[]): Interval[] {
   const sorted = [...entries].sort((a, b) => a.startMs - b.startMs);
-  const pairs: { km: number; pp: number }[] = [];
+  const out: Interval[] = [];
   for (let i = 0; i + 1 < sorted.length; i++) {
     const a = sorted[i]!;
     const b = sorted[i + 1]!;
@@ -158,9 +166,14 @@ export function kmPerPpPairs(entries: Entry[]): { km: number; pp: number }[] {
     const pp = a.toPercent - b.fromPercent;
     const gap = b.startMs - a.endMs;
     if (km < 10 || pp < 10 || gap < 0 || gap > 7 * DAY_MS) continue;
-    pairs.push({ km, pp });
+    out.push({ km, pp, fromMs: a.endMs, toMs: b.startMs });
   }
-  const last = pairs.slice(-WINDOW);
+  return out;
+}
+
+/** De geldige paren (km per procentpunt) uit opeenvolgende regels, oudste eerst, de laatste [WINDOW]. */
+export function kmPerPpPairs(entries: Entry[]): Interval[] {
+  const last = kmPerPpIntervals(entries).slice(-WINDOW);
   if (last.length < 3) return last;
   // Een rit waar de auto elders is bijgeladen (of een km-stand die niet klopt) valt ver buiten de rest.
   const m = median(last.map((p) => p.km / p.pp));

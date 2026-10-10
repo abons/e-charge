@@ -400,6 +400,7 @@
       <p class="loghint" id="savetarget"></p>
       <code class="logline" id="logline" hidden></code>
       </div>
+      <div class="actions" id="usageactions" hidden><button id="usagebtn" type="button">📈 Verbruik per rit</button></div>
       <ul class="loglist" id="loglist"></ul>
       <p class="loghint" id="backupline" hidden></p>
       <details class="logold">
@@ -440,6 +441,16 @@
   <p class="carnote">Prijs per kWh per kwartier, met opslag, energiebelasting en btw. De prijzen van
     morgen verschijnen rond 13:00. Sleep over de grafiek voor een kwartier.</p>
   <div class="row"><button type="button" id="priceclose">Sluiten</button></div>
+</dialog>
+
+<dialog id="usagedlg">
+  <h2>Verbruik tussen laadbeurten</h2>
+  <p class="infotext" id="usagetext"></p>
+  <p class="readout" id="usagereadout">&nbsp;</p>
+  <div id="usagechart"></div>
+  <p class="carnote">Kilometers per procentpunt per rit, van afkoppelen tot de volgende start: hoger is
+    zuiniger. Grijs telt niet mee voor het bereik (een rit die ver van de rest afwijkt). Tik op een staaf.</p>
+  <div class="row"><button type="button" id="usageclose">Sluiten</button></div>
 </dialog>
 
 <dialog id="cardlg">

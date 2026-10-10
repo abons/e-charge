@@ -27,6 +27,7 @@ import {
   rateSamples,
   setupAt,
 } from "../src/core/derive.js";
+import { usageChart } from "../src/core/usagechart.js";
 import { calendar } from "../src/core/ics.js";
 import { ampsFromNote, isUnreliableNote, logRow, noteFor, noteForAmps } from "../src/core/logline.js";
 import { parseLogMd } from "../src/core/logmd.js";
@@ -629,4 +630,22 @@ test("updatableFinished: alleen een nog geschatte, recent afgekoppelde beurt", (
   assert.equal(updatableFinished(laatAvond, [], ochtend + 6 * uur), null); // 13 u geleden, andere dag
   const drieDagen = klaar(72 * uur);
   assert.equal(updatableFinished(drieDagen, [], nu), null);
+});
+
+test("usageChart: elke geldige rit een staaf, een uitschieter gedempt, gemiddelde = bereik", () => {
+  const lijst: Entry[] = [
+    sessie(1, 50, 90, 4, { km: 1000 }),
+    sessie(3, 50, 90, 4, { km: 1080 }),
+    sessie(5, 50, 90, 4, { km: 1160 }),
+    sessie(7, 50, 90, 4, { km: 1244 }),
+    sessie(9, 60, 90, 4, { km: 1330 }), // laatste rit 2,87: geldig, telt niet mee
+  ];
+  const c = usageChart(lijst);
+  assert.ok(c !== null);
+  assert.equal(c.bars.length, 4);
+  assert.deepEqual(c.bars.map((b) => b.counted), [true, true, true, false]);
+  assert.equal(c.mean, kmPerPp(lijst).value);
+  assert.match(c.svg, /<svg/);
+  assert.equal(usageChart([sessie(1, 50, 90, 4, { km: 1000 })]), null);
+  assert.equal(usageChart([]), null);
 });

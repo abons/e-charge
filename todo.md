@@ -129,3 +129,4 @@ logregel). **Nog niet op een echte telefoon gezien.**
   verwarmen van het pakket, en dan duurt laden langer dan deze app zegt. Het venster van de laatste
   8 afgelezen beurten laat dat vanzelf meetellen zodra er koude beurten in staan — een aparte factor
   is niet nodig, maar de eerste koude beurten zijn de proef.
+- **Verbruiksgrafiek (📈 op Loggen) is nog niet op de telefoon gezien** (2026-10-10): staaftikken, uitlezing en breedte bij 12 staven alleen in tests bekeken.
