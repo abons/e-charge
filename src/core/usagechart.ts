@@ -1,4 +1,4 @@
-import { kmPerPpPairs, skippedAndIntervals, type Interval, type SkipReason } from "./derive.js";
+import { WINDOW, kmPerPpIntervals, kmPerPpPairs, skippedAndIntervals, type Interval, type SkipReason } from "./derive.js";
 import type { Entry } from "./logbook.js";
 
 /**
@@ -24,8 +24,10 @@ export const MAX_BARS = 12;
 
 export interface UsageBar extends Interval {
   kmPerPp: number;
-  /** `false` voor een geschatte rit of een die buiten 1,35× de mediaan viel: getoond, niet meegeteld. */
+  /** `false` voor een geschatte rit, een van vóór de laatste [WINDOW] ritten of een buiten 1,35× de mediaan: getoond, niet meegeteld. */
   counted: boolean;
+  /** `true` voor een afgelezen rit die ouder is dan de laatste [WINDOW]: het bereik kijkt er niet meer naar. */
+  old: boolean;
 }
 
 export interface UsageChart {
@@ -40,9 +42,10 @@ const f = (n: number): string => n.toFixed(1);
 /** De ritten voor de grafiek, oudste eerst, hooguit [MAX_BARS]. */
 export function usageBars(entries: Entry[]): UsageBar[] {
   const counted = new Set(kmPerPpPairs(entries).map((p) => p.fromMs));
+  const venster = kmPerPpIntervals(entries).slice(-WINDOW)[0]?.fromMs ?? Infinity;
   return skippedAndIntervals(entries)
     .intervals.slice(-MAX_BARS)
-    .map((i) => ({ ...i, kmPerPp: i.km / i.pp, counted: counted.has(i.fromMs) }));
+    .map((i) => ({ ...i, kmPerPp: i.km / i.pp, counted: counted.has(i.fromMs), old: !i.estimated && i.fromMs < venster }));
 }
 
 /** Hoeveel ritten er tussen de beurten zijn en waarom sommige ontbreken, in woorden voor de modal. */
@@ -53,6 +56,7 @@ export function usageSkipNote(entries: Entry[]): string {
     ["geen km", "zonder km-stand"],
     ["te kort", "onder 10 km of 10 procentpunt"],
     ["te lang", "meer dan een week ertussen"],
+    ["overlap", "beurten die overlappen"],
   ];
   const redenen = uitleg.filter(([r]) => skipped[r] > 0).map(([r, t]) => `${skipped[r]} ${t}`);
   const schat = intervals.filter((i) => i.estimated).length;

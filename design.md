@@ -431,3 +431,18 @@ prijzen en RDW), en de eerste die *schrijft*.
 - **💾 vult alleen aan wat nog een schatting is** (`updatableFinished` in `core/logbook.ts`, getest): een
   echte aflezing wordt nooit overschreven. Gevolg: km of een correctie achteraf op een afgelezen beurt
   kan niet via 💾; wis de regel (×) en voer hem achteraf in.
+
+## Verbruiksgrafiek op Loggen (2026-10-10)
+
+- **Wat**: 📈 Verbruik per rit (alleen bij ≥2 beurten) opent `#usagedlg`: een staaf per rit tussen twee
+  beurten, hoogte = km per procentpunt, gestippeld het gepoolde gemiddelde (= `kmPerPp`, dezelfde ritten
+  via `kmPerPpIntervals` in `derive.ts`). Puur in `core/usagechart.ts`, hooguit 12 staven.
+- **Grijs, niet weg**: een rit met een geschat eind% of geschatte km-stand, en een rit buiten 1,35× de
+  mediaan, staat er gedempt in en telt niet mee. Geschatte getallen bijvullen "met een logische schatting"
+  is afgewezen: het zet een schatting als meting in het logboek en het gemiddelde bevestigt zichzelf.
+- **Overbrugging**: een beurt zonder km-stand verbindt zijn buren tot één rit; km = verschil van de twee
+  ankers, pp = som van wat er tussen elke twee opeenvolgende beurten is verbruikt, weekgrens per stuk
+  (`intervalOf`). Zo staat 2→10 okt (via 8 okt zonder km) er als één grijze staaf in. Zodra de km-stand
+  van de tussenbeurt er is, splitst het vanzelf.
+- **Uitleg in de modal**: `usageSkipNote` zegt hoeveel ritten er zijn en waarom sommige ontbreken
+  (geen km, te kort, te lang, grijs). Zonder die regel is "4 van 9" niet te duiden.

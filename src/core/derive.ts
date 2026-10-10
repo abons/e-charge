@@ -156,13 +156,14 @@ export interface Interval {
 }
 
 /** Waarom een rit tussen twee regels niet in de grafiek staat. */
-export type SkipReason = "geen km" | "te kort" | "te lang";
+export type SkipReason = "geen km" | "te kort" | "te lang" | "overlap";
 
-/** Eén rit tussen twee regels: de rit zelf, of waarom die niet telt. */
 /**
  * Eén rit over een reeks regels: de eerste en de laatste hebben een km-stand, de regels ertussen
  * (zonder km-stand) zijn bijladen onderweg. De procentpunten zijn dan de som van wat er tussen elke twee
- * opeenvolgende regels is verbruikt, en de week-grens geldt per stuk. Een reeks van twee is een gewone rit.
+ * opeenvolgende regels is verbruikt, en de week-grens geldt per stuk. Een reeks van twee is een gewone rit;
+ * een overbrugde reeks is altijd `estimated`: niemand kent de km van de regel in het midden, en het
+ * bereik (`kmPerPpPairs`) mag daar niet door verschuiven.
  */
 function intervalOf(chain: Entry[]): Interval | SkipReason {
   const a = chain[0]!;
@@ -171,12 +172,13 @@ function intervalOf(chain: Entry[]): Interval | SkipReason {
   let pp = 0;
   for (let i = 0; i + 1 < chain.length; i++) {
     const gap = chain[i + 1]!.startMs - chain[i]!.endMs;
-    if (gap < 0 || gap > 7 * DAY_MS) return "te lang";
+    if (gap < 0) return "overlap";
+    if (gap > 7 * DAY_MS) return "te lang";
     pp += chain[i]!.toPercent - chain[i + 1]!.fromPercent;
   }
   const km = b.km - a.km;
   if (km < 10 || pp < 10) return "te kort";
-  return { km, pp, fromMs: a.endMs, toMs: b.startMs, estimated: chain.some((e) => e.estimated === true) };
+  return { km, pp, fromMs: a.endMs, toMs: b.startMs, estimated: chain.length > 2 || chain.some((e) => e.estimated === true) };
 }
 
 /** Alle geldige ritten met afgelezen getallen, oudste eerst, nog zonder venster en zonder uitschieters. */
@@ -191,7 +193,7 @@ export function kmPerPpIntervals(entries: Entry[]): Interval[] {
 export function skippedAndIntervals(entries: Entry[]): { intervals: Interval[]; skipped: Record<SkipReason, number> } {
   const sorted = [...entries].sort((a, b) => a.startMs - b.startMs);
   const intervals: Interval[] = [];
-  const skipped: Record<SkipReason, number> = { "geen km": 0, "te kort": 0, "te lang": 0 };
+  const skipped: Record<SkipReason, number> = { "geen km": 0, "te kort": 0, "te lang": 0, overlap: 0 };
   // Regels zonder km-stand voor de eerste en na de laatste met km hebben niets om een rit mee te rekenen.
   const ankers = sorted.flatMap((e, i) => (e.km === null ? [] : [i]));
   skipped["geen km"] += ankers.length === 0 ? Math.max(0, sorted.length - 1) : ankers[0]! + (sorted.length - 1 - ankers[ankers.length - 1]!);

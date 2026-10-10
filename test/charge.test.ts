@@ -27,7 +27,7 @@ import {
   rateSamples,
   setupAt,
 } from "../src/core/derive.js";
-import { usageChart } from "../src/core/usagechart.js";
+import { usageChart, usageSkipNote } from "../src/core/usagechart.js";
 import { calendar } from "../src/core/ics.js";
 import { ampsFromNote, isUnreliableNote, logRow, noteFor, noteForAmps } from "../src/core/logline.js";
 import { parseLogMd } from "../src/core/logmd.js";
@@ -678,4 +678,38 @@ test("usageChart: een beurt zonder km-stand wordt overbrugd, de procentpunten zi
   assert.equal(c.bars[0]!.pp, 67);
   assert.equal(c.bars[0]!.estimated, true);
   assert.equal(c.bars[0]!.counted, false);
+});
+
+test("kmPerPp: een beurt zonder km-stand in het midden verandert het bereik niet (alleen de grafiek overbrugt)", () => {
+  const zonder: Entry[] = [
+    sessie(1, 50, 90, 4, { km: 1000 }),
+    sessie(3, 50, 90, 4, { km: 1080 }),
+    sessie(5, 50, 90, 4, { km: 1160 }),
+    sessie(7, 50, 90, 4, { km: 1244 }),
+  ];
+  const met = [...zonder, sessie(6, 50, 90, 4, { km: null })]; // tussen 5 en 7, afgelezen maar zonder km
+  assert.equal(kmPerPpPairs(met).length, kmPerPpPairs(zonder).length - 1); // 5→6 en 6→7 vervallen, geen rit erbij
+  const c = usageChart(met);
+  assert.ok(c !== null);
+  assert.ok(c.bars.some((b) => b.estimated && !b.counted)); // wel te zien, grijs
+});
+
+test("usageChart: boven de 8 ritten staan de oudste als 'old', het gemiddelde blijft het bereik", () => {
+  const lijst: Entry[] = Array.from({ length: 11 }, (_, i) => sessie(1 + 2 * i, 50, 90, 4, { km: 1000 + 80 * i }));
+  const c = usageChart(lijst);
+  assert.ok(c !== null);
+  assert.equal(c.bars.length, 10);
+  assert.equal(c.bars.filter((b) => b.old).length, 2);
+  assert.equal(c.mean, kmPerPp(lijst).value);
+});
+
+test("usageSkipNote: telt ritten en noemt de reden", () => {
+  const lijst: Entry[] = [
+    sessie(1, 50, 90, 4, { km: null }),
+    sessie(3, 50, 90, 4, { km: 1000 }),
+    sessie(5, 50, 90, 4, { km: 1080 }),
+  ];
+  const t = usageSkipNote(lijst);
+  assert.match(t, /1 van 2 ritten getoond/);
+  assert.match(t, /1 zonder km-stand/);
 });

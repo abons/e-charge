@@ -1924,7 +1924,7 @@ function toonRit(e: PointerEvent): void {
   const dag = (ms: number) => new Date(ms).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
   usageReadout.textContent =
     `${dag(b.fromMs)} → ${dag(b.toMs)}: ${nl(b.km, 0)} km op ${nl(b.pp, 0)} procentpunt = ${nl(b.kmPerPp, 2)} km/pp` +
-    `${b.estimated ? " (geschat, telt niet mee)" : b.counted ? "" : " (telt niet mee)"}`;
+    `${b.estimated ? " (geschat, telt niet mee)" : b.old ? " (ouder dan de laatste 8 ritten, telt niet mee)" : b.counted ? "" : " (telt niet mee)"}`;
 }
 el("usagebtn").addEventListener("click", openUsageDialog);
 el("usageclose").addEventListener("click", () => usageDialog.close());
