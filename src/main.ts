@@ -1315,31 +1315,14 @@ function optioneelGetal(input: HTMLInputElement): number | null {
 function huidigeLaadbeurt(metKosten = false): Entry | null {
   const nu = Date.now();
   const doel = percentOf(targetInput) ?? DEFAULT_TARGET;
-  // Na een herstart staat het percentageveld leeg. Dan telt wat er al bewaard is over deze beurt —
-  // anders valt `eind%` terug op het startpercentage, en overschrijft een tweede druk op 💾 (om de
-  // meterstand aan te vullen) een goede 90 met een zinloze 43: een laadbeurt van nul procentpunten,
-  // die `calibrate` als 0,00 kW meerekent. Is er niets bekend, dan valt er ook niets te loggen.
-  const afgelopen = bijwerkbaar();
-  const bewaard = afgelopen === null ? undefined : logbook.find((e) => e.startMs === afgelopen.startMs);
+  // Alleen een lopende beurt. Een afgesloten beurt wordt nooit meer bijgewerkt (2026-10-10): een
+  // aflezing voor een andere beurt overschreef zo die van vanmiddag. Achteraf = klapblok, altijd nieuw.
   // Het logboek heeft zijn eigen percentageveld, en dat wint: het is wat je van het dashboard hebt
   // gelezen, en het hoeft het plan-scherm niet te verzetten om in de regel te komen.
   const afgelezen = percentOf(pctInput);
-  const huidig = percentOf(currentInput);
-  // ⚠️ Een echte aflezing wint altijd van een schatting, en een schatting wordt als `estimated`
-  // bewaard: de regel blijft (km en tijden zijn echt) maar telt niet mee voor snelheid en bereik.
-  //   1. Afgelezen (het logboekveld);
-  //   2. Huidig, als jij dat zelf hebt ingetikt — niet de schatting die ⏹ erin zette;
-  //   3. wat al bewaard is, als dat een aflezing was (een tweede druk op 💾 mag die niet vervangen);
-  //   4. de schatting: Huidig na ⏹, of de gerekende stand tijdens het laden.
-  let eind: number | null;
-  let geschat = false;
-  if (afgelezen !== null) eind = afgelezen;
-  else if (!session && huidig !== null && !huidigIsSchatting) eind = huidig;
-  else if (!session && bewaard !== undefined && bewaard.estimated !== true) eind = bewaard.toPercent;
-  else {
-    eind = !session ? (huidig ?? bewaard?.toPercent ?? null) : null;
-    geschat = true;
-  }
+  // Zonder aflezing is de regel een schatting: hij blijft (km en tijden zijn echt) maar telt niet
+  // mee voor snelheid en bereik (`estimated`).
+  const geschat = afgelezen === null;
   const bron = session
     ? {
         startMs: session.logStartMs,
@@ -1348,9 +1331,7 @@ function huidigeLaadbeurt(metKosten = false): Entry | null {
         to: afgelezen ?? percentAfter(session.from, doel, nu - session.startMs, setupAt(session.amps, logbook, car.start)),
         amps: session.amps,
       }
-    : afgelopen !== null && eind !== null
-      ? { startMs: afgelopen.startMs, endMs: afgelopen.endMs, from: afgelopen.from, to: eind, amps: afgelopen.amps }
-      : null;
+    : null;
   if (bron === null) return null;
 
   const km = optioneelGetal(kmInput);
@@ -1418,13 +1399,8 @@ function renderSaveTarget(): void {
     saveTarget.textContent = "💾 bewaart dit als nieuwe regel.";
   } else if (session !== null) {
     saveTarget.textContent = "💾 bewaart de lopende beurt.";
-  } else if (bijwerkbaar() !== null) {
-    const afgesloten = bijwerkbaar() as Finished;
-    const dag = new Date(afgesloten.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
-    saveTarget.textContent =
-      `💾 werkt de beurt van ${dag} (${clock(afgesloten.startMs)}) bij.`;
   } else {
-    saveTarget.textContent = "Geen beurt om te bewaren.";
+    saveTarget.textContent = "Geen lopende beurt — voer hem achteraf in.";
   }
 }
 
