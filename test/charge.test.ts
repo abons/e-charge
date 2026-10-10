@@ -649,3 +649,18 @@ test("usageChart: elke geldige rit een staaf, een uitschieter gedempt, gemiddeld
   assert.equal(usageChart([sessie(1, 50, 90, 4, { km: 1000 })]), null);
   assert.equal(usageChart([]), null);
 });
+
+test("usageChart: een rit met een geschatte beurt staat er grijs in en telt niet mee", () => {
+  const lijst: Entry[] = [
+    sessie(1, 50, 90, 4, { km: 1000 }),
+    sessie(3, 50, 90, 4, { km: 1080 }),
+    sessie(5, 50, 90, 4, { km: 1160, estimated: true }),
+    sessie(7, 50, 90, 4, { km: 1244 }),
+  ];
+  const c = usageChart(lijst);
+  assert.ok(c !== null);
+  assert.equal(c.bars.length, 3);
+  assert.deepEqual(c.bars.map((b) => b.estimated), [false, true, true]);
+  assert.deepEqual(c.bars.map((b) => b.counted), [true, false, false]);
+  assert.equal(kmPerPpPairs(lijst).length, 1);
+});

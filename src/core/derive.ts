@@ -151,33 +151,37 @@ export interface Interval {
   pp: number;
   fromMs: number;
   toMs: number;
+  /** `true` als een van de twee beurten een geschat eind% of km-stand heeft: getoond, nooit meegeteld. */
+  estimated: boolean;
 }
 
 /** Waarom een rit tussen twee regels niet in de grafiek staat. */
-export type SkipReason = "geschat" | "geen km" | "te kort" | "te lang";
+export type SkipReason = "geen km" | "te kort" | "te lang";
 
 /** Eén rit tussen twee regels: de rit zelf, of waarom die niet telt. */
 function intervalOf(a: Entry, b: Entry): Interval | SkipReason {
-  if (a.estimated === true || b.estimated === true) return "geschat";
   if (a.km === null || b.km === null) return "geen km";
   const km = b.km - a.km;
   const pp = a.toPercent - b.fromPercent;
   const gap = b.startMs - a.endMs;
   if (gap < 0 || gap > 7 * DAY_MS) return "te lang";
   if (km < 10 || pp < 10) return "te kort";
-  return { km, pp, fromMs: a.endMs, toMs: b.startMs };
+  return { km, pp, fromMs: a.endMs, toMs: b.startMs, estimated: a.estimated === true || b.estimated === true };
 }
 
-/** Alle geldige ritten tussen opeenvolgende regels, oudste eerst, nog zonder venster en zonder uitschieters. */
+/** Alle geldige ritten met afgelezen getallen, oudste eerst, nog zonder venster en zonder uitschieters. */
 export function kmPerPpIntervals(entries: Entry[]): Interval[] {
-  return skippedAndIntervals(entries).intervals;
+  return skippedAndIntervals(entries).intervals.filter((i) => !i.estimated);
 }
 
-/** De ritten en per reden hoeveel er zijn afgevallen; samen één per twee opeenvolgende regels. */
+/**
+ * Alle ritten met een km-stand, ook die met een geschat getal (`estimated`), en per reden hoeveel er
+ * zijn afgevallen; samen één per twee opeenvolgende regels. Alleen de grafiek toont de geschatte.
+ */
 export function skippedAndIntervals(entries: Entry[]): { intervals: Interval[]; skipped: Record<SkipReason, number> } {
   const sorted = [...entries].sort((a, b) => a.startMs - b.startMs);
   const intervals: Interval[] = [];
-  const skipped: Record<SkipReason, number> = { geschat: 0, "geen km": 0, "te kort": 0, "te lang": 0 };
+  const skipped: Record<SkipReason, number> = { "geen km": 0, "te kort": 0, "te lang": 0 };
   for (let i = 0; i + 1 < sorted.length; i++) {
     const r = intervalOf(sorted[i]!, sorted[i + 1]!);
     if (typeof r === "string") skipped[r]++;

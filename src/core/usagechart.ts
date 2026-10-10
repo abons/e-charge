@@ -1,4 +1,4 @@
-import { kmPerPpIntervals, kmPerPpPairs, skippedAndIntervals, type Interval, type SkipReason } from "./derive.js";
+import { kmPerPpPairs, skippedAndIntervals, type Interval, type SkipReason } from "./derive.js";
 import type { Entry } from "./logbook.js";
 
 /**
@@ -24,7 +24,7 @@ export const MAX_BARS = 12;
 
 export interface UsageBar extends Interval {
   kmPerPp: number;
-  /** `false` voor een rit die buiten 1,35× de mediaan viel: getoond, niet meegeteld. */
+  /** `false` voor een geschatte rit of een die buiten 1,35× de mediaan viel: getoond, niet meegeteld. */
   counted: boolean;
 }
 
@@ -40,8 +40,8 @@ const f = (n: number): string => n.toFixed(1);
 /** De ritten voor de grafiek, oudste eerst, hooguit [MAX_BARS]. */
 export function usageBars(entries: Entry[]): UsageBar[] {
   const counted = new Set(kmPerPpPairs(entries).map((p) => p.fromMs));
-  return kmPerPpIntervals(entries)
-    .slice(-MAX_BARS)
+  return skippedAndIntervals(entries)
+    .intervals.slice(-MAX_BARS)
     .map((i) => ({ ...i, kmPerPp: i.km / i.pp, counted: counted.has(i.fromMs) }));
 }
 
@@ -51,15 +51,20 @@ export function usageSkipNote(entries: Entry[]): string {
   const totaal = intervals.length + Object.values(skipped).reduce((s, n) => s + n, 0);
   const uitleg: [SkipReason, string][] = [
     ["geen km", "zonder km-stand"],
-    ["geschat", "met een geschat eind%"],
     ["te kort", "onder 10 km of 10 procentpunt"],
     ["te lang", "meer dan een week ertussen"],
   ];
   const redenen = uitleg.filter(([r]) => skipped[r] > 0).map(([r, t]) => `${skipped[r]} ${t}`);
+  const schat = intervals.filter((i) => i.estimated).length;
   const hidden = Math.max(0, intervals.length - MAX_BARS);
   const extra = hidden > 0 ? `${hidden} oudere niet getoond` : "";
   const alle = [...redenen, extra].filter((s) => s !== "");
-  return `${intervals.length} van ${totaal} ritten getoond${alle.length > 0 ? `; afgevallen: ${alle.join(", ")}` : ""}.`;
+  return (
+    `${Math.min(intervals.length, MAX_BARS)} van ${totaal} ritten getoond` +
+    (schat > 0 ? `, ${schat} daarvan grijs omdat een eind% of km-stand geschat is` : "") +
+    (alle.length > 0 ? `; afgevallen: ${alle.join(", ")}` : "") +
+    "."
+  );
 }
 
 /** `null` zonder één geldige rit: dan valt er niets te tekenen. */
