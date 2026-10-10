@@ -180,7 +180,9 @@
   button:disabled, #start-charging:disabled, #savelog:disabled,
   #calendar:disabled, #copylog:disabled, #copyall:disabled { background: #3a3a3c; color: #9a9a9a; box-shadow: none; cursor: default; }
   /* Het logboek is het tabpaneel Loggen; `toonTab()` in main.ts wisselt (⏹ Stop, melding) — nooit in render(). */
-  .logblock { margin-top: 0; }
+  .logblock { margin-top: 0; display: flex; flex-direction: column; flex: 1; }
+  /* Lijst bovenaan, invoer en knoppen onderaan binnen duimbereik. */
+  .logform { margin-top: auto; padding-top: 12px; }
   /* Twee tabs onderaan: Laden (resultaten, invoer, knoppen) en Loggen (het logboek). `main.ts` zet
      `data-tab` op <main>; verborgen is `display: none`, dus alleen het ene paneel telt voor de hoogte. */
   #ladenpanel { flex: 1; display: flex; flex-direction: column; }
@@ -216,7 +218,7 @@
   .manual summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px;
                     padding: 12px 8px; margin: 0 -8px; border-radius: 10px; }
   .manual summary:focus-visible { outline: 2px solid #7fd4a0; outline-offset: -2px; }
-  #savetarget { color: #9a9a9a; font-size: 13px; min-height: 3em; }
+  #savetarget { color: #9a9a9a; font-size: 13px; min-height: 2.8em; }
   .manual .field { margin: 8px 0; }
   .manual .entry input { width: 132px; font-size: 18px; padding: 10px 12px; }
   .fieldhint { color: #8a8a8a; font-size: 12px; line-height: 1.4; margin: -2px 0 8px; }
@@ -336,18 +338,23 @@
       wordt een logboek in een donkere schuur toch niet ingevuld.
     -->
     <div class="logblock" id="logbook" role="tabpanel">
+      <ul class="loglist" id="loglist"></ul>
+      <div class="actions" id="logactions" hidden>
+        <button id="copyall" type="button">📋 Kopieer hele logboek</button>
+      </div>
+      <p class="loghint" id="loghint" hidden></p>
+      <p class="loghint" id="backupline" hidden></p>
+      <div class="logform">
       <div class="field">
-        <label for="km">Km-stand <span class="opt">optioneel</span></label>
+        <label for="km">Km-stand <span class="opt">teller</span></label>
         <span class="entry">
           <input id="km" type="number" min="0" step="1" inputmode="numeric" enterkeyhint="done"
                  placeholder="84210">
           <span class="unit">km</span>
         </span>
       </div>
-      <p class="fieldhint">De kilometerteller, niet het geschatte bereik — twee regels na elkaar
-        geven je verbruik.</p>
       <div class="field">
-        <label for="logpct">Afgelezen <span class="opt">optioneel</span></label>
+        <label for="logpct">Afgelezen</label>
         <span class="entry">
           <!--
             Een percentage is een heel getal, dus `type="number"` mag hier: de komma die de browser
@@ -360,9 +367,7 @@
           <span class="unit">%</span>
         </span>
       </div>
-      <p class="fieldhint">Wat het dashboard zei bij het afkoppelen — dit wordt de
-        <code>eind%</code> van de regel. Laat leeg en de app neemt het percentage dat bovenaan bij
-        <strong>Huidig</strong> staat — behalve bij achteraf invoeren, daar is dit veld verplicht.</p>
+      <p class="fieldhint">Dashboard bij afkoppelen (wordt <code>eind%</code>). Leeg = <strong>Huidig</strong>.</p>
       <!--
         Een beurt waarvan je vergeten bent hem te starten: hier alleen wat de twee velden hierboven
         niet kennen. Zolang dit openstaat bewaren en kopiëren de knoppen die beurt, als eigen regel —
@@ -379,10 +384,8 @@
         <div class="field"><label for="m-pct-from">Start%</label>
           <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
             inputmode="numeric" enterkeyhint="done" placeholder="43"><span class="unit">%</span></span></div>
-        <p class="fieldhint">Eind% is het veld <strong>Afgelezen</strong> hierboven (verplicht), de
-          kilometerteller is <strong>Km-stand</strong>; de laadstand is die van de keuzelijst
-          bovenaan. Is <strong>Tot</strong> vroeger dan <strong>Van</strong>, dan telt het als na
-          middernacht.</p>
+        <p class="fieldhint">Eind% = <strong>Afgelezen</strong>, laadstand = keuzelijst. <strong>Tot</strong>
+          vóór <strong>Van</strong> telt als na middernacht.</p>
       </details>
       <div class="actions">
         <button id="savelog" type="button">💾 Bewaar laadbeurt</button>
@@ -399,14 +402,7 @@
       -->
       <p class="loghint" id="savetarget"></p>
       <code class="logline" id="logline" hidden></code>
-
-
-      <ul class="loglist" id="loglist"></ul>
-      <div class="actions" id="logactions" hidden>
-        <button id="copyall" type="button">📋 Kopieer hele logboek</button>
       </div>
-      <p class="loghint" id="loghint" hidden></p>
-      <p class="loghint" id="backupline" hidden></p>
     </div>
 
   </div>

@@ -1412,17 +1412,16 @@ function prefillManual(): void {
 function renderSaveTarget(): void {
   if (!bewaardFlits) saveButton.textContent = manualBlock.open ? MANUAL_SAVE_LABEL : SAVE_LABEL;
   if (manualBlock.open) {
-    saveTarget.textContent = "💾 bewaart de hier ingevoerde beurt als nieuwe regel; de afgesloten beurt blijft ongemoeid.";
+    saveTarget.textContent = "💾 bewaart dit als nieuwe regel.";
   } else if (session !== null) {
-    saveTarget.textContent = "💾 bewaart de lopende laadbeurt.";
+    saveTarget.textContent = "💾 bewaart de lopende beurt.";
   } else if (bijwerkbaar() !== null) {
     const afgesloten = bijwerkbaar() as Finished;
     const dag = new Date(afgesloten.startMs).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
     saveTarget.textContent =
-      `💾 werkt de afgesloten beurt van ${dag} (${clock(afgesloten.startMs)}) bij. ` +
-      "Een andere beurt vergeten te starten? Voer die hieronder achteraf in.";
+      `💾 werkt de beurt van ${dag} (${clock(afgesloten.startMs)}) bij.`;
   } else {
-    saveTarget.textContent = "Geen beurt om te bewaren — start er een, of voer er een achteraf in.";
+    saveTarget.textContent = "Geen beurt om te bewaren.";
   }
 }
 
