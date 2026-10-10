@@ -42,6 +42,7 @@ import {
   type Entry,
 } from "./core/logbook.js";
 import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
+import { parseGetal } from "./core/parse.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 import * as prices from "./prices.js";
 import { dailyDue, mergeBackups, parseBackups, restorable, restoreMissing, shrinks, withBackup, type Backup } from "./core/backup.js";
@@ -241,10 +242,8 @@ function setup() {
 
 /** Een leeg veld is geen 0: dan is er nog niets ingevuld en valt er niets te rekenen. */
 function percentOf(input: HTMLInputElement): number | null {
-  const raw = input.value.trim();
-  if (raw === "") return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? clampPercent(value) : null;
+  const value = parseGetal(input.value);
+  return value === null ? null : clampPercent(value);
 }
 
 /** Nieuwe prijzen binnen: tariefregel en scherm opnieuw. */
@@ -1115,8 +1114,8 @@ function deleteCar(id: string): void {
 
 /** Een getal met komma of punt, groter dan nul; leeg of onzin is `null`. */
 function positiefGetal(input: HTMLInputElement): number | null {
-  const n = Number(input.value.trim().replace(",", "."));
-  return input.value.trim() !== "" && Number.isFinite(n) && n > 0 ? n : null;
+  const n = parseGetal(input.value);
+  return n !== null && n > 0 ? n : null;
 }
 
 async function saveCar(): Promise<void> {
@@ -1290,10 +1289,7 @@ function toggleCharging(): void {
 
 /** Een getal uit een optioneel veld; leeg of onzin telt als "niet ingevuld". */
 function optioneelGetal(input: HTMLInputElement): number | null {
-  const raw = input.value.trim().replace(",", ".");
-  if (raw === "") return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
+  return parseGetal(input.value);
 }
 
 /**
@@ -1440,7 +1436,7 @@ function naarKlembord(tekst: string, knop: HTMLButtonElement, label: string): vo
  */
 function handmatigeBeurt(): Entry | string | null {
   if (!manualBlock.open) return null;
-  const getal = (input: HTMLInputElement): number => (input.value.trim() === "" ? NaN : Number(input.value));
+  const getal = (input: HTMLInputElement): number => (parseGetal(input.value) ?? NaN);
   const beurt = manualEntry({
     date: manualDate.value,
     from: manualFrom.value,
@@ -1697,6 +1693,16 @@ for (const input of [currentInput, targetInput]) {
       writeSession({ ...session, startMs: Date.now(), from: value, real: true });
     }
     render();
+  });
+}
+
+// Getalvelden op de telefoon: een tik selecteert de oude waarde (intikken vervangt), en Enter verlaat
+// het veld — dat laat het toetsenbord zakken en vuurt `change`, precies als wegtikken. Alleen
+// gedrag van de invoer zelf; `render()` blijft van de waarden af.
+for (const input of [currentInput, targetInput, kmInput, pctInput, manualPctFrom]) {
+  input.addEventListener("focus", () => setTimeout(() => input.select(), 0));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") input.blur();
   });
 }
 

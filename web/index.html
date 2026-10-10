@@ -88,6 +88,8 @@
   .entry input::-webkit-outer-spin-button, .entry input::-webkit-inner-spin-button {
                  -webkit-appearance: none; margin: 0; }
   .entry input:focus { outline: none; border-color: #7fd4a0; box-shadow: 0 0 0 2px #7fd4a0; }
+  /* Buiten bereik (430%) of onzin: rode rand, geen tekst — een regel erbij zou de indeling verschuiven. */
+  .entry input:invalid, .entry input:invalid:focus { border-color: #e5736a; box-shadow: 0 0 0 2px #e5736a; }
   /* De laadstand: een gewone <select>, in dezelfde jas als de invoervelden. De opties komen uit
      `charge.ts` (main.ts vult ze), zodat hier nergens een ampère of kW staat. `appearance: none`
      haalt het pijltje van de browser weg (dat past niet in deze jas), dus er staat een eigen pijltje
@@ -162,7 +164,10 @@
   /* De hoofdactie (Start/Stop, Bewaar) is de enige groene knop, in beide standen even breed. */
   #start-charging, #savelog { background: #7fd4a0; color: #121213; font-size: 15px; min-height: 48px; }
   #start-charging { min-width: 150px; flex-grow: 1; }
-  button:disabled, #start-charging:disabled, #savelog:disabled { background: #3a3a3c; color: #9a9a9a; cursor: default; }
+  /* Bijzaken (agenda, kopiëren) zijn omlijnd en zonder vulling; inset-schaduw, zodat de maat gelijk blijft. */
+  #calendar, #copylog, #copyall { background: transparent; color: #c9c9c9; box-shadow: inset 0 0 0 1px #5a5a5c; }
+  button:disabled, #start-charging:disabled, #savelog:disabled,
+  #calendar:disabled, #copylog:disabled, #copyall:disabled { background: #3a3a3c; color: #9a9a9a; box-shadow: none; cursor: default; }
   /* Het logboek is een klapblok onder de knoppen, standaard dicht: open/dicht verschuift (op een vol scherm) nooit
      iets boven een knop. main.ts opent het zelf (bij laden, afkoppelen, melding) — nooit in render(). */
   .logblock { margin-top: 12px; border-top: 1px solid #2c2c2e; }
@@ -272,7 +277,8 @@
         <label for="target">Doel</label>
         <span class="entry">
           <input id="target" type="number" min="0" max="100" step="1" inputmode="numeric"
-                 enterkeyhint="done" value="90">
+                 enterkeyhint="done" value="90" list="targetopts">
+          <datalist id="targetopts"><option value="80"><option value="90"><option value="100"></datalist>
           <span class="unit">%</span>
         </span>
       </div>
@@ -351,7 +357,7 @@
           <span class="entry"><input id="m-to" type="time"></span></div>
         <div class="field"><label for="m-pct-from">Start%</label>
           <span class="entry"><input id="m-pct-from" type="number" min="0" max="100" step="1"
-            inputmode="numeric" placeholder="43"><span class="unit">%</span></span></div>
+            inputmode="numeric" enterkeyhint="done" placeholder="43"><span class="unit">%</span></span></div>
         <p class="fieldhint">Eind% is het veld <strong>Afgelezen</strong> hierboven (verplicht), de
           kilometerteller is <strong>Km-stand</strong>; de laadstand is die van de keuzelijst
           bovenaan. Is <strong>Tot</strong> vroeger dan <strong>Van</strong>, dan telt het als na
