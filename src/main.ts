@@ -1706,6 +1706,41 @@ for (const input of [currentInput, targetInput, kmInput, pctInput, manualPctFrom
   });
 }
 
+// Doel is bijna altijd 80, 90 of 100: terwijl het veld focus heeft zweeft er een rij met die drie
+// onder (de browser-datalist toonde na het selecteren alleen de huidige waarde). Een tik loopt via
+// `change`, dus normaliseren, bewaren en rekenen gaan langs dezelfde weg als typen.
+const targetOpts = el<HTMLElement>("targetopts");
+for (const waarde of [80, 90, 100]) {
+  const knop = document.createElement("button");
+  knop.type = "button";
+  knop.textContent = `${waarde}%`;
+  knop.dataset.waarde = String(waarde);
+  // Zonder dit pakt de knop de focus en sluit het veld (en de rij) vóór de tik aankomt.
+  knop.addEventListener("mousedown", (e) => e.preventDefault());
+  knop.addEventListener("click", () => {
+    targetInput.value = String(waarde);
+    targetInput.dispatchEvent(new Event("change"));
+    targetInput.blur();
+  });
+  targetOpts.append(knop);
+}
+function toonDoelKeuze(): void {
+  const nu = percentOf(targetInput);
+  for (const knop of targetOpts.querySelectorAll("button")) {
+    knop.classList.toggle("on", Number(knop.dataset.waarde) === nu);
+  }
+}
+targetInput.addEventListener("focus", () => {
+  toonDoelKeuze();
+  targetOpts.hidden = false;
+});
+targetInput.addEventListener("input", () => {
+  targetOpts.hidden = true;
+});
+targetInput.addEventListener("blur", () => {
+  targetOpts.hidden = true;
+});
+
 // Een andere stand tijdens het laden (de stekker werd warm, de knop ging naar 10 A) is net zo'n
 // nieuw vertrekpunt als een aflezing: het geschatte percentage van nú wordt het anker, en vanaf hier
 // telt het nieuwe vermogen. `logStartMs`/`logFrom` blijven staan; de logregel krijgt de laatste stand.
