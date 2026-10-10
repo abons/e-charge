@@ -138,7 +138,18 @@ const manualFrom = el<HTMLInputElement>("m-from");
 const manualTo = el<HTMLInputElement>("m-to");
 const manualPctFrom = el<HTMLInputElement>("m-pct-from");
 const manualBlock = el<HTMLDetailsElement>("manual");
-const logBook = el<HTMLDetailsElement>("logbook");
+/** De twee tabs onderaan: het scherm Laden (rekenen, invoer, knoppen) en Loggen (het logboek). */
+const mainEl = document.querySelector("main")!;
+const tabLaden = el<HTMLButtonElement>("tab-laden");
+const tabLog = el<HTMLButtonElement>("tab-log");
+function toonTab(tab: "laden" | "log"): void {
+  mainEl.dataset.tab = tab;
+  tabLaden.setAttribute("aria-selected", String(tab === "laden"));
+  tabLog.setAttribute("aria-selected", String(tab === "log"));
+}
+tabLaden.addEventListener("click", () => toonTab("laden"));
+tabLog.addEventListener("click", () => toonTab("log"));
+toonTab("laden");
 const logCount = el("logcount");
 const logLineOut = el("logline");
 const logList = el("loglist");
@@ -957,7 +968,6 @@ function applyShared(merged: Shared): void {
   }
   renderSetup();
   renderLogbook();
-  logBook.open = logBook.open || session !== null || bijwerkbaar() !== null;
   render();
 }
 
@@ -1057,7 +1067,6 @@ function switchCar(id: string): boolean {
   renderCarButton();
   renderSetup();
   renderLogbook();
-  logBook.open = bijwerkbaar() !== null;
   render();
   return true;
 }
@@ -1274,7 +1283,7 @@ function toggleCharging(): void {
     writeFinished({ startMs: session.logStartMs, endMs: nu, from: session.logFrom, amps: session.amps });
     writeSession(null);
     // Afkoppelen is het moment van de aflezing: het logboek klapt open (hier, nooit in `render()`).
-    logBook.open = true;
+    toonTab("log");
     render();
     return;
   }
@@ -1464,7 +1473,7 @@ function toonLogMelding(tekst: string): void {
   logNote.textContent = tekst;
   logNote.hidden = false;
   // Een melding in een dicht blok leest niemand.
-  logBook.open = true;
+  toonTab("log");
 }
 
 function copyLogRow(): void {
@@ -1657,7 +1666,7 @@ if (verhuisd > 0) {
     `${verhuisd} bewaarde laadbeurt${verhuisd === 1 ? "" : "en"} had een meterstand die geen kWh ` +
     "kan zijn — die is als afgelezen percentage in eind% gezet. Kijk de lijst hieronder even na.";
   logNote.hidden = false;
-  logBook.open = true;
+  toonTab("log");
 } else {
   logbook = gelezenLogboek;
 }
@@ -1665,7 +1674,6 @@ if (verhuisd > 0) {
 if (logbook.length > 0 && dailyDue(readBackups(), Date.now())) pushBackup(logbook);
 renderLogbook();
 // Standaard dicht, behalve waar de aflezing nog moet: tijdens het laden en na het afkoppelen.
-if (session !== null || bijwerkbaar() !== null) logBook.open = true;
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {

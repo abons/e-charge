@@ -118,13 +118,11 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   niet ingestoken bent, fout zodra dat wel zo is. `⚡ Start laden` zet het moment vast in
   `localStorage`; vanaf dan telt de app af en loopt "Nu ongeveer" gerékend op. Een percentage dat je
   tijdens het laden intypt is een *aflezing van de auto* en verankert de sessie opnieuw vanaf nu.
-- ⚠️ **Het logboek is een `<details id="logbook">` onder de knoppen, standaard dicht (2026-10-06).**
-  `main.ts` opent het bij laden als er een sessie loopt of een beurt `bijwerkbaar()` is, bij ⏹ Stop
-  en bij elke `toonLogMelding` — **nooit in `render()`** (dat tikt elke 15 s en zou een handmatig
-  dichtklappen terugdraaien). `km`, `logpct`, 💾, `lognote` en `savetarget` zitten erin, dus een
-  nieuwe melding in dat blok moet het ook openen. Alle ids blijven bestaan: `main.ts` pakt ze zonder
-  null-check, een weggehaald element is een crash bij laden. Bereik, laadvermogen en kosten per km
-  staan sindsdien samen in één grijze `.sub`-regel (`nowrap`, dus geen hoogtesprong).
+- ⚠️ **Twee tabs onderaan (2026-10-10): Laden (`#ladenpanel`) en Loggen (`#logbook`, nu een `<div>`).**
+  `toonTab()` in `main.ts` zet `data-tab` op `<main>`; ⏹ Stop en `toonLogMelding` schakelen naar Loggen,
+  **nooit `render()`**. De balk verdwijnt bij een focus-veld (`body:has(input:focus)`). `km`, `logpct`, 💾,
+  `lognote` en `savetarget` zitten in Loggen. Alle ids blijven: `main.ts` pakt ze zonder null-check.
+  Bereik, laadvermogen en kosten per km staan samen in één grijze `.sub`-regel (`nowrap`).
 - ⚠️ **De indeling staat omgekeerd, voor de rechterduim (2026-10-06):** resultaten bovenaan, daaronder
   de resultaten als `flex: 1`-kolom (`.out`): de regels groeien mee met de vrije ruimte tot een
   maximum (64 px, de hero 88 px met een cijfer van 28–36 px) en een eventuele rest staat bovenin, dus
