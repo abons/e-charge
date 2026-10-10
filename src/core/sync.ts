@@ -62,7 +62,11 @@ export function mergeLogbook(a: Entry[], b: Entry[], goneA: Record<string, numbe
 
 export function mergeSnapshot(a: Snapshot, b: Snapshot): Snapshot {
   if (a.at !== b.at) return a.at > b.at ? a : b;
-  // Gelijk moment (twee telefoons in dezelfde milliseconde, of dezelfde toestand): een vaste keuze.
+  // Gelijk moment. ⚠️ Bij `at` 0 (een telefoon van vóór het delen, met een lopende sessie) wint wat er
+  // íís boven wat er niet is: een lege telefoon die er voor het eerst bijkomt mag een lopende laadbeurt
+  // niet wissen. Daarna een vaste keuze, zodat beide kanten hetzelfde kiezen.
+  const inhoudVan = (s: Snapshot): number => (s.session !== null ? 2 : 0) + (s.finished !== null ? 1 : 0);
+  if (inhoudVan(a) !== inhoudVan(b)) return inhoudVan(a) > inhoudVan(b) ? a : b;
   return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
 }
 

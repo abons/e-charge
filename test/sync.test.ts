@@ -169,3 +169,10 @@ test("mergeShared: gelijk met gelijk verandert niets", () => {
   const s = stand([entry(1, { savedAt: 2 })], 4);
   assert.deepEqual(mergeShared(s, s), s);
 });
+
+test("mergeSnapshot: een lege telefoon die er nieuw bijkomt wist een lopende sessie niet (beide at 0)", () => {
+  const lopend = { at: 0, session: '{"startMs":1}', finished: null };
+  const leeg = { at: 0, session: null, finished: null };
+  assert.deepEqual(mergeSnapshot(lopend, leeg), lopend);
+  assert.deepEqual(mergeSnapshot(leeg, lopend), lopend);
+});
