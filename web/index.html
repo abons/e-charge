@@ -184,6 +184,9 @@
   /* Lijst bovenaan, invoer en knoppen onderaan binnen duimbereik. */
   .logform { margin-top: auto; padding-top: 12px; }
   .logold { margin-top: 6px; }
+  /* De vrije ruimte boven de duimzone: laatste beurten eerst, de rest scrolt. Basis 0, dus de lijst
+     rekt de pagina nooit op en het formulier blijft onderaan. */
+  .logblock .loglist { flex: 1 1 0; min-height: 0; overflow-y: auto; margin: 0 0 4px; }
   .logold summary { color: #9a9a9a; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px; padding: 12px 0; }
   /* Twee tabs onderaan: Laden (resultaten, invoer, knoppen) en Loggen (het logboek). `main.ts` zet
      `data-tab` op <main>; verborgen is `display: none`, dus alleen het ene paneel telt voor de hoogte. */
@@ -340,6 +343,7 @@
       wordt een logboek in een donkere schuur toch niet ingevuld.
     -->
     <div class="logblock" id="logbook" role="tabpanel">
+      <ul class="loglist" id="loglist"></ul>
       <div class="logform">
       <div class="field">
         <label for="km">Km-stand <span class="opt">teller</span></label>
@@ -400,8 +404,7 @@
       <code class="logline" id="logline" hidden></code>
       </div>
       <details class="logold" id="logold">
-        <summary>Eerdere beurten</summary>
-      <ul class="loglist" id="loglist"></ul>
+        <summary>Alles kopiëren en back-up</summary>
       <div class="actions" id="logactions" hidden>
         <button id="copyall" type="button">📋 Kopieer hele logboek</button>
       </div>
