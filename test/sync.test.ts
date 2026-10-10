@@ -197,7 +197,8 @@ test("mergeLogbook: regels van vóór het delen (savedAt 0) blijven staan zonder
 test("syncOnce: een telefoon met oude beurten verliest ze niet als er al een leeg document staat", () =>
   met(async () => {
     const store = fakeFirestore();
-    const leeg = telefoon("AB123C", stand([], 0));
+    // De lege telefoon heeft wel een sessie, dus er komt een document met een leeg logboek.
+    const leeg = telefoon("AB123C", stand([], 5, '{"s":1}'));
     const vol = telefoon("AB123C", stand([entry(1000), entry(2000)], 0));
     await syncOnce(leeg.host, store.fetchFn);
     await syncOnce(vol.host, store.fetchFn);
@@ -253,7 +254,7 @@ test("geschiedenis: een samenvoeging die een regel uit het document haalt schrij
     await syncOnce({ ...b.host, markHistory: (ms) => (bewaard = ms) }, store.fetchFn);
     assert.equal(store.history.length, 1);
     assert.ok(bewaard > 0);
-    const oud = await fetchHistory("AB123C", store.fetchFn);
+    const oud = (await fetchHistory("AB123C", store.fetchFn))!;
     assert.equal(oud.length, 1);
     assert.deepEqual(oud[0]!.logbook.map((e) => e.startMs), [1000, 2000]);
   }));
@@ -275,4 +276,26 @@ test("historyId: nieuwste sorteert eerst en de tijd is terug te rekenen", async 
   const { historyId } = await import("../src/sync.js");
   assert.ok(historyId(2_000_000) < historyId(1_000_000));
   assert.equal(historyId(1_791_000_000_000).length, 16);
+});
+
+test("mergeLogbook: een gewiste en opnieuw ingevoerde beurt erft niets van het gewiste exemplaar", () => {
+  const gewist = entry(1000, { km: 5000, kwh: 9, savedAt: 10 });
+  const opnieuw = entry(1000, { toPercent: 95, savedAt: 60 });
+  const { logbook } = mergeLogbook([opnieuw], [gewist], { "1000": 50 }, {});
+  assert.equal(logbook.length, 1);
+  assert.equal(logbook[0]!.km, null);
+  assert.equal(logbook[0]!.kwh, null);
+  assert.equal(logbook[0]!.toPercent, 95);
+});
+
+test("backup: mergeBackups ontdubbelt tegen alle opnamen en houdt de nieuwste acht", async () => {
+  const { mergeBackups } = await import("../src/core/backup.js");
+  const lokaal = [{ at: 100, logbook: [entry(1)] }, { at: 300, logbook: [entry(1), entry(2)] }];
+  const fire = [{ at: 100, logbook: [entry(1)] }, { at: 200, logbook: [entry(5)] }];
+  const eerst = mergeBackups(lokaal, fire);
+  assert.deepEqual(eerst.map((b) => b.at), [100, 200, 300]);
+  assert.deepEqual(mergeBackups(eerst, fire).map((b) => b.at), [100, 200, 300], "tweede start: niets erbij");
+  const veel = Array.from({ length: 20 }, (_, i) => ({ at: i + 1, logbook: [entry(1000 + i)] }));
+  assert.equal(mergeBackups([], veel).length, 8);
+  assert.equal(mergeBackups([], veel).at(-1)!.at, 20);
 });

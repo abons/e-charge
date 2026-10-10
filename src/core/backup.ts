@@ -56,6 +56,23 @@ export function withBackup(backups: Backup[], logbook: Entry[], now: number): Ba
   return [...backups, { at: now, logbook }].slice(-MAX_BACKUPS);
 }
 
+/**
+ * Opnamen samenvoegen (de geschiedenis uit Firestore bij de lokale): gelijke inhoud eenmaal, op tijd
+ * gesorteerd, de nieuwste `MAX_BACKUPS` blijven. Ontdubbelt tegen álle opnamen, niet alleen de nieuwste:
+ * dezelfde Firestore-regels komen bij elke start terug.
+ */
+export function mergeBackups(bestaand: Backup[], extra: Backup[]): Backup[] {
+  const gezien = new Set<string>();
+  const uit: Backup[] = [];
+  for (const b of [...bestaand, ...extra].sort((x, y) => x.at - y.at)) {
+    const sleutel = inhoud(b.logbook);
+    if (b.logbook.length === 0 || gezien.has(sleutel)) continue;
+    gezien.add(sleutel);
+    uit.push(b);
+  }
+  return uit.slice(-MAX_BACKUPS);
+}
+
 /** Is er vandaag (de laatste 24 uur) nog geen opname? */
 export function dailyDue(backups: Backup[], now: number): boolean {
   const nieuwste = backups[backups.length - 1];

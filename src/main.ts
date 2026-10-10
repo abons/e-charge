@@ -44,7 +44,7 @@ import {
 import { ENERGY_TAX_EUR_PER_KWH, SUPPLIER_MARKUP_EUR_PER_KWH, VAT, chargingCost, eurPerKm, type Cost } from "./core/price.js";
 import { clock, dayLabel, duration, number as nl } from "./core/time.js";
 import * as prices from "./prices.js";
-import { dailyDue, parseBackups, restorable, restoreMissing, shrinks, withBackup, type Backup } from "./core/backup.js";
+import { dailyDue, mergeBackups, parseBackups, restorable, restoreMissing, shrinks, withBackup, type Backup } from "./core/backup.js";
 import { parseGone, stampChanges, type Shared } from "./core/sync.js";
 import { delenAan, requestSync, startSync, syncStatus } from "./sync.js";
 
@@ -802,12 +802,11 @@ function pushBackup(entries: Entry[]): void {
 }
 
 /** Geschiedenisregels uit Firestore bij de lokale back-ups, oudste eerst. */
-function addBackups(extra: Backup[]): void {
-  if (extra.length === 0) return;
+function addBackups(plate: string, extra: Backup[]): void {
+  // De auto kan gewisseld zijn terwijl de geschiedenis werd opgehaald: dan hoort ze niet bij deze auto.
+  if (extra.length === 0 || car.plate !== plate) return;
   try {
-    let lijst = readBackups();
-    for (const b of extra) lijst = withBackup(lijst, b.logbook, b.at);
-    localStorage.setItem(carKey("backup", car.id), JSON.stringify(lijst));
+    localStorage.setItem(carKey("backup", car.id), JSON.stringify(mergeBackups(readBackups(), extra)));
   } catch {
     /* zonder opslag blijft het bij wat Firestore zelf bewaart */
   }
@@ -897,6 +896,12 @@ function readSyncMeta(): void {
   } catch {
     /* kapotte bijhouder: opnieuw beginnen is veilig, de eerstvolgende ronde voegt samen */
   }
+  // Een lopende sessie van vóór het delen heeft nog geen tijdstempel en zou van elk document met een stempel
+  // verliezen: dan is "nu" het eerlijkste moment (de lege telefoon van een partner houdt 0 en verliest wel).
+  if (syncMeta.stateAt === 0 && (session !== null || finished !== null)) {
+    syncMeta = { ...syncMeta, stateAt: Date.now() };
+    saveSyncMeta();
+  }
 }
 
 function saveSyncMeta(): void {
@@ -942,10 +947,12 @@ function applyShared(merged: Shared): void {
     writeSession(parseSession(merged.state.session), false);
     // De partner startte of stopte: het scherm volgt, net als na een herstart met een lopende sessie.
     huidigIsSchatting = false;
+    // Niet midden in het typen van een aflezing: dan blijft het veld zoals het is (zie de ⚠️-regel in CLAUDE.md).
+    const typt = document.activeElement === currentInput;
     if (session !== null) {
       ampsSelect.value = String(session.amps);
-      currentInput.value = String(session.from);
-    } else {
+      if (!typt) currentInput.value = String(session.from);
+    } else if (!typt) {
       currentInput.value = "";
     }
   }

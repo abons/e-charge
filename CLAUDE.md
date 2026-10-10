@@ -22,12 +22,10 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   is EPEX + een vaste opbouw, en die drie getallen staan in `src/core/price.ts` — de
   tarief-tegenhanger van de vier autoconstanten. Wat nog steeds niet mag: een token of sleutel in
   de bundel (het is een publieke pagina), en iets ophalen dat niet de prijs is.
-  ⚠️ **CORS test je niet vanaf een bureau, maar wél vanaf een GitHub-runner.** De eerste versie
-  zei op de telefoon "geen prijzen": het oude `api.energyzero.nl/v1/energyprices` kent geen
-  kwartieren (lege lijst bij `interval=3`), en Energy-Charts staat alleen zijn eigen origin toe.
-  Dat kwam boven met een tijdelijke workflow die `curl -H "Origin: https://abons.github.io"` deed
-  en de `access-control-allow-origin`-header afdrukte; de sessie-proxy van Claude blokkeert die
-  hosts, een runner niet. Doe dat opnieuw vóór je van bron wisselt — en `price.value` is een string.
+  ⚠️ **CORS test je niet vanaf een bureau, maar wél vanaf een GitHub-runner** (`curl -H "Origin:
+  https://abons.github.io"`, header afdrukken; de sessie-proxy blokkeert die hosts). Het oude
+  `api.energyzero.nl/v1/energyprices` kent geen kwartieren en Energy-Charts staat alleen zijn eigen
+  origin toe. Doe dat vóór je van bron wisselt — en `price.value` is een string.
 - ⚠️ **Tweede uitzondering, sinds 2026-10-06: een kenteken opzoeken bij RDW** (`src/car.ts`, alleen op
   "Zoek", open data, merk/model om te *tonen*, nooit om mee te rekenen). Logboek, sessie en laatst
   afgesloten beurt zijn **per auto** (`carKey` in `core/car.ts`); de eerste auto (`FIRST_CAR_ID`) houdt de oude sleutels,
@@ -40,6 +38,10 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
 - ⚠️ **Derde uitzondering, sinds 2026-10-10: delen met een partner** via Firestore (REST, `src/sync.ts`,
   puur in `core/sync.ts`), sleutel = hash van het kenteken, geen inlog. Uit zolang `src/sync-config.ts`
   leeg is. Gedeeld: logboek, sessie, laatst afgesloten. Zie `design.md`; regels in `README.md`.
+  ⚠️ **Dit wiste op 2026-10-10 een echt logboek** (regels van vóór het delen hebben `savedAt` 0 en
+  werden weggefilterd): een samenvoeging laat geen regel verdwijnen zonder wisbewijs; test óók met
+  oude regels zonder `savedAt` en een lege tweede telefoon. Vangnet:
+  geschiedenis in Firestore + `core/backup.ts`; `web/recover.html` toont de opslag (alleen lezen).
 - ⚠️ **Het logboek staat in de app én in de repo, en dat is geen dubbeling.** De app bewaart
   afgesloten laadbeurten in `localStorage` (`src/core/logbook.ts`) en zet ze met één knop op je
   klembord; `log.md` in de repo is de kopie die een gewiste browser of een nieuwe telefoon
@@ -63,11 +65,9 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   sleutel van `withEntry`). Een vergeten beurt gaat via het klapblok "achteraf invoeren"
   (`manualEntry` in `logbook.ts`): altijd een eigen regel, nooit een aanvulling. Dat blok deelt
   *Afgelezen* en *Km-stand* met het gewone formulier en staat standaard dicht.
-- ⚠️ **Een komma past niet in `<input type="number">`.** De browser maakt er stil een lege waarde
-  van, en op een Nederlands toetsenbord is de komma nu juist wat je typt. Sinds 2026-09-13 heeft dit
-  scherm geen decimaal veld meer (het meterstandveld werd een percentage, en dat is een heel getal),
-  maar de regel blijft staan voor het volgende: een veld dat een decimaal getal aanneemt hoort
-  `type="text"` met `inputmode="decimal"` te zijn; `optioneelGetal()` neemt komma én punt aan.
+- ⚠️ **Een komma past niet in `<input type="number">`** (de browser maakt er stil een lege waarde van).
+  Een veld met een decimaal getal is `type="text"` met `inputmode="decimal"`; `optioneelGetal()` neemt
+  komma én punt aan.
 - ⚠️ **`logStartMs`/`logFrom` in de sessie zijn niet hetzelfde als `startMs`/`from`.** Die eerste
   twee zijn het moment van insteken en overleven het opnieuw verankeren bij een tussentijdse
   aflezing; zonder dat onderscheid zou de logregel een kortere laadbeurt melden dan er werkelijk
@@ -104,10 +104,8 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   de hoogste, een regel met een stand die de knop niet heeft (`12 A`) wordt overgeslagen en
   gemeld. `src/core/logmd.ts` leest `log.md` met dezelfde regels, voor `calibrate`, `kosten` en de
   tests — nooit de app zelf.
-- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk.** Bij een paar kW gaat de boordlader
-  tot vlak onder 100% gewoon door; lineair is hier eerlijker dan een afknik-curve die doet alsof er
-  meer bekend is. Zou de app ooit snelladen erbij krijgen, dan is dát het moment voor een curve —
-  zie `design.md`.
+- ⚠️ **Geen taper-model, en dat is een keuze, geen vergeten werk:** bij een paar kW gaat de boordlader
+  tot vlak onder 100% door. Pas bij snelladen is een curve aan de orde — zie `design.md`.
 - ⚠️ **`estimate()` rondt minuten naar boven.** Een halve minuut te weinig laden is een verkeerd
   antwoord; "±" staat er niet voor niets bij het bereik. `rangeKm` rondt naar beneden.
 - **Lokale tijd is hier de juiste tijd** — anders dan bij de zusters, waar UTC een contract tussen
@@ -171,8 +169,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   is. Dit heeft bij Word Guesser uren gekost; zie zijn `CLAUDE.md`.
 - **Publiceren gaat automatisch**, anders dan bij de zusters (die een dist-repo met een
   `publish.mjs` hebben): `.github/workflows/pages.yml` bouwt bij elke push naar `main` en zet
-  `build/` op Pages, met de tests ervóór. Er is dus geen handmatige go-live en geen dist-diff meer
-  om te reviewen — de assurantie is de groene workflow.
+  `build/` op Pages, met de tests ervóór: geen handmatige go-live, de assurantie is de groene workflow.
 
 ## Build / run
 

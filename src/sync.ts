@@ -23,7 +23,7 @@ export interface Host {
   historyAt?(): number;
   markHistory?(ms: number): void;
   /** De geschiedenis uit Firestore, om de lokale back-ups mee aan te vullen. */
-  addBackups?(backups: Backup[]): void;
+  addBackups?(plate: string, backups: Backup[]): void;
 }
 
 /**
@@ -154,14 +154,14 @@ export async function syncOnce(h: Host, fetchFn: FetchFn = fetch as unknown as F
   }
 }
 
-/** De laatste geschiedenisregels van deze auto, nieuwste eerst; `[]` bij elke fout. */
-export async function fetchHistory(plate: string, fetchFn: FetchFn = fetch as unknown as FetchFn, subtle?: SubtleCrypto): Promise<Backup[]> {
-  if (!delenAan()) return [];
+/** De laatste geschiedenisregels van deze auto, oudste eerst; `null` bij een fout (dan later opnieuw proberen). */
+export async function fetchHistory(plate: string, fetchFn: FetchFn = fetch as unknown as FetchFn, subtle?: SubtleCrypto): Promise<Backup[] | null> {
+  if (!delenAan()) return null;
   try {
     const id = await plateDocId(plate, subtle);
     const base = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/echarge/${id}/history`;
     const got = await fetchFn(`${base}?key=${encodeURIComponent(FIREBASE.apiKey)}&pageSize=${HISTORY_PAGE}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!got.ok) return [];
+    if (!got.ok) return null;
     const body = (await got.json()) as { documents?: { name?: unknown; fields?: unknown }[] };
     const uit: Backup[] = [];
     for (const d of body.documents ?? []) {
@@ -171,11 +171,12 @@ export async function fetchHistory(plate: string, fetchFn: FetchFn = fetch as un
     }
     return uit.sort((a, b) => a.at - b.at);
   } catch {
-    return [];
+    return null;
   }
 }
 
-let historyFetched = false;
+/** Per kenteken één keer per sessie, en alleen als het ophalen lukte. */
+const historyFetched = new Set<string>();
 
 async function ronde(): Promise<void> {
   if (host === null) return;
@@ -189,9 +190,12 @@ async function ronde(): Promise<void> {
     // Eén keer per sessie de geschiedenis erbij halen: dan bieden de lokale back-ups ook wat de partner of een eerdere
     // telefoon weet ("Zet terug" onder het logboek).
     const plate = host.plate();
-    if (ok && !historyFetched && plate !== null && host.addBackups !== undefined) {
-      historyFetched = true;
-      host.addBackups(await fetchHistory(plate));
+    if (ok && plate !== null && !historyFetched.has(plate) && host.addBackups !== undefined) {
+      const geschiedenis = await fetchHistory(plate);
+      if (geschiedenis !== null) {
+        historyFetched.add(plate);
+        host.addBackups(plate, geschiedenis);
+      }
     }
   } finally {
     busy = false;

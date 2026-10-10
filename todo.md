@@ -51,13 +51,15 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Openstaand
 
-- **Delen met een partner op twee telefoons proberen** (2026-10-10). Firebase-project `hrbons-echarge` staat (Firestore eur3, regels gepubliceerd, sleutel beperkt tot `https://abons.github.io/*`, GET gemeten: 404 zonder fout). Code en tests staan
-  (104 tests, nagebootste Firestore), maar er is geen Firebase-project: maak het (README, "Delen met een
-  partner"), vul `src/sync-config.ts`, zet de regels, en probeer: A start, B ziet het binnen een minuut
-  en kan ⏹ en 💾; wissen op A verdwijnt op B. **Niet gezien**: CORS van `firestore.googleapis.com` vanaf
-  `abons.github.io` (REST met `Content-Type: application/json` geeft een preflight) en of de
-  referrer-beperking van de sleutel dat toelaat. Daarna: dezelfde auto bij de partner toevoegen met
-  hetzelfde kenteken.
+- **Delen met een partner op twee telefoons proberen** (2026-10-10). Staat live: Firebase-project
+  `hrbons-echarge` (Firestore eur3, regels met `history` gepubliceerd, sleutel beperkt tot
+  `https://abons.github.io/*`), 115 tests met een nagebootste Firestore. Gemeten vanaf de echte origin:
+  GET, preflight en 403 op een niet-toegestaan veld. **Niet gezien**: een tweede échte telefoon, en een
+  echte geschiedenisregel (`echarge/<id>/history`; ontstaat bij de eerstvolgende synchronisatie van de
+  telefoon van de eigenaar). Proef: partner vult kenteken `XL312T` bij zijn auto in, ziet 8 beurten en de
+  sessie, A start/stopt en B ziet het binnen een minuut, een × op A verdwijnt op B, en "Zet terug" bij een
+  opname werkt. Opruimen: `echarge/<id>/history/x` is een leeg testdocument van mij (alleen via de console
+  te wissen, de regels staan geen delete toe).
 
 - **De laadstand op de telefoon bekijken** (2026-09-27). De keuzelijst is een gewone `<select>`
   met een eigen pijltje; Android opent daar zijn eigen kiezer voor, en of die vier regels

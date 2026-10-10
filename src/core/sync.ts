@@ -44,7 +44,13 @@ export function mergeLogbook(a: Entry[], b: Entry[], goneA: Record<string, numbe
   // Oudste eerst, zodat het nieuwste woord als laatste komt; bij gelijk moment wint de gemeten regel
   // en dan de latere afsluiting — beide kanten kiezen zo hetzelfde.
   const rank = (e: Entry): [number, number, number] => [e.savedAt ?? 0, e.estimated === true ? 0 : 1, e.endMs];
-  const lijst = [...a, ...b].sort((x, y) => {
+  // ⚠️ Eerst de gewiste regels eruit, dán samenvoegen: anders erft een opnieuw ingevoerde beurt met
+  // dezelfde starttijd km/kWh/stand van het gewiste exemplaar.
+  const levend = (e: Entry): boolean => {
+    const weg = gone[String(e.startMs)];
+    return weg === undefined || (e.savedAt ?? 0) > weg;
+  };
+  const lijst = [...a, ...b].filter(levend).sort((x, y) => {
     const [x0, x1, x2] = rank(x);
     const [y0, y1, y2] = rank(y);
     return x0 - y0 || x1 - y1 || x2 - y2 || (inhoud(x) < inhoud(y) ? -1 : inhoud(x) > inhoud(y) ? 1 : 0);
@@ -56,14 +62,10 @@ export function mergeLogbook(a: Entry[], b: Entry[], goneA: Record<string, numbe
     if (oud !== undefined && same(oud, e)) continue;
     samen = withEntry(samen, e);
   }
-  // ⚠️ Alleen een regel met een wisbewijs kan verborgen worden. Een regel van vóór het delen heeft
-  // `savedAt` 0, en `0 > (gone ?? 0)` was onwaar: elke samenvoeging met een bestaand document wiste
-  // zo het hele logboek van een telefoon die al beurten had.
-  const zichtbaar = samen.filter((e) => {
-    const weg = gone[String(e.startMs)];
-    return weg === undefined || (e.savedAt ?? 0) > weg;
-  });
-  return { logbook: zichtbaar, gone };
+  // ⚠️ Alleen een regel met een wisbewijs kan verborgen worden (`levend`). Een regel van vóór het delen
+  // heeft `savedAt` 0, en `0 > (gone ?? 0)` was onwaar: elke samenvoeging met een bestaand document
+  // wiste zo het hele logboek van een telefoon die al beurten had.
+  return { logbook: samen, gone };
 }
 
 export function mergeSnapshot(a: Snapshot, b: Snapshot): Snapshot {
