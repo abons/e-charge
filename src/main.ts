@@ -1673,7 +1673,8 @@ if (verhuisd > 0) {
 // Hooguit één opname per etmaal, bij het openen (`core/backup.ts`).
 if (logbook.length > 0 && dailyDue(readBackups(), Date.now())) pushBackup(logbook);
 renderLogbook();
-// Standaard dicht, behalve waar de aflezing nog moet: tijdens het laden en na het afkoppelen.
+// Na het afkoppelen wacht de aflezing in Loggen; tijdens het laden is Huidig (Laden) de aflezing.
+if (session === null && bijwerkbaar() !== null) toonTab("log");
 if (session !== null) currentInput.value = String(session.from);
 
 for (const input of [currentInput, targetInput]) {

@@ -143,7 +143,7 @@
   #nowline[hidden] { display: flex !important; visibility: hidden; }
   .out #nowline { flex: none; padding: 6px 0; }
   /* Toetsenbord open (een veld in .pair heeft focus): het viewport is dan zo kort dat de knoppen eronder
-     verdwijnen. Het toetsenbord is al open, dus er verspringt niets onder je vinger: de gereserveerde
+     verdwijnen. Let op: blur (tik op een knop) laat dit weer terugspringen, net als het zakkende toetsenbord zelf — tik dus pas na ✓. De gereserveerde
      lege "Nu ongeveer"-strook valt weg en de resultaatregels worden iets krapper. Verschijnt de
      regel écht (sessie loopt), dan blijft hij gewoon staan. */
   body:has(.pair input:focus) #nowline[hidden] { display: none !important; }
@@ -179,8 +179,7 @@
   #calendar, #copylog, #copyall { background: transparent; color: #c9c9c9; box-shadow: inset 0 0 0 1px #5a5a5c; }
   button:disabled, #start-charging:disabled, #savelog:disabled,
   #calendar:disabled, #copylog:disabled, #copyall:disabled { background: #3a3a3c; color: #9a9a9a; box-shadow: none; cursor: default; }
-  /* Het logboek is een klapblok onder de knoppen, standaard dicht: open/dicht verschuift (op een vol scherm) nooit
-     iets boven een knop. main.ts opent het zelf (bij laden, afkoppelen, melding) — nooit in render(). */
+  /* Het logboek is het tabpaneel Loggen; `toonTab()` in main.ts wisselt (⏹ Stop, melding) — nooit in render(). */
   .logblock { margin-top: 0; }
   /* Twee tabs onderaan: Laden (resultaten, invoer, knoppen) en Loggen (het logboek). `main.ts` zet
      `data-tab` op <main>; verborgen is `display: none`, dus alleen het ene paneel telt voor de hoogte. */

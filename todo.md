@@ -13,6 +13,13 @@ logregel). **Nog niet op een echte telefoon gezien.**
 
 ## Hier begint de volgende sessie
 
+- **De invoer-ronde van 2026-10-10 op de telefoon bekijken** (Chromium: alleen de tabs gezien, 117
+  tests groen). Niet gezien: de Doel-knoppenrij (80/90/100) blijft staan als je er op tikt
+  (`mousedown preventDefault`); select-bij-focus en Enter-blur op Huidig tijdens een sessie (één
+  `change`, opnieuw verankeren); of Start boven het toetsenbord past nu de lege Nu-ongeveer-strook
+  wegvalt (`body:has(.pair input:focus)`); de tabbalk (20 px boven de rand, weg bij focus) naast de
+  navigatieknoppen; de omlijnde bijzaakknoppen; de rode `:invalid`-rand.
+
 - **De autokeuze op de telefoon bekijken** (2026-10-06): kenteken koppelen en de ⓘ-modal zijn op de
   telefoon gezien (79 tests). **Nog niet gezien**: merk/model/uitvoering kiezen in de dialoog en de
   zin "schatting uit accugrootte" in de ⓘ voor een nieuwe auto. Probeer een tweede auto zonder kenteken.

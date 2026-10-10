@@ -127,9 +127,7 @@ de zusters: `README.md` (wat/hoe bouwen), dit bestand (regels), `design.md` (keu
   de resultaten als `flex: 1`-kolom (`.out`): de regels groeien mee met de vrije ruimte tot een
   maximum (64 px, de hero 88 px met een cijfer van 28–36 px) en een eventuele rest staat bovenin, dus
   geen lege strook en geen gat tussen uitkomst en invoer. Zet daar nooit `min-height: 0` op: dan
-  verspringen de knoppen. ⚠️ Een logboek dat opent (tik op ⏹, of een melding) schuift de knoppen wél
-  omhoog zolang de kaart gestrekt is — de claim "open/dicht verschuift nooit iets" geldt alleen bij een
-  vol scherm. Dan Doel | Huidig (CSS `order`; in de HTML staat
+  verspringen de knoppen. ⚠️ Met een focus-veld in `.pair` valt de lege Nu-ongeveer-strook weg (`:has`) en groeit terug bij blur: tik pas na ✓. Dan Doel | Huidig (CSS `order`; in de HTML staat
   Huidig eerst), Laadstand, knoppen, meldingsslot, logboek. `main` is een flex-kolom van 100% (`html`/`body`) en de
   viewport-meta heeft `interactive-widget=resizes-content`: zonder dat schuift Chrome de hele pagina
   ~217 px omhoog zodra het toetsenbord opent (gemeten op de telefoon: titel en uitkomst uit beeld,
