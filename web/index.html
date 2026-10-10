@@ -29,7 +29,7 @@
      onderkant (duimzone), de resultaten staan bovenaan. De hoogte is 100% van het layout-viewport en de viewport-meta zet
      interactive-widget=resizes-content: het toetsenbord krimpt dat viewport, de ruimte hierboven geeft
      mee en Chrome hoeft de pagina niet omhoog te schuiven. */
-  main { width: 100%; max-width: 420px; padding: 12px 16px 76px; flex: 1;
+  main { width: 100%; max-width: 420px; padding: 12px 16px 96px; flex: 1;
          display: flex; flex-direction: column; }
   .title { font-size: 20px; font-weight: 700; letter-spacing: 1px; margin: 0 0 8px; text-align: center; }
   /* De autoregel: vaste hoogte en nowrap, want het label wisselt zodra RDW antwoordt. De keuze zelf
@@ -187,7 +187,7 @@
   #ladenpanel { flex: 1; display: flex; flex-direction: column; }
   main[data-tab="log"] #ladenpanel, main[data-tab="laden"] #logbook { display: none; }
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; justify-content: center;
-          background: #1c1c1d; border-top: 1px solid #2c2c2e; padding-bottom: env(safe-area-inset-bottom); }
+          background: #1c1c1d; border-top: 1px solid #2c2c2e; padding-bottom: max(env(safe-area-inset-bottom), 20px); }
   .tabs button { flex: 1; max-width: 210px; min-height: 56px; background: none; border-radius: 0; color: #9a9a9a;
                  font-size: 15px; box-shadow: inset 0 3px 0 transparent; }
   .tabs button[aria-selected="true"] { color: #7fd4a0; box-shadow: inset 0 3px 0 #7fd4a0; }
